@@ -3,7 +3,7 @@ name: GBM V2 upgrade
 on:
   push:
     paths:
-      - '_upgrade/upgrade.b64'
+      - '_upgrade/part06.b64'
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ jobs:
       - name: Check upgrade payload
         id: payload
         run: |
-          if [ -f _upgrade/upgrade.b64 ]; then
+          if [ -f _upgrade/part06.b64 ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -26,7 +26,7 @@ jobs:
       - name: Apply upgrade
         if: steps.payload.outputs.run == 'true'
         run: |
-          base64 -d _upgrade/upgrade.b64 > /tmp/upgrade.tar.xz
+          cat _upgrade/part*.b64 | base64 -d > /tmp/upgrade.tar.xz
           echo "c04aaf29f46bc3ca9654d86492dbd1018a29c5bad1c0f5874f2eb58d1f8354c6  /tmp/upgrade.tar.xz" | sha256sum -c -
           tar -xJf /tmp/upgrade.tar.xz -C .
 
