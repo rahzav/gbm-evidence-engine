@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import streamlit as st
 
-from gbm_evidence_engine.research_intelligence_v3 import build_research_profile, rank_gene_list
+from gbm_evidence_engine.research_intelligence_v4 import build_research_profile, rank_gene_list
 from gbm_evidence_engine.evidence_model import EvidenceTier
 
 st.set_page_config(page_title="GBM Evidence Engine", page_icon="🧬", layout="wide")
