@@ -5,6 +5,9 @@ on:
     branches: [main, research-grade-cohorts, v5-research-capacity]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   scientific-validation:
     runs-on: ubuntu-latest
@@ -48,3 +51,95 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
           PYTHONPATH=. python tests/test_glass_gbm_specific.py
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
+      - name: Finalize V5 interface
+        if: github.ref == 'refs/heads/v5-research-capacity'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('streamlit_app_v5.py')
+          text = path.read_text()
+          old = '''        g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
+
+        section_space()
+        gaps_col, studies_col = st.columns(2)
+'''
+          new = '''        g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
+
+        mutation_detail = cbio.get("mutation") or {}
+        if mutation_detail.get("top_variants"):
+            section_space(0.75)
+            st.markdown("#### Recurrent Mutation Detail")
+            variant_rows = [{
+                "Protein Change": row.get("protein_change"),
+                "Samples": row.get("sample_count"),
+                "Cohort Frequency": pct(row.get("frequency_in_profiled_cohort")),
+                "Mutation Records": row.get("mutation_records"),
+            } for row in mutation_detail.get("top_variants", [])]
+            st.dataframe(variant_rows, use_container_width=True, hide_index=True)
+            st.caption("Counts are based on unique profiled samples. Recurrent protein changes provide variant-level context and do not independently alter the Target Priority Score.")
+
+        section_space()
+        gaps_col, studies_col = st.columns(2)
+'''
+          if old not in text:
+              raise SystemExit('Expected Streamlit genomic section was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm -f .github/workflows/apply_v5_mutation_ui.yml .github/workflows/v5_live_smoke.yml
+          cat > .github/workflows/ci.yml <<'YAML'
+          name: CI
+
+          on:
+            push:
+              branches: [main, research-grade-cohorts, v5-research-capacity]
+            pull_request:
+
+          jobs:
+            scientific-validation:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-python@v5
+                  with:
+                    python-version: '3.12'
+                - name: Install scientific test dependencies
+                  run: |
+                    python -m pip install --upgrade pip
+                    pip install numpy pandas scipy
+                - name: Syntax validation
+                  run: |
+                    python -m py_compile \
+                      gbm_evidence_engine/connectors/base.py \
+                      gbm_evidence_engine/connectors/cbioportal.py \
+                      gbm_evidence_engine/connectors/opentargets.py \
+                      gbm_evidence_engine/connectors/europepmc.py \
+                      gbm_evidence_engine/connectors/clinicaltrials.py \
+                      gbm_evidence_engine/connectors/depmap.py \
+                      gbm_evidence_engine/connectors/ivygap.py \
+                      gbm_evidence_engine/connectors/cgga.py \
+                      gbm_evidence_engine/connectors/glass.py \
+                      gbm_evidence_engine/connectors/mygene.py \
+                      gbm_evidence_engine/connectors/hpa.py \
+                      gbm_evidence_engine/connectors/stringdb.py \
+                      gbm_evidence_engine/connectors/b3db_live.py \
+                      gbm_evidence_engine/research_intelligence.py \
+                      gbm_evidence_engine/research_intelligence_v3.py \
+                      gbm_evidence_engine/research_intelligence_v4.py \
+                      gbm_evidence_engine/research_intelligence_v5.py \
+                      streamlit_app.py streamlit_app_v5.py api/app.py
+                - name: Scientific and grounding tests
+                  run: |
+                    PYTHONPATH=. python tests/test_survival.py
+                    PYTHONPATH=. python tests/test_dependency.py
+                    PYTHONPATH=. python tests/test_evidence_model.py
+                    PYTHONPATH=. python tests/test_grounding_validator.py
+                    PYTHONPATH=. python tests/test_research_intelligence.py
+                    PYTHONPATH=. python tests/test_research_intelligence_v3.py
+                    PYTHONPATH=. python tests/test_glass_gbm_specific.py
+                    PYTHONPATH=. python tests/test_research_intelligence_v5.py
+          YAML
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app_v5.py .github/workflows
+          git commit -m "Finalize GBM Gene Analysis V5 interface"
+          git push origin HEAD:v5-research-capacity
