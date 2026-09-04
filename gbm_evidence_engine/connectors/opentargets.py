@@ -15,8 +15,14 @@ def _post_graphql(query: str, variables: dict) -> Optional[dict]:
 
 SEARCH_TARGET_QUERY = """
 query SearchTarget($q: String!) {
-  search(queryString: $q, entityNames: ["target"], page: {index: 0, size: 5}) {
-    hits { id name entity }
+  search(queryString: $q, entityNames: ["target"], page: {index: 0, size: 10}) {
+    hits {
+      id
+      entity
+      object {
+        ... on Target { approvedSymbol }
+      }
+    }
   }
 }
 """
@@ -26,20 +32,13 @@ query TargetProfile($ensemblId: String!) {
   target(ensemblId: $ensemblId) {
     id approvedSymbol approvedName biotype
     tractability { label modality value }
-    knownDrugs(page: {index: 0, size: 50}) {
-      count
-      rows {
-        drug { id name isApproved }
-        disease { id name }
-        phase status mechanismOfAction
-      }
+    drugAndClinicalCandidates {
+      rows { drug { id name } }
     }
     associatedDiseases(page: {index: 0, size: 200}) {
-      count
       rows {
         score
         disease { id name }
-        datatypeScores { id score }
       }
     }
   }
@@ -48,12 +47,15 @@ query TargetProfile($ensemblId: String!) {
 
 
 def resolve_target(gene: str) -> Optional[str]:
-    response = _post_graphql(SEARCH_TARGET_QUERY, {"q": gene.upper()}) or {}
+    gene = gene.upper().strip()
+    response = _post_graphql(SEARCH_TARGET_QUERY, {"q": gene}) or {}
     hits = response.get("data", {}).get("search", {}).get("hits", []) or []
     if not hits:
         return None
-    # Target search is ranked; exact symbols generally resolve first. The second
-    # query verifies the approved symbol before data are used.
+    for hit in hits:
+        symbol = str((hit.get("object") or {}).get("approvedSymbol") or "").upper()
+        if symbol == gene:
+            return hit.get("id")
     return hits[0].get("id")
 
 
@@ -76,26 +78,18 @@ def get_target_profile(gene: str) -> dict:
     gbm_rows = [r for r in disease_rows
                 if "glioblast" in str((r.get("disease") or {}).get("name", "")).lower()]
     gbm_assoc = max(gbm_rows, key=lambda r: r.get("score") or 0, default=None)
-    drug_block = target.get("knownDrugs") or {}
-    drugs = drug_block.get("rows", []) or []
-    gbm_drugs = [r for r in drugs if "glioblast" in str((r.get("disease") or {}).get("name", "")).lower()]
+
+    drugs = (target.get("drugAndClinicalCandidates") or {}).get("rows", []) or []
     tract = target.get("tractability") or []
     tractable = [t for t in tract if t.get("value") is True or str(t.get("value")).lower() == "true"]
-    max_phase = max([int(r.get("phase") or 0) for r in drugs] or [0])
-    max_gbm_phase = max([int(r.get("phase") or 0) for r in gbm_drugs] or [0])
-    unique_drugs = []
-    seen = set()
-    for row in sorted(drugs, key=lambda r: int(r.get("phase") or 0), reverse=True):
+    unique_drugs, seen = [], set()
+    for row in drugs:
         drug = row.get("drug") or {}
         name = drug.get("name")
         if name and name not in seen:
             seen.add(name)
-            unique_drugs.append({
-                "id": drug.get("id"), "name": name, "is_approved": drug.get("isApproved"),
-                "phase": row.get("phase"), "status": row.get("status"),
-                "mechanism": row.get("mechanismOfAction"),
-                "disease": (row.get("disease") or {}).get("name"),
-            })
+            unique_drugs.append({"id": drug.get("id"), "name": name})
+
     return {
         "ok": True,
         "gene": gene,
@@ -104,10 +98,11 @@ def get_target_profile(gene: str) -> dict:
         "biotype": target.get("biotype"),
         "gbm_association_score": gbm_assoc.get("score") if gbm_assoc else None,
         "gbm_association": gbm_assoc,
-        "known_drug_count": drug_block.get("count", len(drugs)),
-        "gbm_drug_rows": len(gbm_drugs),
-        "max_phase": max_phase,
-        "max_gbm_phase": max_gbm_phase,
+        "known_drug_count": len(unique_drugs),
+        "gbm_drug_rows": None,
+        "max_phase": None,
+        "max_gbm_phase": None,
+        "drug_phase_available": False,
         "tractability_positive": len(tractable),
         "tractability_total": len(tract),
         "tractability": tract,
@@ -116,7 +111,6 @@ def get_target_profile(gene: str) -> dict:
 
 
 def get_known_drugs(ensembl_gene_id: str) -> Optional[dict]:
-    # Backward-compatible helper retained for callers in the V1 codebase.
     response = _post_graphql(TARGET_PROFILE_QUERY, {"ensemblId": ensembl_gene_id})
     if not response:
         return None

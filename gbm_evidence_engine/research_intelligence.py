@@ -183,20 +183,21 @@ def _add_live_evidence(dossier: Dossier, cbio: dict, ot: dict, lit: dict, trials
                 caveats=["Integrated evidence score is useful for prioritisation, not an effect size."],
             ))
         dossier.add(EvidenceRecord(
-            claim_text=f"Known drug/candidate records targeting {dossier.target} in Open Targets",
+            claim_text=f"Drug/clinical-candidate records targeting {dossier.target} in Open Targets",
             tier=EvidenceTier.OBSERVED_DATA,
             provenance=Provenance(
                 source_dataset="Open Targets Platform",
                 dataset_version="live",
                 access_tier=AccessTier.OPEN_LIVE_API,
-                method="Count of known-drug rows for resolved target",
+                method="Count of target-level drugAndClinicalCandidates rows",
                 parameters={"ensembl_id": ot.get("ensembl_id")},
                 citation_url="https://platform.opentargets.org/",
             ),
             statistic_name="known_drug_count",
             statistic_value=float(ot.get("known_drug_count") or 0),
-            additional_stats={"max_clinical_phase": float(ot.get("max_phase") or 0)},
+            additional_stats={},
             confidence=ConfidenceLevel.HIGH,
+            caveats=["Clinical stage is scored from ClinicalTrials.gov; Open Targets target-level candidates are provided separately from disease-specific trial phase."],
         ))
 
     if trials.get("ok"):
@@ -268,17 +269,17 @@ def _score_dimensions(cbio: dict, ot: dict, lit: dict, trials: dict) -> TargetPr
     )
 
     if ot.get("ok"):
-        phase = int(ot.get("max_phase") or 0)
         tract_total = int(ot.get("tractability_total") or 0)
         tract_pos = int(ot.get("tractability_positive") or 0)
         tract_score = (100.0 * tract_pos / tract_total) if tract_total else 0.0
         drug_count = int(ot.get("known_drug_count") or 0)
-        phase_component = PHASE_SCORE.get(min(4, phase), 0.0)
         density_component = min(100.0, 30.0 * log1p(drug_count))
-        score = 0.55 * phase_component + 0.25 * tract_score + 0.20 * density_component
+        # Keep druggability orthogonal to clinical maturity: Open Targets
+        # contributes tractability/candidate density; CT.gov contributes phase.
+        score = 0.65 * tract_score + 0.35 * density_component
         dims["Druggability"] = ScoreDimension(
             score=score, weight=0.20,
-            rationale=f"{drug_count} known drug/candidate rows; max phase {phase}; {tract_pos}/{tract_total} positive tractability assessments.",
+            rationale=f"{drug_count} target-directed drug/clinical-candidate records; {tract_pos}/{tract_total} positive tractability assessments.",
             source="Open Targets",
         )
     else:
