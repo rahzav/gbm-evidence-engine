@@ -1,13 +1,10 @@
 """Native GBmap cell-state context from a compact precomputed reference.
 
-The production app must never download or load the full >1.1M-cell atlas for
-an interactive gene query. ``scripts/build_gbmap_reference.py`` converts the
-published CELLxGENE GBmap dataset into a compact gene-by-state/patient summary.
-This connector only reads that derived summary.
-
-The resulting statistics are contextual and non-scoring. Expression enrichment
-or prevalence does not establish dependency, causality, drug sensitivity, or
-clinical benefit.
+Production never downloads the full GBmap atlas for an interactive query. The
+canonical offline builder converts the published Core GBmap into a compact
+state/patient summary. These statistics are contextual and non-scoring:
+expression enrichment or prevalence does not establish dependency, causality,
+drug sensitivity, or clinical benefit.
 """
 from __future__ import annotations
 
@@ -17,6 +14,7 @@ from pathlib import Path
 from typing import Iterable
 
 REFERENCE_PATH = Path(__file__).resolve().parents[2] / "data" / "gbmap_gene_state_summary.csv.gz"
+METADATA_PATH = Path(__file__).resolve().parents[2] / "data" / "gbmap_reference_metadata.json"
 COLLECTION_ID = "999f2a15-3d7e-440b-96ae-2c806799c08c"
 COLLECTION_URL = f"https://cellxgene.cziscience.com/collections/{COLLECTION_ID}"
 
@@ -67,15 +65,22 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
 
     state_rows: list[dict] = []
     for row in rows:
+        # V1 test fixtures used n_patients; the canonical V3 reference uses
+        # explicit numerator/denominator fields. Supporting both keeps the
+        # connector deterministic while preserving the stronger semantics.
+        n_expressing = _int(row.get("n_expressing_patients"))
+        if n_expressing is None:
+            n_expressing = _int(row.get("n_patients"))
+        n_state_patients = _int(row.get("n_state_patients"))
         state_rows.append({
             "state": row.get("state"),
             "state_class": row.get("state_class"),
             "n_cells": _int(row.get("n_cells")),
-            "n_patients": _int(row.get("n_patients")),
+            "n_state_patients": n_state_patients,
+            "n_expressing_patients": n_expressing,
             "patient_prevalence": _float(row.get("patient_prevalence")),
             "fraction_expressing": _float(row.get("fraction_expressing")),
             "mean_expression": _float(row.get("mean_expression")),
-            "median_expression": _float(row.get("median_expression")),
             "expression_z_across_states": _float(row.get("expression_z_across_states")),
         })
 
@@ -92,8 +97,9 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
     top_malignant = malignant[0] if malignant else None
     top_overall = state_rows[0] if state_rows else None
 
-    # Patient breadth is deliberately emphasized because millions of cells from
-    # a small number of donors must not be mistaken for broad patient evidence.
+    # This is the maximum state-specific patient breadth among malignant states,
+    # not an atlas-wide prevalence estimate. The denominator for each state is
+    # patients represented in that state, reducing bias from uneven sampling.
     malignant_patient_prevalence = max(
         [r.get("patient_prevalence") or 0.0 for r in malignant],
         default=None,
@@ -114,17 +120,21 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
         "n_states": len(state_rows),
         "n_malignant_states": len(malignant),
         "n_microenvironment_states": len(microenvironment),
-        "source": "GBmap compact reference derived from CELLxGENE",
+        "patient_prevalence_definition": (
+            "For each state: patients with >=1 expressing cell divided by patients represented in that state. "
+            "malignant_patient_prevalence is the maximum of those state-specific malignant values."
+        ),
+        "source": "GBmap compact reference derived from CELLxGENE Core GBmap",
         "source_url": COLLECTION_URL,
         "interpretation": (
-            "GBmap cell-state statistics quantify where a gene is expressed and how broadly it is observed across patients. "
-            "They do not establish selective dependency, causal function, drug response, or clinical utility."
+            "GBmap cell-state statistics quantify where a gene is expressed and how broadly it is observed across patients represented in each state. "
+            "Uneven cell-type capture across studies remains a limitation. These results do not establish selective dependency, causal function, drug response, or clinical utility."
         ),
     }
 
 
 def state_vector(summary: dict, malignant_only: bool = True) -> dict[str, float]:
-    """Return a normalized state-expression vector for pair complementarity."""
+    """Return a normalized malignant-state expression vector for pair context."""
     if not summary.get("ok"):
         return {}
     rows: Iterable[dict] = summary.get("states") or []
@@ -132,8 +142,11 @@ def state_vector(summary: dict, malignant_only: bool = True) -> dict[str, float]
         r for r in rows
         if (not malignant_only or str(r.get("state_class") or "").lower() == "malignant")
     ]
+    # Weight mean expression by patient breadth so a state driven by a small
+    # number of represented patients does not dominate pair complementarity.
     raw = {
         str(r.get("state")): max(0.0, _float(r.get("mean_expression")) or 0.0)
+        * max(0.0, min(1.0, _float(r.get("patient_prevalence")) or 0.0))
         for r in selected
         if r.get("state")
     }
