@@ -11,6 +11,14 @@ from typing import Iterable
 from gbm_evidence_engine.research_intelligence import ResearchProfile
 from gbm_evidence_engine import research_intelligence_v6 as core
 
+# Capture the validated core callables once. The Streamlit compatibility wrapper
+# may replace public module attributes so the existing V6 page imports guarded
+# functions; using these private references prevents recursive self-calls.
+_CORE_BUILD = core.build_research_profile
+_CORE_RANK = core.rank_gene_list
+_CORE_PAIR = core.evaluate_gene_pair
+_CORE_SIGNATURE = core.analyze_researcher_signature
+
 
 def _number(value):
     try:
@@ -127,15 +135,15 @@ def _guard_profile(profile: ResearchProfile) -> ResearchProfile:
 
 
 def build_research_profile(gene: str) -> ResearchProfile:
-    return _guard_profile(core.build_research_profile(gene))
+    return _guard_profile(_CORE_BUILD(gene))
 
 
 def rank_gene_list(genes: list[str], max_workers: int = 2) -> list[ResearchProfile]:
-    return [_guard_profile(profile) for profile in core.rank_gene_list(genes, max_workers=max_workers)]
+    return [_guard_profile(profile) for profile in _CORE_RANK(genes, max_workers=max_workers)]
 
 
 def evaluate_gene_pair(gene_a: str, gene_b: str) -> dict:
-    result = core.evaluate_gene_pair(gene_a, gene_b)
+    result = _CORE_PAIR(gene_a, gene_b)
     # Full nested profiles make pair results much larger and are unnecessary for
     # the UI/API summary. Researchers can request either profile independently.
     result.pop("profiles", None)
@@ -149,7 +157,7 @@ def analyze_researcher_signature(
     profile_limit: int = 4,
     l1000_results: int = 15,
 ) -> dict:
-    return core.analyze_researcher_signature(
+    return _CORE_SIGNATURE(
         genes,
         values,
         profile_limit=profile_limit,
