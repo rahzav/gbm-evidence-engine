@@ -2,8 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, research-grade-cohorts, v5-research-capacity]
+    branches: [main, research-grade-cohorts, v5-research-capacity, profile-stability-fix]
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   scientific-validation:
@@ -13,10 +16,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install scientific test dependencies
+      - name: Apply resource-bounded execution patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('gbm_evidence_engine/research_intelligence_v3.py')
+          t = p.read_text()
+          old = '''    with ThreadPoolExecutor(max_workers=5) as ex:\n        f_base = ex.submit(build_v2_profile, gene)\n        f_dep = ex.submit(depmap.summarize_gene_dependency, gene)\n        f_ivy = ex.submit(ivygap.summarize_spatial_expression, gene)\n        f_cgga = ex.submit(cgga.summarize_external_validation, gene)\n        f_glass = ex.submit(glass.summarize_longitudinal_expression, gene)\n        base = f_base.result()\n        dep = f_dep.result()\n        ivy = f_ivy.result()\n        cgg = f_cgga.result()\n        gla = f_glass.result()\n'''
+          new = '''    # Run the base profile first, then advanced sources sequentially.\n    # This keeps peak memory and network concurrency bounded on Streamlit Community Cloud.\n    base = build_v2_profile(gene)\n    dep = depmap.summarize_gene_dependency(gene)\n    ivy = ivygap.summarize_spatial_expression(gene)\n    cgg = cgga.summarize_external_validation(gene)\n    gla = glass.summarize_longitudinal_expression(gene)\n'''
+          if old not in t:
+              raise SystemExit('V3 profile concurrency block drifted')
+          p.write_text(t.replace(old, new, 1))
+
+          p = Path('gbm_evidence_engine/research_intelligence.py')
+          t = p.read_text()
+          if 'with ThreadPoolExecutor(max_workers=3) as ex:' not in t:
+              raise SystemExit('V2 concurrency block drifted')
+          p.write_text(t.replace('with ThreadPoolExecutor(max_workers=3) as ex:', 'with ThreadPoolExecutor(max_workers=2) as ex:', 1))
+
+          p = Path('gbm_evidence_engine/connectors/europepmc.py')
+          t = p.read_text()
+          if 'with ThreadPoolExecutor(max_workers=4) as ex:' not in t:
+              raise SystemExit('Europe PMC concurrency block drifted')
+          p.write_text(t.replace('with ThreadPoolExecutor(max_workers=4) as ex:', 'with ThreadPoolExecutor(max_workers=2) as ex:', 1))
+
+          p = Path('gbm_evidence_engine/research_intelligence_v5.py')
+          t = p.read_text()
+          old = '    workers = max(1, min(int(max_workers), 2))'
+          if old not in t:
+              raise SystemExit('V5 batch worker block drifted')
+          p.write_text(t.replace(old, '    workers = 1', 1))
+          PY
+      - name: Install app requirements
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy
+          pip install -r requirements.txt
       - name: Syntax validation
         run: |
           python -m py_compile \
@@ -48,3 +83,27 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
           PYTHONPATH=. python tests/test_glass_gbm_specific.py
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
+      - name: Full EGFR profile runtime test
+        run: |
+          /usr/bin/time -v python - <<'PY'
+          import time
+          from gbm_evidence_engine.research_intelligence_v5 import build_research_profile
+          started = time.time()
+          profile = build_research_profile('EGFR')
+          print('PROFILE_OK', profile.gene, profile.score.overall, profile.score.evidence_coverage_pct)
+          print('SECONDS', round(time.time() - started, 1))
+          print('SOURCE_STATUS', profile.source_status)
+          PY
+      - name: Commit validated stability patch
+        if: github.ref == 'refs/heads/profile-stability-fix'
+        run: |
+          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gbm_evidence_engine/research_intelligence.py \
+                  gbm_evidence_engine/research_intelligence_v3.py \
+                  gbm_evidence_engine/research_intelligence_v5.py \
+                  gbm_evidence_engine/connectors/europepmc.py \
+                  .github/workflows/ci.yml
+          git commit -m "Bound profile-build concurrency for Streamlit stability"
+          git push origin HEAD:profile-stability-fix
