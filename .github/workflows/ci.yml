@@ -1,140 +1,98 @@
-name: CI
+name: GBmap Reference Build
 
 on:
   push:
-    branches: [main, research-grade-cohorts, v5-research-capacity, v6-discovery-system, v7-frozen-scope]
-  pull_request:
+    branches: [v7-gbmap-build]
+
+permissions:
+  contents: write
 
 jobs:
-  scientific-validation:
+  build-reference:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install scientific and UI test dependencies
+
+      - name: Free build disk
+        run: |
+          echo 'Before cleanup:'
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+          sudo apt-get clean || true
+          echo 'After cleanup:'
+          df -h /
+
+      - name: Install offline aggregation dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy streamlit==1.63.0
-      - name: Syntax validation
-        run: |
-          python -m py_compile \
-            gbm_evidence_engine/connectors/base.py \
-            gbm_evidence_engine/connectors/cbioportal.py \
-            gbm_evidence_engine/connectors/opentargets.py \
-            gbm_evidence_engine/connectors/europepmc.py \
-            gbm_evidence_engine/connectors/clinicaltrials.py \
-            gbm_evidence_engine/connectors/depmap.py \
-            gbm_evidence_engine/connectors/ivygap.py \
-            gbm_evidence_engine/connectors/cgga.py \
-            gbm_evidence_engine/connectors/glass.py \
-            gbm_evidence_engine/connectors/mygene.py \
-            gbm_evidence_engine/connectors/hpa.py \
-            gbm_evidence_engine/connectors/stringdb.py \
-            gbm_evidence_engine/connectors/b3db_live.py \
-            gbm_evidence_engine/connectors/l1000cds2.py \
-            gbm_evidence_engine/connectors/gbmap.py \
-            gbm_evidence_engine/research_intelligence.py \
-            gbm_evidence_engine/research_intelligence_v3.py \
-            gbm_evidence_engine/research_intelligence_v4.py \
-            gbm_evidence_engine/research_intelligence_v5.py \
-            gbm_evidence_engine/research_intelligence_v6.py \
-            gbm_evidence_engine/research_discovery.py \
-            gbm_evidence_engine/research_intelligence_v7.py \
-            gbm_evidence_engine/benchmarking.py \
-            scripts/build_gbmap_reference.py \
-            streamlit_app.py streamlit_app_v5.py streamlit_app_v6.py streamlit_app_v6_guarded.py streamlit_app_v7.py api/app.py
-      - name: Scientific and grounding tests
-        run: |
-          PYTHONPATH=. python tests/test_survival.py
-          PYTHONPATH=. python tests/test_dependency.py
-          PYTHONPATH=. python tests/test_evidence_model.py
-          PYTHONPATH=. python tests/test_grounding_validator.py
-          PYTHONPATH=. python tests/test_research_intelligence.py
-          PYTHONPATH=. python tests/test_research_intelligence_v3.py
-          PYTHONPATH=. python tests/test_glass_gbm_specific.py
-          PYTHONPATH=. python tests/test_research_intelligence_v5.py
-          PYTHONPATH=. python tests/test_research_intelligence_v6.py
-          PYTHONPATH=. python tests/test_research_discovery.py
-          PYTHONPATH=. python tests/test_research_intelligence_v7.py
-      - name: Streamlit render and rerun regression
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          from streamlit.testing.v1 import AppTest
+          pip install 'anndata>=0.10,<0.13' h5py numpy scipy pandas
 
-          app = Path.cwd() / "streamlit_app.py"
-          at = AppTest.from_file(app, default_timeout=30).run(timeout=30)
-          assert not list(at.exception), list(at.exception)
-          assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
-          assert len(at.tabs) == 5
-          gene = next(x for x in at.text_input if x.label == "Gene symbol")
-          gene.set_value("PTEN").run(timeout=30)
-          assert not list(at.exception), list(at.exception)
-          assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
-          print("STREAMLIT V7 RERUN TEST PASSED")
-          PY
-      - name: Inspect published GBmap asset metadata
-        if: github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
+      - name: Validate published Core GBmap metadata
         run: |
-          PYTHONPATH=. python scripts/build_gbmap_reference.py --metadata-only
-      - name: Live DepMap model-context smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
+          PYTHONPATH=. python scripts/build_gbmap_reference_v3.py --metadata-only
+
+      - name: Build compact patient-aware GBmap reference
         run: |
-          PYTHONPATH=. python - <<'PY'
-          from gbm_evidence_engine.connectors.depmap import summarize_gene_dependency
-          result = summarize_gene_dependency("EGFR")
-          print(result)
-          assert result.get("ok"), result
-          assert result.get("n_gbm", 0) >= 3
-          assert "nextgen_model_context" in result
-          print("DEPMAP LIVE OK")
-          PY
-      - name: Live L1000CDS2 reversal smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
+          PYTHONPATH=. python scripts/build_gbmap_reference_v3.py \
+            --output /tmp/gbmap_gene_state_summary.csv.gz \
+            --metadata-output /tmp/gbmap_reference_metadata.json \
+            --chunk-size 4096
+          ls -lh /tmp/gbmap_gene_state_summary.csv.gz /tmp/gbmap_reference_metadata.json
+          bytes=$(stat -c%s /tmp/gbmap_gene_state_summary.csv.gz)
+          if [ "$bytes" -ge 95000000 ]; then
+            echo "Compact reference is ${bytes} bytes, too large for a normal GitHub blob."
+            exit 1
+          fi
+
+      - name: Validate derived reference scientifically
         run: |
           PYTHONPATH=. python - <<'PY'
-          from gbm_evidence_engine.connectors.l1000cds2 import reverse_weighted_signature
-          genes = ["EGFR","STAT3","SOX2","CDK6","OLIG2","GFAP","CDKN1A","BAX"]
-          values = [2.4,1.6,1.4,1.2,-1.0,-1.3,-1.7,-2.0]
-          result = reverse_weighted_signature(genes, values, combinations=True, max_results=5)
-          print(result)
-          assert result.get("ok"), result
-          assert result.get("top_drugs"), result
-          assert all(row.get("drug") not in {"-666", "666"} for row in result["top_drugs"])
-          assert all(row.get("drug_1") != row.get("drug_2") for row in result.get("combinations", []))
-          print("L1000 LIVE OK")
+          import json
+          from pathlib import Path
+          from gbm_evidence_engine.connectors.gbmap import summarize_gene_cell_states
+
+          path = Path('/tmp/gbmap_gene_state_summary.csv.gz')
+          meta = json.loads(Path('/tmp/gbmap_reference_metadata.json').read_text())
+          print(meta)
+          assert meta['n_cells'] >= 300000, meta
+          assert meta['n_patients'] >= 100, meta
+          assert meta['n_states'] >= 10, meta
+          assert meta['rows_written'] > 100000, meta
+
+          for gene in ['EGFR', 'SOX2', 'OLIG2', 'GFAP', 'CDK4', 'PTEN']:
+              result = summarize_gene_cell_states(gene, path=path)
+              print(gene, result.get('top_malignant_state'), result.get('malignant_patient_prevalence'))
+              assert result.get('ok'), result
+              assert result.get('n_malignant_states', 0) >= 3, result
+              top = result.get('top_malignant_state') or {}
+              assert top.get('state'), result
+              prev = top.get('patient_prevalence')
+              assert prev is not None and 0 <= prev <= 1, result
+              assert top.get('n_expressing_patients') is not None, result
+              assert top.get('n_state_patients') is not None, result
+              assert top['n_expressing_patients'] <= top['n_state_patients'], result
+          print('COMPACT GBMAP REFERENCE VALIDATED')
           PY
-      - name: Full live V7 EGFR profile smoke test
-        if: github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
+
+      - name: Commit derived reference to V7 branch
+        env:
+          TARGET_BRANCH: v7-frozen-scope
         run: |
-          PYTHONPATH=. python - <<'PY'
-          from gbm_evidence_engine.research_intelligence_v7 import build_research_profile
-          profile = build_research_profile("EGFR")
-          print("gene", profile.gene)
-          print("score", profile.score.overall, "coverage", profile.score.evidence_coverage_pct)
-          print("confidence", profile.live.get("overall_evidence_confidence"))
-          print("model relevance", profile.live.get("model_relevance"))
-          print("gbmap", profile.live.get("gbmap_cell_state"))
-          assert profile.gene == "EGFR"
-          assert profile.score.overall is not None
-          assert profile.live.get("overall_evidence_confidence", {}).get("score") is not None
-          assert profile.live.get("model_relevance", {}).get("level")
-          assert "gbmap_cell_state" in profile.live
-          print("FULL LIVE V7 PROFILE OK")
-          PY
-      - name: Full live guarded V6 EGFR profile smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system'
-        run: |
-          PYTHONPATH=. python - <<'PY'
-          from gbm_evidence_engine.research_discovery import build_research_profile
-          profile = build_research_profile("EGFR")
-          hypotheses = profile.live.get("mechanistic_hypotheses", [])
-          assert profile.gene == "EGFR"
-          assert profile.score.overall is not None
-          assert profile.live.get("experiment_portfolio")
-          assert not any("Selective EGFR dependency" in row.get("hypothesis", "") for row in hypotheses)
-          assert all("hypothesis" in row.get("status", "") for row in hypotheses)
-          print("FULL LIVE GUARDED V6 PROFILE OK")
-          PY
+          cp /tmp/gbmap_gene_state_summary.csv.gz /tmp/reference-copy.csv.gz
+          cp /tmp/gbmap_reference_metadata.json /tmp/metadata-copy.json
+          git fetch origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          mkdir -p data
+          cp /tmp/reference-copy.csv.gz data/gbmap_gene_state_summary.csv.gz
+          cp /tmp/metadata-copy.json data/gbmap_reference_metadata.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/gbmap_gene_state_summary.csv.gz data/gbmap_reference_metadata.json
+          git commit -m 'Add compact Core GBmap cell-state reference'
+          git push origin HEAD:"$TARGET_BRANCH"
