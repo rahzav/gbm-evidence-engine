@@ -1,98 +1,81 @@
 # GBM Gene Analysis
 
-A provenance-tracked glioblastoma research system built for **Rutgers Gray for Glioblastoma**.
+A provenance-tracked molecular research decision-support system for glioblastoma, developed for **Rutgers Gray for Glioblastoma**.
 
-The core workflow begins with a gene such as `EGFR`, `PTEN`, `TERT`, or `CDK6`, but V6 is designed to go beyond target lookup. It integrates GBM evidence, detects cross-source research opportunities, generates falsifiable mechanistic hypotheses, prioritizes experiments that could resolve the largest uncertainties, evaluates two-target combinations, and interprets researcher-provided signed gene signatures against GBM evidence and LINCS perturbational data.
+GBM Gene Analysis is designed to help researchers move from fragmented evidence to a defensible next experiment. It accepts a gene, a two-target combination, a gene set, or a processed researcher-generated signature and integrates GBM-specific genomic, functional, spatial, human-cohort, longitudinal, translational, literature, tissue, network, blood-brain-barrier, perturbational, and cell-state context.
 
-## What V6 is designed to answer
+The system is for **research prioritization and hypothesis development only**. It does not provide clinical recommendations, predict patient benefit, or replace experimental validation.
 
-1. **How strong and selective is the current GBM evidence for this gene?**
-2. **Where do independent evidence layers agree, conflict, or leave translational whitespace?**
-3. **What biological mechanism is worth testing next, and what result would falsify it?**
-4. **Which experiment would most reduce uncertainty before additional resources are committed?**
-5. **Do two targets provide a defensible complementary-target experiment?**
-6. **Which genes and perturbations are most interesting in a researcher's own expression signature?**
+## Core research workflow
 
-The Target Priority Score remains a transparent research-prioritization heuristic. V6 discovery outputs are kept separate from that score unless they directly reproduce a validated scored evidence layer.
+**Evidence → context → contradictions → hypothesis → experiment**
 
-## Scored evidence sources
+For a gene such as `EGFR`, `PTEN`, `TERT`, or `CDK4`, the system asks:
 
-- **cBioPortal / TCGA-GBM**: mutation, recurrent protein-change, and high-level copy-number evidence
-- **Open Targets**: GBM association evidence, tractability, and target-directed candidates
-- **DepMap / Chronos**: CRISPR dependency in strict IDH-wildtype GBM models versus the remaining DepMap panel, with a pan-essential safeguard
-- **Ivy Glioblastoma Atlas Project**: normalized RNA-seq across seven laser-microdissection GBM anatomic zones
-- **CGGA mRNAseq_693 + mRNAseq_325**: independent survival validation restricted to adult primary IDH-wildtype GBM
-- **ClinicalTrials.gov API v2**: GBM trials matching the gene and target-directed candidates
-- **Europe PMC**: literature volume, publications, and GBM-context coverage
-- **GLASS / Synapse**: clinically verified IDH-wildtype GBM primary-to-recurrent expression when authorized controlled data are available
+1. How strong is the current GBM evidence?
+2. How confident should a researcher be in that evidence?
+3. Does the signal reproduce across independent human and functional datasets?
+4. Which GBM cell states and anatomic compartments carry the signal?
+5. Does the evidence change at recurrence?
+6. Are target-directed compounds or GBM trials already present?
+7. Is there measured blood-brain-barrier evidence for resolvable compounds?
+8. Where do the evidence layers disagree or leave an important gap?
+9. What falsifiable hypothesis follows from that gap?
+10. Which experiment would most efficiently reduce the remaining uncertainty?
 
-## Contextual research layers
+## V7 capabilities
 
-These layers are displayed separately and do **not** alter the validated Target Priority Score:
+### Gene Analysis
 
-- **MyGene.info**: canonical human gene-symbol and alias resolution
-- **Human Protein Atlas**: normal-tissue, normal-brain, single-cell, and single-nuclei brain context
-- **STRING**: high-confidence protein interaction partners and pathway enrichment
-- **B3DB**: experimental blood-brain barrier records for resolvable target-directed compounds
-- **DepMap NextGen context**: 3D/organoid/spheroid model-format context when the live model metadata exposes it
-- **GBmap**: direct access to the public IDH-wildtype GBM single-cell and spatial reference collection
-- **Evidence consistency review**: source-level discordance and interpretation flags
+A full gene profile integrates the scored evidence model with contextual and discovery layers. Key outputs include:
 
-## V6 discovery capabilities
-
-### Cross-source research opportunities
-
-The engine looks for patterns that are often more useful than a high scalar score alone, including:
-
-- strong functional dependency with weak recurrent genomic selection;
-- strong genomic selection without matching selective dependency;
-- high druggability with weak GBM clinical translation;
-- recurrence-associated signal with limited development;
-- spatially localized signal suggesting niche-conditioned biology;
-- prognostic association without matching functional dependency;
-- target-directed compounds with little matched BBB evidence;
-- normal-brain expression that raises therapeutic-window questions;
-- missing high-weight evidence that makes the current conclusion unstable.
-
-Each opportunity includes the signal that triggered it, a specific validation experiment, and a caveat explaining what the observation does **not** establish.
-
-### Falsifiable mechanistic hypotheses
-
-Dependency, spatial, longitudinal, STRING-network, and pathway-enrichment observations are converted into explicit hypotheses with a defined falsification test. These are hypothesis-generation outputs and are not represented as causal conclusions.
-
-### Experiment prioritization
-
-V6 ranks follow-up experiments according to unresolved evidence, cross-source contradiction, and the weight of the affected evidence dimension. The resulting **Experiment Priority** is an uncertainty-reduction heuristic, not a formal expected-information-gain estimate.
+- **Target Priority Score** — transparent research-prioritization heuristic
+- **Evidence Coverage** — how much of the scored model is currently available
+- **Evidence Confidence** — separate assessment of evidence strength and replication
+- **Research Opportunities** — cross-source gaps or discordances worth investigating
+- **Guarded Mechanistic Hypotheses** — hypotheses shown only when their premises are supported
+- **Experiment Prioritization** — follow-up studies ranked by unresolved uncertainty
+- **Model Relevance** — distinguishes conventional dependency models from available 3D/next-generation context
+- **Cell-State Context** — native compact GBmap reference derived from the published Core GBmap atlas when the reference asset is present
 
 ### Target Pair Analysis
 
-Researchers can evaluate two genes together. The **Combination Rationale Score** summarizes:
+Evaluates whether two targets justify a combination experiment using exactly two complete target profiles. It considers:
 
 - individual target evidence;
 - functional-dependency support;
-- network complementarity;
-- spatial/niche complementarity;
+- network overlap/complementarity;
+- Ivy GAP spatial complementarity;
+- GBmap malignant-state complementarity;
 - recurrence coverage;
-- translational feasibility.
+- translational and CNS feasibility;
+- evidence confidence and model relevance.
 
-This score prioritizes whether a pair is worth experimentally testing. It is explicitly **not** a pharmacologic synergy, efficacy, or safety prediction.
+The **Combination Rationale Score** prioritizes experiments. It is not a pharmacologic-synergy, efficacy, safety, or clinical prediction.
 
-### Researcher Signature Analysis
+### Researcher Data
 
-Researchers can upload or paste a signed gene-level result such as log2 fold-change, a model coefficient, a CRISPR differential effect, or another signed statistic. V6 then:
+Accepts **processed gene-level results**, not raw sequencing files. Supported inputs include a signed effect such as log2 fold-change, model coefficient, or differential CRISPR effect, with optional p-values and FDR values.
 
-1. identifies the strongest signals;
-2. builds full GBM profiles for the leading genes;
-3. combines uploaded-signal magnitude with existing GBM evidence into a within-signature Discovery Priority;
-4. submits the signed signature to the public **L1000CDS2** endpoint;
-5. returns LINCS-derived perturbations predicted to reverse the state;
-6. surfaces L1000 pairwise drug-combination hypotheses when returned by the source.
+The workflow:
 
-LINCS/L1000 outputs are perturbational hypotheses derived from cell-line signatures. They require GBM-specific validation and do not establish CNS exposure, efficacy, clinical benefit, or true drug synergy.
+1. validates and deduplicates genes;
+2. combines effect magnitude with optional statistical support;
+3. deeply profiles the highest-priority signals against the GBM evidence stack;
+4. reports Target Priority, Evidence Confidence, cell-state context, and Model Relevance;
+5. performs STRING pathway enrichment for supported up/down gene programs;
+6. queries L1000CDS2 for perturbations predicted to reverse the submitted molecular state;
+7. returns perturbational combination hypotheses when the source supplies them.
 
-## Scoring model
+LINCS/L1000 results are historical cell-line perturbational hypotheses. They do not establish GBM efficacy, CNS exposure, synergy, safety, or patient benefit.
 
-V6 preserves the nine V4/V5 scored dimensions without adding the discovery layers to the scalar score.
+### Gene Set Comparison
+
+Compares a bounded set of genes through the same V7 profile architecture while keeping public-source and Community Cloud resource pressure controlled.
+
+## Scored evidence model
+
+V7 preserves the validated nine-dimension score. Contextual and discovery additions do not silently alter the scalar Target Priority Score.
 
 | Dimension | Weight |
 |---|---:|
@@ -106,17 +89,95 @@ V6 preserves the nine V4/V5 scored dimensions without adding the discovery layer
 | Independent CGGA human validation | 7.5% |
 | GLASS longitudinal recurrence | 6.0% |
 
-Missing sources reduce **evidence coverage** rather than being converted into negative biological evidence.
+Missing or inaccessible sources lower **Evidence Coverage** rather than being interpreted as negative biology.
 
-## Single-cell infrastructure
+## Data sources
 
-GBmap is publicly available through CELLxGENE and contains a large harmonized IDH-wildtype GBM single-cell/spatial collection. The public Streamlit deployment currently links GBmap rather than downloading the full >1M-cell atlas during each query. A production-grade native single-cell layer should use a compact precomputed/queryable GBmap service so cell-state and spatial gene statistics are reproducible without destabilizing the public app.
+### Scored layers
 
-## Data handling
+- **cBioPortal / TCGA-GBM** — mutation, recurrent protein-change, and high-level copy-number evidence
+- **Open Targets** — GBM association evidence, tractability, and target-directed candidates
+- **ClinicalTrials.gov API v2** — GBM trials matching genes and resolved target-directed candidates
+- **Europe PMC** — GBM literature volume, contextual coverage, and linked publications
+- **DepMap / Chronos** — dependency in strict IDH-wildtype GBM models versus the remaining DepMap panel, with pan-essential safeguards
+- **Ivy Glioblastoma Atlas Project** — expression across seven laser-microdissected GBM anatomic structures
+- **CGGA mRNAseq_693 + mRNAseq_325** — independent survival validation restricted to adult primary IDH-wildtype GBM
+- **GLASS / Synapse** — clinically verified IDH-wildtype GBM primary-to-recurrent expression when authorized data access is configured
 
-Large Ivy and CGGA source files are downloaded from upstream resources into `data/_cache/` at runtime and are git-ignored. Controlled GLASS files are requested only after authorized Synapse authentication. B3DB is read from its public upstream dataset. Researcher-uploaded signatures are processed in the running Streamlit session and are not committed to the repository.
+### Contextual/non-scoring layers
 
-## Run the app
+- **MyGene.info** — canonical human gene and alias resolution
+- **Human Protein Atlas** — normal-tissue and normal-brain context
+- **STRING** — high-confidence interaction partners and pathway enrichment
+- **B3DB** — experimental blood-brain-barrier records for resolvable compounds
+- **DepMap model context** — conventional versus available next-generation/3D model metadata
+- **GBmap / CELLxGENE** — patient-aware malignant and microenvironment cell-state expression from a compact offline-derived Core GBmap reference
+- **L1000CDS2 / LINCS** — perturbational reversal hypotheses for researcher-generated signatures
+
+## Native GBmap architecture
+
+The published Core GBmap H5AD contains hundreds of thousands of cells and is several gigabytes. The interactive application never downloads or materializes that atlas per query.
+
+`scripts/build_gbmap_reference_v3.py` is an offline build step that reads only the published annotation and expression structures needed for production and generates a compact gene-by-state reference containing:
+
+- malignant versus microenvironment class;
+- harmonized GBM cell state;
+- cells represented in each state;
+- patients represented in each state;
+- patients with detectable expression of each gene;
+- gene-specific patient prevalence within each state;
+- fraction of cells expressing the gene;
+- mean published expression;
+- across-state expression enrichment.
+
+The runtime connector reads only this compact derived reference. Cell-state expression does not establish dependency, causality, drug response, or clinical utility.
+
+## Scientific guardrails
+
+- Evidence types are not treated as interchangeable.
+- Missing data never become negative biology.
+- Hypotheses are separated from observed/statistical evidence.
+- Selective-dependency hypotheses require actual selective dependency support.
+- Pan-essential targets are explicitly flagged.
+- Survival associations are not represented as causal effects.
+- Combination rationale is not represented as synergy.
+- Blood-brain-barrier database absence is not represented as BBB-negative evidence.
+- Controlled GLASS data are not scored without authorized, clinically filtered access.
+- Current live-data benchmarks are never mislabeled as retrospective prediction.
+- Quantitative claims in the evidence dossier retain source, method, access tier, retrieval metadata, confidence, and citation information.
+
+## Reliability and failure behavior
+
+External sources can be unavailable or change independently of this repository. Network calls use bounded retry handling for transient server errors, truncated responses, rate limits, timeouts, and connection resets. Source failure is reported as an evidence gap and reduced coverage rather than substituted with synthetic evidence.
+
+The Streamlit entrypoint executes the V7 page on every rerun, preventing Python module caching from blanking the interface after widget interactions.
+
+## Exports
+
+Gene profiles can be exported as:
+
+- full structured JSON;
+- Markdown research summary with evidence gaps, source status, generation time, and linked publications.
+
+## API
+
+Run locally:
+
+```bash
+uvicorn api.app:app --reload
+```
+
+Endpoints:
+
+- `POST /profile`
+- `POST /profile/batch`
+- `POST /combination`
+- `POST /signature`
+- `GET /health`
+
+The API reports version `7.0.0`.
+
+## Run the Streamlit app
 
 ```bash
 pip install -r requirements.txt
@@ -129,32 +190,28 @@ For authorized GLASS access:
 SYNAPSE_AUTH_TOKEN=<authorized-personal-access-token>
 ```
 
-## API
+## Validation
 
-```bash
-uvicorn api.app:app --reload
-```
+The repository includes deterministic tests for:
 
-- `POST /profile` with `{"gene":"EGFR"}`
-- `POST /profile/batch` with `{"genes":["EGFR","PTEN","TERT"]}`
-- `POST /combination` with `{"gene_a":"EGFR","gene_b":"CDK4"}`
-- `POST /signature` with `{"genes":[...],"values":[...]}`
-- `GET /health`
+- survival/statistical calculations;
+- dependency selectivity and pan-essential behavior;
+- evidence serialization and provenance;
+- fabricated-statistic grounding rejection;
+- score coverage behavior;
+- strict GBM/IDH-wildtype cohort filtering;
+- GLASS safeguards;
+- V5 contextual layers;
+- V6 discovery guardrails;
+- V7 confidence, model relevance, patient-aware cell-state semantics, publication links, and pair execution efficiency;
+- Streamlit rerun behavior.
 
-## Tests
+Pre-release production audits additionally exercise live Europe PMC publication links, a complete Streamlit profile interaction, live target-pair analysis, live researcher-signature/L1000 analysis, and API health/import behavior.
 
-```bash
-PYTHONPATH=. python3 tests/test_survival.py
-PYTHONPATH=. python3 tests/test_dependency.py
-PYTHONPATH=. python3 tests/test_evidence_model.py
-PYTHONPATH=. python3 tests/test_grounding_validator.py
-PYTHONPATH=. python3 tests/test_research_intelligence.py
-PYTHONPATH=. python3 tests/test_research_intelligence_v3.py
-PYTHONPATH=. python3 tests/test_glass_gbm_specific.py
-PYTHONPATH=. python3 tests/test_research_intelligence_v5.py
-PYTHONPATH=. python3 tests/test_research_intelligence_v6.py
-```
+A successful software test does not establish biological validity. Retrospective and prospective scientific benchmarking remain distinct from code-level validation.
 
-## Core design rule
+## Scope
 
-Every quantitative claim presented as scored evidence is source-tracked with method, access tier, retrieval metadata, and confidence. A source outage, controlled-access barrier, missing gene, or insufficient cohort is shown explicitly. V6 discovery heuristics are labeled as heuristics and kept separate from directly observed or statistically estimated evidence. No placeholder statistic is substituted for missing live evidence.
+**GBM molecular research decision support.**
+
+The project intentionally does not expand into clinical treatment recommendations, prognosis prediction, radiology interpretation, pathology-image analysis, raw sequencing pipelines, or generic chatbot functionality. The objective is depth and traceability within GBM molecular target discovery rather than breadth across unrelated clinical workflows.
