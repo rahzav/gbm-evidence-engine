@@ -7,7 +7,7 @@ try:
 except ImportError as e:  # pragma: no cover
     raise ImportError("Install fastapi, uvicorn and pydantic to run the API layer.") from e
 
-from gbm_evidence_engine.research_intelligence_v7 import (
+from gbm_evidence_engine.research_intelligence_v7_prod import (
     analyze_researcher_signature,
     build_research_profile,
     evaluate_gene_pair,
