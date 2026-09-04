@@ -1,4 +1,4 @@
-"""Standalone Streamlit UI for the research-grade GBM target intelligence platform."""
+"""Standalone Streamlit UI for the GBM Research Evidence Engine."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ import streamlit as st
 from gbm_evidence_engine.research_intelligence_v4 import build_research_profile, rank_gene_list
 from gbm_evidence_engine.evidence_model import EvidenceTier
 
-st.set_page_config(page_title="GBM Target Intelligence Platform", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="GBM Research Evidence Engine", page_icon="🧬", layout="wide")
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -39,25 +39,25 @@ def pval(x):
 def markdown_brief(profile) -> str:
     s = profile.score
     lines = [
-        f"# GBM Target Intelligence Platform: {profile.gene}", "",
+        f"# GBM Research Evidence Engine: {profile.gene}", "",
         f"**Target Priority Score:** {s.overall if s.overall is not None else 'N/A'}/100 ({s.label})",
         f"**Evidence Coverage:** {s.evidence_coverage_pct}%", "", "## Score Composition",
     ]
     for name, d in s.dimensions.items():
         lines.append(f"- **{name}:** {num(d.score, 1)}/100. {d.rationale}")
     lines += ["", "## Evidence Gaps"] + [f"- {x}" for x in profile.evidence_gaps]
-    lines += ["", "## Recommended Validation Studies"] + [f"- {x}" for x in profile.next_experiments]
+    lines += ["", "## Potential Validation Studies"] + [f"- {x}" for x in profile.next_experiments]
     lines += ["", "## Data Source Status"] + [f"- **{k}:** {v}" for k, v in profile.source_status.items()]
     lines += ["", f"> {s.caveat}"]
     return "\n".join(lines)
 
 
-st.title("GBM Target Intelligence Platform")
+st.title("GBM Research Evidence Engine")
 st.caption(
     "Integrated evidence synthesis and target prioritization for glioblastoma research across genomic, functional, spatial, clinical, longitudinal, and literature data."
 )
 st.write(
-    "Enter a gene symbol to generate a structured GBM-specific research profile. The platform integrates TCGA/cBioPortal, Open Targets, ClinicalTrials.gov, Europe PMC, DepMap, Ivy GAP, CGGA, and authorized GLASS data where available. Results are intended for research prioritization and hypothesis development, not clinical decision-making."
+    "Enter a gene symbol to generate a structured GBM-specific research profile. The tool integrates TCGA/cBioPortal, Open Targets, ClinicalTrials.gov, Europe PMC, DepMap, Ivy GAP, CGGA, and authorized GLASS data where available. Results are intended for research prioritization and hypothesis development, not clinical decision-making."
 )
 
 single_tab, batch_tab, methods_tab = st.tabs([
@@ -128,7 +128,7 @@ with single_tab:
             for gap in profile.evidence_gaps:
                 st.markdown(f"- {gap}")
         with right:
-            st.markdown("### Recommended Validation Studies")
+            st.markdown("### Potential Validation Studies")
             for idea in profile.next_experiments:
                 st.markdown(f"- {idea}")
 
@@ -334,12 +334,12 @@ with batch_tab:
 with methods_tab:
     st.markdown("### Evidence Model")
     st.write(
-        "The platform evaluates nine independently visible evidence dimensions: TCGA genomic signal, Open Targets disease association, druggability, clinical translation, literature and disease-context depth, strict-GBM DepMap functional dependency, Ivy GAP spatial expression, independent CGGA human-cohort validation, and GLASS longitudinal recurrence when clinically verified data are available. Missing sources reduce evidence coverage and are not interpreted as negative biological evidence."
+        "The tool evaluates nine independently visible evidence dimensions: TCGA genomic signal, Open Targets disease association, druggability, clinical translation, literature and disease-context depth, strict-GBM DepMap functional dependency, Ivy GAP spatial expression, independent CGGA human-cohort validation, and GLASS longitudinal recurrence when clinically verified data are available. Missing sources reduce evidence coverage and are not interpreted as negative biological evidence."
     )
 
     st.markdown("### GLASS Data Access")
     st.write(
-        "GLASS longitudinal RNA-seq is accessed through Synapse and requires an authorized personal access token. When available, the platform restricts longitudinal scoring to clinically verified IDH-wildtype glioblastoma primary/recurrent pairs. If credentials or sufficient verified pairs are unavailable, the GLASS dimension remains unscored and evidence coverage is reduced."
+        "GLASS longitudinal RNA-seq is accessed through Synapse and requires an authorized personal access token. When available, the tool restricts longitudinal scoring to clinically verified IDH-wildtype glioblastoma primary/recurrent pairs. If credentials or sufficient verified pairs are unavailable, the GLASS dimension remains unscored and evidence coverage is reduced."
     )
 
     st.markdown("### Interpretation Framework")
