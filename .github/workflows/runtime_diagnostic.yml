@@ -16,11 +16,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Import deployed entrypoint
+      - name: Measure full EGFR profile build
         run: |
-          python - <<'PY'
-          import streamlit_app
-          print('ENTRYPOINT_IMPORT_OK')
+          /usr/bin/time -v python - <<'PY'
+          import time
+          from gbm_evidence_engine.research_intelligence_v5 import build_research_profile
+          t=time.time()
+          p=build_research_profile('EGFR')
+          print('PROFILE_OK', p.gene, p.score.overall, p.score.evidence_coverage_pct, 'seconds', round(time.time()-t,1))
+          print('STATUS', p.source_status)
           PY
       - name: Start Streamlit and probe health
         run: |
@@ -35,7 +39,6 @@ jobs:
             fi
             sleep 1
           done
-          echo '--- streamlit log ---'
           cat /tmp/streamlit.log
           kill $pid || true
           exit 1
