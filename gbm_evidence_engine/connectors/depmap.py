@@ -3,6 +3,9 @@
 Production queries use DepMap's public Breadbox REST API rather than pulling the
 full quarterly matrices. The strict GBM group is the current OncoTree subtype
 ``Glioblastoma, IDH-Wildtype``; all other scored models form the comparator.
+V6 also reports NextGen 3D/model-format context when current model metadata
+exposes it, without changing the validated dependency score.
+
 Synthetic CSVs are retained only for backwards-compatible method tests and are
 never used by :func:`summarize_gene_dependency`.
 """
@@ -26,7 +29,7 @@ BREADBOX_BASE = "https://depmap.org/portal/breadbox"
 DEPENDENCY_DATASET = "Chronos_Combined"
 METADATA_DATASET = "depmap_model_metadata"
 STRICT_GBM_SUBTYPE = "Glioblastoma, IDH-Wildtype"
-USER_AGENT = "GBM-Evidence-Engine/3.0 (+https://github.com/rahzav/gbm-evidence-engine)"
+USER_AGENT = "GBM-Gene-Analysis/6.0 (+https://github.com/rahzav/gbm-evidence-engine)"
 
 
 @dataclass
@@ -78,6 +81,19 @@ def _column_mapping_to_rows(raw: dict) -> dict[str, dict]:
     return out
 
 
+def _merge_metadata(base: dict[str, dict], extra: dict[str, dict]) -> dict[str, dict]:
+    out = {key: dict(value) for key, value in base.items()}
+    for model_id, values in extra.items():
+        out.setdefault(model_id, {}).update(values)
+    return out
+
+
+def _nextgen_flag(row: dict) -> bool:
+    model_type = str(row.get("ModelType") or "").casefold()
+    growth = str(row.get("GrowthPattern") or row.get("CellFormat") or "").casefold()
+    return "organoid" in model_type or growth in {"spheroid", "dome"}
+
+
 def summarize_gene_dependency(gene: str) -> dict:
     """Return a live, GBM-specific Chronos dependency summary for one gene."""
     gene = gene.upper().strip()
@@ -98,8 +114,28 @@ def summarize_gene_dependency(gene: str) -> dict:
         )
         metadata = _column_mapping_to_rows(raw_meta if isinstance(raw_meta, dict) else {})
 
+        # 26Q1 introduced NextGen CNS models and richer model metadata. Because
+        # Breadbox schemas may change, request these columns separately and
+        # degrade gracefully if a deployment does not expose them.
+        nextgen_metadata_available = False
+        try:
+            raw_extra = _post_json(
+                f"datasets/tabular/{METADATA_DATASET}",
+                {"columns": ["ModelType", "GrowthPattern", "SerumFreeMedia"]},
+                timeout=45,
+                retries=1,
+            )
+            extra = _column_mapping_to_rows(raw_extra if isinstance(raw_extra, dict) else {})
+            if extra:
+                metadata = _merge_metadata(metadata, extra)
+                nextgen_metadata_available = True
+        except Exception:
+            pass
+
         gbm, other = [], []
         gbm_models = []
+        nextgen_scores: list[float] = []
+        conventional_scores: list[float] = []
         for model_id, raw_value in values.items():
             try:
                 value = float(raw_value)
@@ -107,13 +143,23 @@ def summarize_gene_dependency(gene: str) -> dict:
                 continue
             if not np.isfinite(value):
                 continue
-            subtype = str(metadata.get(model_id, {}).get("OncotreeSubtype") or "")
+            row = metadata.get(model_id, {})
+            subtype = str(row.get("OncotreeSubtype") or "")
             if subtype == STRICT_GBM_SUBTYPE:
+                is_nextgen = _nextgen_flag(row)
                 gbm.append(value)
+                if is_nextgen:
+                    nextgen_scores.append(value)
+                else:
+                    conventional_scores.append(value)
                 gbm_models.append({
                     "model_id": model_id,
-                    "cell_line": metadata.get(model_id, {}).get("CellLineName"),
+                    "cell_line": row.get("CellLineName"),
                     "dependency": value,
+                    "model_type": row.get("ModelType"),
+                    "growth_pattern": row.get("GrowthPattern"),
+                    "serum_free_media": row.get("SerumFreeMedia"),
+                    "nextgen_3d_context": is_nextgen,
                 })
             else:
                 other.append(value)
@@ -130,6 +176,16 @@ def summarize_gene_dependency(gene: str) -> dict:
         result = selective_dependency_test(gene, np.asarray(gbm), np.asarray(other))
         delta = result.median_effect_other - result.median_effect_gbm
         gbm_models.sort(key=lambda row: row["dependency"])
+        nextgen_context = {
+            "metadata_available": nextgen_metadata_available,
+            "n_nextgen_3d_gbm": len(nextgen_scores),
+            "n_conventional_gbm": len(conventional_scores),
+            "median_nextgen_3d_chronos": float(np.median(nextgen_scores)) if nextgen_scores else None,
+            "median_conventional_chronos": float(np.median(conventional_scores)) if conventional_scores else None,
+            "interpretation": (
+                "NextGen/model-format stratification is contextual. Differences between 3D and conventional models may reflect biology, culture conditions, library composition, or sample selection and are not separately scored."
+            ),
+        }
         return {
             "ok": True,
             "gene": gene,
@@ -146,7 +202,8 @@ def summarize_gene_dependency(gene: str) -> dict:
             "pan_essential": result.pan_essential,
             "gbm_fraction_below_minus_0_5": float(np.mean(np.asarray(gbm) < -0.5)),
             "other_fraction_below_minus_0_5": float(np.mean(np.asarray(other) < -0.5)),
-            "most_dependent_gbm_models": gbm_models[:8],
+            "most_dependent_gbm_models": gbm_models[:10],
+            "nextgen_model_context": nextgen_context,
             "access_tier": AccessTier.OPEN_LIVE_API.value,
             "source": "DepMap Breadbox / Chronos_Combined",
         }
