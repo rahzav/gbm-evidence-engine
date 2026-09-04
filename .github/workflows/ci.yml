@@ -76,11 +76,11 @@ jobs:
           print("STREAMLIT V7 RERUN TEST PASSED")
           PY
       - name: Inspect published GBmap asset metadata
-        if: github.ref == 'refs/heads/v7-frozen-scope'
+        if: github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
         run: |
           PYTHONPATH=. python scripts/build_gbmap_reference.py --metadata-only
       - name: Live DepMap model-context smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope'
+        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
         run: |
           PYTHONPATH=. python - <<'PY'
           from gbm_evidence_engine.connectors.depmap import summarize_gene_dependency
@@ -92,7 +92,7 @@ jobs:
           print("DEPMAP LIVE OK")
           PY
       - name: Live L1000CDS2 reversal smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope'
+        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
         run: |
           PYTHONPATH=. python - <<'PY'
           from gbm_evidence_engine.connectors.l1000cds2 import reverse_weighted_signature
@@ -107,7 +107,7 @@ jobs:
           print("L1000 LIVE OK")
           PY
       - name: Full live V7 EGFR profile smoke test
-        if: github.ref == 'refs/heads/v7-frozen-scope'
+        if: github.ref == 'refs/heads/v7-frozen-scope' || github.head_ref == 'v7-frozen-scope'
         run: |
           PYTHONPATH=. python - <<'PY'
           from gbm_evidence_engine.research_intelligence_v7 import build_research_profile
