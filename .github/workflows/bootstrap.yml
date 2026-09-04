@@ -9,12 +9,21 @@ permissions:
 
 jobs:
   bootstrap:
-    if: ${{ hashFiles('_bootstrap/part01.b64') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for bootstrap archive
+        id: check
+        run: |
+          if [ -f _bootstrap/part01.b64 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Reconstruct source archive
+        if: steps.check.outputs.run == 'true'
         run: |
           cat _bootstrap/part*.b64 | base64 -d > /tmp/project.tar.xz
           mkdir -p /tmp/project
@@ -22,10 +31,12 @@ jobs:
           cp -a /tmp/project/gbm-evidence-engine/. .
 
       - uses: actions/setup-python@v5
+        if: steps.check.outputs.run == 'true'
         with:
           python-version: '3.12'
 
       - name: Generate deterministic demo data
+        if: steps.check.outputs.run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install numpy pandas scipy
@@ -33,6 +44,7 @@ jobs:
           PYTHONPATH=. python scripts/run_demo_dossier.py EGFR
 
       - name: Run validation tests
+        if: steps.check.outputs.run == 'true'
         run: |
           PYTHONPATH=. python tests/test_survival.py
           PYTHONPATH=. python tests/test_dependency.py
@@ -40,6 +52,7 @@ jobs:
           PYTHONPATH=. python tests/test_grounding_validator.py
 
       - name: Commit imported project
+        if: steps.check.outputs.run == 'true'
         run: |
           rm -rf _bootstrap
           git config user.name "github-actions[bot]"
