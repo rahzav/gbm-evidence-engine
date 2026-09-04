@@ -36,6 +36,13 @@ def pval(x):
     return f"{x:.2g}"
 
 
+def section_space(size: float = 1.35):
+    st.markdown(
+        f"<div style='height: {size}rem;'></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def markdown_brief(profile) -> str:
     s = profile.score
     lines = [
@@ -57,7 +64,10 @@ st.caption(
     "Integrated evidence synthesis and target prioritization for glioblastoma research across genomic, functional, spatial, clinical, longitudinal, and literature data."
 )
 st.write(
-    "Enter a gene symbol to generate a structured GBM-specific research profile. The tool integrates TCGA/cBioPortal, Open Targets, ClinicalTrials.gov, Europe PMC, DepMap, Ivy GAP, CGGA, and authorized GLASS data where available. Results are intended for research prioritization and hypothesis development, not clinical decision-making."
+    "Enter a gene symbol to generate a GBM-specific research profile. The tool integrates evidence from TCGA/cBioPortal, Open Targets, ClinicalTrials.gov, Europe PMC, DepMap, Ivy GAP, CGGA, and authorized GLASS data where available."
+)
+st.caption(
+    "Note: Results are intended for research prioritization and hypothesis development, not clinical decision-making."
 )
 
 single_tab, batch_tab, methods_tab = st.tabs([
@@ -96,6 +106,7 @@ with single_tab:
         m4.metric("Active GBM Trials", profile.live["clinical_trials"].get("active", 0))
         st.caption(f"{score.label}. {score.caveat}")
 
+        section_space()
         st.markdown("### Priority Score Composition")
         rows = [{
             "Evidence Dimension": name,
@@ -115,6 +126,7 @@ with single_tab:
         cgg = profile.live.get("cgga", {})
         gla = profile.live.get("glass", {})
 
+        section_space()
         st.markdown("### Genomic Evidence")
         g1, g2, g3, g4 = st.columns(4)
         g1.metric("TCGA Mutation Frequency", pct((cbio.get("mutation") or {}).get("frequency")))
@@ -122,6 +134,7 @@ with single_tab:
         g3.metric("TCGA Deep Deletion Frequency", pct((cbio.get("copy_number") or {}).get("deep_deletion_frequency")))
         g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
 
+        section_space()
         left, right = st.columns(2)
         with left:
             st.markdown("### Evidence Gaps")
@@ -132,6 +145,7 @@ with single_tab:
             for idea in profile.next_experiments:
                 st.markdown(f"- {idea}")
 
+        section_space(1.6)
         detail_tabs = st.tabs([
             "Evidence Record",
             "Functional & Spatial Evidence",
@@ -186,6 +200,7 @@ with single_tab:
             else:
                 st.info(dep.get("error", "DepMap evidence is unavailable."))
 
+            section_space(1.0)
             st.markdown("#### Ivy GAP Spatial Expression")
             if ivy.get("ok"):
                 i1, i2, i3, i4 = st.columns(4)
@@ -242,6 +257,7 @@ with single_tab:
             else:
                 st.info("CGGA validation is unavailable in the strict GBM subset.")
 
+            section_space(1.0)
             st.markdown("#### GLASS Longitudinal Validation")
             if gla.get("ok"):
                 x1, x2, x3 = st.columns(3)
