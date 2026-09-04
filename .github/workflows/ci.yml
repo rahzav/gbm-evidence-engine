@@ -48,3 +48,25 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
           PYTHONPATH=. python tests/test_glass_gbm_specific.py
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
+      - name: V5 live source smoke
+        if: github.ref == 'refs/heads/v5-research-capacity'
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors import mygene, hpa, stringdb, b3db_live
+
+          identity = mygene.resolve_gene('ERBB1')
+          print('MYGENE', identity)
+          assert identity.get('ok') and identity.get('symbol') == 'EGFR'
+
+          tissue = hpa.get_gene_context('EGFR')
+          print('HPA', tissue)
+          assert tissue.get('ok')
+
+          network = stringdb.get_network_context('EGFR', limit=5)
+          print('STRING', network)
+          assert network.get('ok') and len(network.get('partners') or []) >= 1
+
+          bbb = b3db_live.lookup_candidates(['temozolomide', 'erlotinib', 'gefitinib', 'osimertinib'])
+          print('B3DB', bbb)
+          assert bbb.get('ok')
+          PY
