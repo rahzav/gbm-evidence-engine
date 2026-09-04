@@ -30,13 +30,11 @@ jobs:
 
           ENDPOINT = SOURCE_REGISTRY["open_targets"].base_url
 
-
           def _post_graphql(query: str, variables: dict) -> Optional[dict]:
               result = http_post_json(ENDPOINT, {"query": query, "variables": variables}, timeout=25)
               if not isinstance(result, dict) or result.get("errors"):
                   return None
               return result
-
 
           SEARCH_TARGET_QUERY = """
           query SearchTarget($q: String!) {
@@ -52,9 +50,7 @@ jobs:
               id approvedSymbol approvedName biotype
               tractability { label modality value }
               drugAndClinicalCandidates {
-                rows {
-                  drug { id name }
-                }
+                rows { drug { id name } }
               }
               associatedDiseases(page: {index: 0, size: 200}) {
                 count
@@ -68,14 +64,12 @@ jobs:
           }
           """
 
-
           def resolve_target(gene: str) -> Optional[str]:
               response = _post_graphql(SEARCH_TARGET_QUERY, {"q": gene.upper()}) or {}
               hits = response.get("data", {}).get("search", {}).get("hits", []) or []
               if not hits:
                   return None
               return hits[0].get("id")
-
 
           def get_target_profile(gene: str) -> dict:
               gene = gene.upper().strip()
@@ -97,14 +91,12 @@ jobs:
                           if "glioblast" in str((r.get("disease") or {}).get("name", "")).lower()]
               gbm_assoc = max(gbm_rows, key=lambda r: r.get("score") or 0, default=None)
               # Open Targets 26.03 migrated target-level knownDrugs to
-              # drugAndClinicalCandidates. Clinical stage is kept separate and
-              # comes from ClinicalTrials.gov in the intelligence layer.
-              drug_block = target.get("drugAndClinicalCandidates") or {}
-              drugs = drug_block.get("rows", []) or []
+              # drugAndClinicalCandidates. Disease-specific clinical stage is
+              # intentionally sourced from ClinicalTrials.gov instead.
+              drugs = (target.get("drugAndClinicalCandidates") or {}).get("rows", []) or []
               tract = target.get("tractability") or []
               tractable = [t for t in tract if t.get("value") is True or str(t.get("value")).lower() == "true"]
-              unique_drugs = []
-              seen = set()
+              unique_drugs, seen = [], set()
               for row in drugs:
                   drug = row.get("drug") or {}
                   name = drug.get("name")
@@ -130,7 +122,6 @@ jobs:
                   "drugs": unique_drugs[:25],
               }
 
-
           def get_known_drugs(ensembl_gene_id: str) -> Optional[dict]:
               response = _post_graphql(TARGET_PROFILE_QUERY, {"ensemblId": ensembl_gene_id})
               if not response:
@@ -144,23 +135,11 @@ jobs:
           p = Path('gbm_evidence_engine/research_intelligence.py')
           s = p.read_text()
 
-          old = '''        dossier.add(EvidenceRecord(
-              claim_text=f"Known drug/candidate records targeting {dossier.target} in Open Targets",
-              tier=EvidenceTier.OBSERVED_DATA,
-              provenance=Provenance(
-                  source_dataset="Open Targets Platform",
-                  dataset_version="live",
-                  access_tier=AccessTier.OPEN_LIVE_API,
-                  method="Count of known-drug rows for resolved target",
-                  parameters={"ensembl_id": ot.get("ensembl_id")},
-                  citation_url="https://platform.opentargets.org/",
-              ),
-              statistic_name="known_drug_count",
-              statistic_value=float(ot.get("known_drug_count") or 0),
-              additional_stats={"max_clinical_phase": float(ot.get("max_phase") or 0)},
-              confidence=ConfidenceLevel.HIGH,
-          ))'''
-          new = '''        dossier.add(EvidenceRecord(
+          marker = 'claim_text=f"Known drug/candidate records targeting {dossier.target} in Open Targets"'
+          idx = s.index(marker)
+          start = s.rfind('        dossier.add(EvidenceRecord(', 0, idx)
+          end = s.index('\n\n    if trials.get("ok"):', idx)
+          block = '''        dossier.add(EvidenceRecord(
               claim_text=f"Drug/clinical-candidate records targeting {dossier.target} in Open Targets",
               tier=EvidenceTier.OBSERVED_DATA,
               provenance=Provenance(
@@ -177,40 +156,27 @@ jobs:
               confidence=ConfidenceLevel.HIGH,
               caveats=["Clinical stage is scored from ClinicalTrials.gov; Open Targets migrated target-level knownDrugs to drugAndClinicalCandidates in 2026."],
           ))'''
-          assert old in s, 'evidence block drifted'
-          s = s.replace(old, new)
+          s = s[:start] + block + s[end:]
 
-          old = '''    if ot.get("ok"):
-              phase = int(ot.get("max_phase") or 0)
-              tract_total = int(ot.get("tractability_total") or 0)
-              tract_pos = int(ot.get("tractability_positive") or 0)
-              tract_score = (100.0 * tract_pos / tract_total) if tract_total else 0.0
-              drug_count = int(ot.get("known_drug_count") or 0)
-              phase_component = PHASE_SCORE.get(min(4, phase), 0.0)
-              density_component = min(100.0, 30.0 * log1p(drug_count))
-              score = 0.55 * phase_component + 0.25 * tract_score + 0.20 * density_component
-              dims["Druggability"] = ScoreDimension(
-                  score=score, weight=0.20,
-                  rationale=f"{drug_count} known drug/candidate rows; max phase {phase}; {tract_pos}/{tract_total} positive tractability assessments.",
-                  source="Open Targets",
-              )'''
-          new = '''    if ot.get("ok"):
+          marker = '    if ot.get("ok"):\n        phase = int(ot.get("max_phase") or 0)'
+          start = s.index(marker)
+          end = s.index('\n    else:\n        dims["Druggability"]', start)
+          block = '''    if ot.get("ok"):
               tract_total = int(ot.get("tractability_total") or 0)
               tract_pos = int(ot.get("tractability_positive") or 0)
               tract_score = (100.0 * tract_pos / tract_total) if tract_total else 0.0
               drug_count = int(ot.get("known_drug_count") or 0)
               density_component = min(100.0, 30.0 * log1p(drug_count))
-              # Open Targets 26.03+ no longer exposes clinical phase on the target-level
-              # candidate relation. Keep druggability orthogonal to trial maturity:
-              # tractability + candidate density here, clinical stage in the CT.gov dimension.
+              # Open Targets 26.03+ separates target candidate identity from clinical stage.
+              # Score druggability from tractability + candidate density; CT.gov owns maturity.
               score = 0.65 * tract_score + 0.35 * density_component
               dims["Druggability"] = ScoreDimension(
                   score=score, weight=0.20,
                   rationale=f"{drug_count} target-directed drug/clinical-candidate records; {tract_pos}/{tract_total} positive tractability assessments.",
                   source="Open Targets",
               )'''
-          assert old in s, 'druggability block drifted'
-          p.write_text(s.replace(old, new))
+          s = s[:start] + block + s[end:]
+          p.write_text(s)
           PY
 
       - name: Test
