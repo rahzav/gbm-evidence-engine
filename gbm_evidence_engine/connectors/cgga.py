@@ -9,6 +9,7 @@ then meta-analyse the log hazard ratios when both cohorts are usable.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import io
 import math
 from pathlib import Path
@@ -26,7 +27,8 @@ from .base import CACHE_DIR
 CGGA_DIR = CACHE_DIR / "cgga"
 CGGA_DIR.mkdir(parents=True, exist_ok=True)
 USER_AGENT = "GBM-Evidence-Engine/3.0 (+https://github.com/rahzav/gbm-evidence-engine)"
-_DOWNLOAD_LOCK = threading.Lock()
+_LOCK_GUARD = threading.Lock()
+_PATH_LOCKS: dict[str, threading.Lock] = {}
 
 BASE_DOWNLOAD = "https://www.cgga.org.cn/download"
 COHORTS = {
@@ -45,10 +47,16 @@ COHORTS = {
 }
 
 
+def _path_lock(path: Path) -> threading.Lock:
+    key = str(path.resolve())
+    with _LOCK_GUARD:
+        return _PATH_LOCKS.setdefault(key, threading.Lock())
+
+
 def _ensure_zip(url: str, path: Path) -> Path:
     if path.exists() and path.stat().st_size > 1000 and zipfile.is_zipfile(path):
         return path
-    with _DOWNLOAD_LOCK:
+    with _path_lock(path):
         if path.exists() and path.stat().st_size > 1000 and zipfile.is_zipfile(path):
             return path
         tmp = path.with_suffix(path.suffix + ".tmp")
@@ -113,6 +121,8 @@ def _strict_gbm_frame(clin: pd.DataFrame, expression: dict[str, float]) -> pd.Da
 
 def _analyse_cohort(name: str, config: dict, gene: str) -> dict:
     safe = name.lower()
+    # The two cohort workers use distinct cache paths, so their source downloads
+    # can proceed in parallel without racing on a shared temporary file.
     clin_zip = _ensure_zip(config["clinical_url"], CGGA_DIR / f"{safe}_clinical.zip")
     expr_zip = _ensure_zip(config["expression_url"], CGGA_DIR / f"{safe}_expression.zip")
     clin = _read_clinical(clin_zip, config["clinical_member"])
@@ -161,20 +171,22 @@ def _analyse_cohort(name: str, config: dict, gene: str) -> dict:
     }
 
 
-def summarize_external_validation(gene: str) -> dict:
-    """Run two independent CGGA GBM expression-survival validations."""
-    gene = gene.upper().strip()
-    cohort_results = []
-    errors = []
-    for name, config in COHORTS.items():
-        try:
-            result = _analyse_cohort(name, config, gene)
-        except Exception as exc:
-            result = {"ok": False, "cohort": name, "error": str(exc)}
-        cohort_results.append(result)
-        if not result.get("ok"):
-            errors.append(f"{name}: {result.get('error', 'unavailable')}")
+def _safe_analyse(item: tuple[str, dict], gene: str) -> dict:
+    name, config = item
+    try:
+        return _analyse_cohort(name, config, gene)
+    except Exception as exc:
+        return {"ok": False, "cohort": name, "error": str(exc)}
 
+
+def summarize_external_validation(gene: str) -> dict:
+    """Run both independent CGGA GBM validations concurrently, then meta-analyse."""
+    gene = gene.upper().strip()
+    items = list(COHORTS.items())
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        cohort_results = list(ex.map(lambda item: _safe_analyse(item, gene), items))
+
+    errors = [f"{r.get('cohort')}: {r.get('error', 'unavailable')}" for r in cohort_results if not r.get("ok")]
     usable = [r for r in cohort_results if r.get("ok") and r.get("se_log_hr") not in (None, 0)]
     meta = None
     if len(usable) >= 2:
