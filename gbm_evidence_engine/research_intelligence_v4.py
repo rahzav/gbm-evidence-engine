@@ -80,15 +80,15 @@ def _score_with_glass(profile: ResearchProfile, gla: dict) -> TargetPriorityScor
         overall = round(_clamp(adjusted), 1)
 
     if overall is None:
-        label = "Insufficient live evidence"
+        label = "Insufficient evidence for prioritization"
     elif overall >= 75:
-        label = "High-priority research signal"
+        label = "High research priority"
     elif overall >= 55:
-        label = "Promising / context-dependent"
+        label = "Moderate-high research priority"
     elif overall >= 35:
-        label = "Mixed evidence"
+        label = "Intermediate research priority"
     else:
-        label = "Low current prioritisation signal"
+        label = "Low research priority"
 
     return TargetPriorityScore(
         overall=overall,
@@ -96,8 +96,8 @@ def _score_with_glass(profile: ResearchProfile, gla: dict) -> TargetPriorityScor
         dimensions=dims,
         label=label,
         caveat=(
-            "Research-prioritisation heuristic only. Genomic, dependency, spatial, survival and longitudinal recurrence "
-            "signals answer different questions; the combined score does not predict patient benefit or prove causality."
+            "Research prioritization heuristic only. Genomic, dependency, spatial, survival, and longitudinal recurrence "
+            "signals address different biological questions. The combined score does not predict patient benefit or establish causality."
         ),
     )
 
@@ -147,7 +147,7 @@ def build_research_profile(gene: str) -> ResearchProfile:
     if gla.get("ok") and gla.get("gbm_specific"):
         profile.source_status["GLASS"] = f"{gla.get('n_pairs', 0)} clinically verified IDH-wildtype GBM pairs"
     elif gla.get("status") == "credentials_required":
-        profile.source_status["GLASS"] = "GBM-specific connector ready — credentials required"
+        profile.source_status["GLASS"] = "GBM-specific connector ready; credentials required"
     return profile
 
 
