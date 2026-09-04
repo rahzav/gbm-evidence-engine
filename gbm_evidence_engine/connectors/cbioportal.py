@@ -7,6 +7,7 @@ research profile.
 """
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from typing import Optional
 import urllib.parse
 import statistics
@@ -79,7 +80,6 @@ def _pick_profile(profiles: list[dict], kind: str) -> Optional[dict]:
                       and str(p.get("datatype", "")).upper() == "DISCRETE"]
     elif kind == "expression":
         candidates = [p for p in profiles if "MRNA_EXPRESSION" in str(p.get("molecularAlterationType", ""))]
-        # Prefer z-scores because they have a meaningful cross-sample threshold.
         z = [p for p in candidates if "ZSCORE" in str(p.get("datatype", "")).upper()
              or "ZSCORE" in str(p.get("molecularProfileId", "")).upper()]
         if z:
@@ -88,7 +88,6 @@ def _pick_profile(profiles: list[dict], kind: str) -> Optional[dict]:
         return None
     if not candidates:
         return None
-    # Prefer profiles exposed in analysis, then RNA-seq profiles, then first available.
     return sorted(candidates, key=lambda p: (
         not bool(p.get("showProfileInAnalysisTab", False)),
         "RNA" not in str(p.get("molecularProfileId", "")).upper(),
@@ -104,6 +103,59 @@ def _record_value(row: dict) -> Optional[float]:
             except (TypeError, ValueError):
                 pass
     return None
+
+
+def _mutation_label(row: dict) -> str | None:
+    for key in ("proteinChange", "proteinChangeShort", "aminoAcidChange"):
+        value = row.get(key)
+        if value and str(value).strip() not in {"", "NA", "N/A"}:
+            return str(value).strip()
+    return None
+
+
+def _summarize_mutation_variants(rows: list[dict], denominator: int | None, limit: int = 10) -> dict:
+    """Summarize recurrent protein changes and mutation classes by unique sample.
+
+    cBioPortal can return more than one mutation row per sample. Counts here are
+    unique-sample counts so recurrent calls are not inflated by duplicate rows.
+    """
+    variant_samples: dict[str, set[str]] = defaultdict(set)
+    variant_records: Counter[str] = Counter()
+    type_samples: dict[str, set[str]] = defaultdict(set)
+
+    for row in rows:
+        sample = str(row.get("sampleId") or "").strip()
+        label = _mutation_label(row)
+        if label:
+            variant_records[label] += 1
+            if sample:
+                variant_samples[label].add(sample)
+        mutation_type = str(row.get("mutationType") or row.get("variantType") or "").strip()
+        if mutation_type and sample:
+            type_samples[mutation_type].add(sample)
+
+    top_variants = []
+    for label, samples in sorted(
+        variant_samples.items(),
+        key=lambda item: (-len(item[1]), -variant_records[item[0]], item[0]),
+    )[:limit]:
+        n = len(samples)
+        top_variants.append({
+            "protein_change": label,
+            "sample_count": n,
+            "frequency_in_profiled_cohort": (n / denominator if denominator else None),
+            "mutation_records": int(variant_records[label]),
+        })
+
+    mutation_types = [
+        {
+            "mutation_type": mutation_type,
+            "sample_count": len(samples),
+            "frequency_in_profiled_cohort": (len(samples) / denominator if denominator else None),
+        }
+        for mutation_type, samples in sorted(type_samples.items(), key=lambda item: (-len(item[1]), item[0]))
+    ]
+    return {"top_variants": top_variants, "mutation_types": mutation_types}
 
 
 def summarize_gbm_gene(gene: str, study_id: str = DEFAULT_GBM_STUDY) -> dict:
@@ -143,6 +195,7 @@ def summarize_gbm_gene(gene: str, study_id: str = DEFAULT_GBM_STUDY) -> dict:
                   if expr_profile and entrez is not None else None)
 
     mutation_samples = {r.get("sampleId") for r in (mutations or []) if r.get("sampleId")}
+    mutation_detail = _summarize_mutation_variants(mutations or [], denominator)
     cna_values = [_record_value(r) for r in (cna or [])]
     cna_values = [v for v in cna_values if v is not None]
     expr_values = [_record_value(r) for r in (expression or [])]
@@ -169,6 +222,8 @@ def summarize_gbm_gene(gene: str, study_id: str = DEFAULT_GBM_STUDY) -> dict:
             "mutated_samples": len(mutation_samples),
             "frequency": (len(mutation_samples) / denominator if denominator else None),
             "records": len(mutations or []),
+            "top_variants": mutation_detail["top_variants"],
+            "mutation_types": mutation_detail["mutation_types"],
         } if mutations is not None else None,
         "copy_number": {
             "profile_id": (cna_profile or {}).get("molecularProfileId"),
