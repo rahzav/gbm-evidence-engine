@@ -14,7 +14,7 @@ from gbm_evidence_engine.evidence_model import AccessTier
 
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-USER_AGENT = "GBM-Gene-Analysis/6.0 (+https://github.com/rahzav/gbm-evidence-engine)"
+USER_AGENT = "GBM-Gene-Analysis/7.0 (+https://github.com/rahzav/gbm-evidence-engine)"
 
 
 @dataclass
@@ -112,8 +112,6 @@ def _read_json(req: urllib.request.Request, timeout: int, retries: int):
                 raw = resp.read()
             return json.loads(raw.decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            # Client errors are normally deterministic; retry only transient
-            # gateway/rate-limit/server responses.
             if exc.code not in {408, 425, 429, 500, 502, 503, 504}:
                 return None
             if attempt >= retries - 1:
