@@ -1,0 +1,244 @@
+name: Open Targets 26.06 compatibility
+
+on:
+  push:
+    branches: [fix-open-targets-26-06]
+    paths: ['.github/workflows/ot_compat_test.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-open-targets-26-06
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply Open Targets 26.06 migration
+        run: |
+          cat > gbm_evidence_engine/connectors/opentargets.py <<'PY'
+          """Open Targets GraphQL connector for target identity, disease evidence and drugs."""
+          from __future__ import annotations
+          from typing import Optional
+          from .base import SOURCE_REGISTRY, http_post_json
+
+          ENDPOINT = SOURCE_REGISTRY["open_targets"].base_url
+
+
+          def _post_graphql(query: str, variables: dict) -> Optional[dict]:
+              result = http_post_json(ENDPOINT, {"query": query, "variables": variables}, timeout=25)
+              if not isinstance(result, dict) or result.get("errors"):
+                  return None
+              return result
+
+
+          SEARCH_TARGET_QUERY = """
+          query SearchTarget($q: String!) {
+            search(queryString: $q, entityNames: ["target"], page: {index: 0, size: 5}) {
+              hits { id name entity }
+            }
+          }
+          """
+
+          TARGET_PROFILE_QUERY = """
+          query TargetProfile($ensemblId: String!) {
+            target(ensemblId: $ensemblId) {
+              id approvedSymbol approvedName biotype
+              tractability { label modality value }
+              drugAndClinicalCandidates {
+                rows {
+                  drug { id name }
+                }
+              }
+              associatedDiseases(page: {index: 0, size: 200}) {
+                count
+                rows {
+                  score
+                  disease { id name }
+                  datatypeScores { id score }
+                }
+              }
+            }
+          }
+          """
+
+
+          def resolve_target(gene: str) -> Optional[str]:
+              response = _post_graphql(SEARCH_TARGET_QUERY, {"q": gene.upper()}) or {}
+              hits = response.get("data", {}).get("search", {}).get("hits", []) or []
+              if not hits:
+                  return None
+              return hits[0].get("id")
+
+
+          def get_target_profile(gene: str) -> dict:
+              gene = gene.upper().strip()
+              ensembl = resolve_target(gene)
+              if not ensembl:
+                  return {"ok": False, "gene": gene, "error": "Open Targets could not resolve the gene symbol."}
+              response = _post_graphql(TARGET_PROFILE_QUERY, {"ensemblId": ensembl}) or {}
+              target = response.get("data", {}).get("target")
+              if not target:
+                  return {"ok": False, "gene": gene, "ensembl_id": ensembl,
+                          "error": "Open Targets target profile unavailable."}
+              approved = (target.get("approvedSymbol") or "").upper()
+              if approved and approved != gene:
+                  return {"ok": False, "gene": gene, "ensembl_id": ensembl,
+                          "error": f"Gene resolved to {approved}; refusing ambiguous mapping."}
+
+              disease_rows = (target.get("associatedDiseases") or {}).get("rows", []) or []
+              gbm_rows = [r for r in disease_rows
+                          if "glioblast" in str((r.get("disease") or {}).get("name", "")).lower()]
+              gbm_assoc = max(gbm_rows, key=lambda r: r.get("score") or 0, default=None)
+              # Open Targets 26.03 migrated target-level knownDrugs to
+              # drugAndClinicalCandidates. Clinical stage is kept separate and
+              # comes from ClinicalTrials.gov in the intelligence layer.
+              drug_block = target.get("drugAndClinicalCandidates") or {}
+              drugs = drug_block.get("rows", []) or []
+              tract = target.get("tractability") or []
+              tractable = [t for t in tract if t.get("value") is True or str(t.get("value")).lower() == "true"]
+              unique_drugs = []
+              seen = set()
+              for row in drugs:
+                  drug = row.get("drug") or {}
+                  name = drug.get("name")
+                  if name and name not in seen:
+                      seen.add(name)
+                      unique_drugs.append({"id": drug.get("id"), "name": name})
+              return {
+                  "ok": True,
+                  "gene": gene,
+                  "ensembl_id": target.get("id"),
+                  "approved_name": target.get("approvedName"),
+                  "biotype": target.get("biotype"),
+                  "gbm_association_score": gbm_assoc.get("score") if gbm_assoc else None,
+                  "gbm_association": gbm_assoc,
+                  "known_drug_count": len(unique_drugs),
+                  "gbm_drug_rows": None,
+                  "max_phase": None,
+                  "max_gbm_phase": None,
+                  "drug_phase_available": False,
+                  "tractability_positive": len(tractable),
+                  "tractability_total": len(tract),
+                  "tractability": tract,
+                  "drugs": unique_drugs[:25],
+              }
+
+
+          def get_known_drugs(ensembl_gene_id: str) -> Optional[dict]:
+              response = _post_graphql(TARGET_PROFILE_QUERY, {"ensemblId": ensembl_gene_id})
+              if not response:
+                  return None
+              target = response.get("data", {}).get("target")
+              return {"data": {"target": target}} if target else None
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('gbm_evidence_engine/research_intelligence.py')
+          s = p.read_text()
+
+          old = '''        dossier.add(EvidenceRecord(
+              claim_text=f"Known drug/candidate records targeting {dossier.target} in Open Targets",
+              tier=EvidenceTier.OBSERVED_DATA,
+              provenance=Provenance(
+                  source_dataset="Open Targets Platform",
+                  dataset_version="live",
+                  access_tier=AccessTier.OPEN_LIVE_API,
+                  method="Count of known-drug rows for resolved target",
+                  parameters={"ensembl_id": ot.get("ensembl_id")},
+                  citation_url="https://platform.opentargets.org/",
+              ),
+              statistic_name="known_drug_count",
+              statistic_value=float(ot.get("known_drug_count") or 0),
+              additional_stats={"max_clinical_phase": float(ot.get("max_phase") or 0)},
+              confidence=ConfidenceLevel.HIGH,
+          ))'''
+          new = '''        dossier.add(EvidenceRecord(
+              claim_text=f"Drug/clinical-candidate records targeting {dossier.target} in Open Targets",
+              tier=EvidenceTier.OBSERVED_DATA,
+              provenance=Provenance(
+                  source_dataset="Open Targets Platform",
+                  dataset_version="live",
+                  access_tier=AccessTier.OPEN_LIVE_API,
+                  method="Count of target-level drugAndClinicalCandidates rows",
+                  parameters={"ensembl_id": ot.get("ensembl_id")},
+                  citation_url="https://platform.opentargets.org/",
+              ),
+              statistic_name="known_drug_count",
+              statistic_value=float(ot.get("known_drug_count") or 0),
+              additional_stats={},
+              confidence=ConfidenceLevel.HIGH,
+              caveats=["Clinical stage is scored from ClinicalTrials.gov; Open Targets migrated target-level knownDrugs to drugAndClinicalCandidates in 2026."],
+          ))'''
+          assert old in s, 'evidence block drifted'
+          s = s.replace(old, new)
+
+          old = '''    if ot.get("ok"):
+              phase = int(ot.get("max_phase") or 0)
+              tract_total = int(ot.get("tractability_total") or 0)
+              tract_pos = int(ot.get("tractability_positive") or 0)
+              tract_score = (100.0 * tract_pos / tract_total) if tract_total else 0.0
+              drug_count = int(ot.get("known_drug_count") or 0)
+              phase_component = PHASE_SCORE.get(min(4, phase), 0.0)
+              density_component = min(100.0, 30.0 * log1p(drug_count))
+              score = 0.55 * phase_component + 0.25 * tract_score + 0.20 * density_component
+              dims["Druggability"] = ScoreDimension(
+                  score=score, weight=0.20,
+                  rationale=f"{drug_count} known drug/candidate rows; max phase {phase}; {tract_pos}/{tract_total} positive tractability assessments.",
+                  source="Open Targets",
+              )'''
+          new = '''    if ot.get("ok"):
+              tract_total = int(ot.get("tractability_total") or 0)
+              tract_pos = int(ot.get("tractability_positive") or 0)
+              tract_score = (100.0 * tract_pos / tract_total) if tract_total else 0.0
+              drug_count = int(ot.get("known_drug_count") or 0)
+              density_component = min(100.0, 30.0 * log1p(drug_count))
+              # Open Targets 26.03+ no longer exposes clinical phase on the target-level
+              # candidate relation. Keep druggability orthogonal to trial maturity:
+              # tractability + candidate density here, clinical stage in the CT.gov dimension.
+              score = 0.65 * tract_score + 0.35 * density_component
+              dims["Druggability"] = ScoreDimension(
+                  score=score, weight=0.20,
+                  rationale=f"{drug_count} target-directed drug/clinical-candidate records; {tract_pos}/{tract_total} positive tractability assessments.",
+                  source="Open Targets",
+              )'''
+          assert old in s, 'druggability block drifted'
+          p.write_text(s.replace(old, new))
+          PY
+
+      - name: Test
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy
+          python -m py_compile gbm_evidence_engine/connectors/opentargets.py gbm_evidence_engine/research_intelligence.py
+          PYTHONPATH=. python tests/test_research_intelligence.py
+
+      - name: Require live Open Targets
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.research_intelligence import build_research_profile
+          p = build_research_profile('EGFR')
+          print('score:', p.score.overall, 'coverage:', p.score.evidence_coverage_pct)
+          print('sources:', p.source_status)
+          print('Open Targets candidates:', p.live['open_targets'].get('known_drug_count'))
+          print('Open Targets GBM association:', p.live['open_targets'].get('gbm_association_score'))
+          assert p.source_status['Open Targets'] == 'live', p.live['open_targets']
+          assert (p.live['open_targets'].get('known_drug_count') or 0) > 0
+          assert p.score.evidence_coverage_pct >= 80
+          PY
+
+      - name: Commit validated compatibility patch
+        run: |
+          rm -f .github/workflows/ot_compat_test.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Open Targets 26.06 clinical candidate API"
+          git push origin fix-open-targets-26-06
