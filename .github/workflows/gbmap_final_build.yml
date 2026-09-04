@@ -1,0 +1,87 @@
+name: Final GBmap Reference Build
+
+on:
+  push:
+    branches: [v7-gbmap-build-final]
+
+permissions:
+  contents: write
+
+jobs:
+  build-reference:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v7-gbmap-build-final
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Free build disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install memory-safe build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install h5py numpy scipy
+      - name: Verify official Core GBmap metadata
+        run: PYTHONPATH=. python scripts/build_gbmap_reference_v3.py --metadata-only
+      - name: Build compact patient-aware reference
+        run: |
+          PYTHONPATH=. python scripts/build_gbmap_reference_v3.py \
+            --output data/gbmap_gene_state_summary.csv.gz \
+            --metadata-output data/gbmap_reference_metadata.json \
+            --chunk-size 4096
+          ls -lh data/gbmap_gene_state_summary.csv.gz data/gbmap_reference_metadata.json
+          bytes=$(stat -c%s data/gbmap_gene_state_summary.csv.gz)
+          echo "Compact reference bytes: $bytes"
+          test "$bytes" -gt 1000
+          test "$bytes" -lt 95000000
+      - name: Validate reference semantics and query performance
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          import time
+          from pathlib import Path
+          from gbm_evidence_engine.connectors.gbmap import summarize_gene_cell_states
+
+          meta = json.loads(Path('data/gbmap_reference_metadata.json').read_text())
+          assert meta['n_cells'] == 338564, meta
+          assert meta['n_patients'] >= 50, meta
+          assert meta['n_states'] >= 4, meta
+          assert meta['n_genes'] >= 10000, meta
+          assert meta['rows_written'] >= 10000, meta
+          assert meta['builder'] == 'direct_hdf5_memory_safe', meta
+
+          timings = {}
+          for gene in ['EGFR', 'SOX2', 'OLIG2', 'GFAP', 'CDK4']:
+              started = time.perf_counter()
+              result = summarize_gene_cell_states(gene)
+              elapsed = time.perf_counter() - started
+              timings[gene] = round(elapsed, 3)
+              assert result.get('ok'), (gene, result)
+              top = result.get('top_malignant_state') or {}
+              assert top.get('state'), (gene, result)
+              assert top.get('state_class') == 'malignant', (gene, top)
+              prevalence = top.get('patient_prevalence')
+              assert prevalence is not None and 0 <= prevalence <= 1, (gene, top)
+              n_state = top.get('n_state_patients')
+              n_expr = top.get('n_expressing_patients')
+              assert n_state and n_expr is not None and 0 <= n_expr <= n_state, (gene, top)
+              assert result.get('n_malignant_states', 0) > 0
+              assert result.get('n_microenvironment_states', 0) > 0
+          print('GBMAP_QUERY_SECONDS', timings)
+          assert max(timings.values()) < 15.0, timings
+          print('GBMAP_REFERENCE_VALIDATED')
+          PY
+      - name: Commit derived reference
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/gbmap_gene_state_summary.csv.gz data/gbmap_reference_metadata.json
+          git commit -m "Add validated compact Core GBmap reference"
+          git push origin HEAD:v7-gbmap-build-final
