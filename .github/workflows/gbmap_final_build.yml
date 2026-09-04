@@ -28,11 +28,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install h5py numpy scipy
-      - name: Verify official Core GBmap metadata
-        run: PYTHONPATH=. python scripts/build_gbmap_reference_v3.py --metadata-only
+      - name: Download official Core GBmap once
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from pathlib import Path
+          from scripts import build_gbmap_reference as source
+          dataset = source._find_core_dataset()
+          url, size = source._asset_url(dataset)
+          print('DATASET', dataset.get('title'), dataset.get('dataset_id'), size)
+          source._download(url, Path('/tmp/core_gbmap.h5ad'))
+          print('DOWNLOADED', Path('/tmp/core_gbmap.h5ad').stat().st_size)
+          PY
+      - name: Inspect duplicate feature labels
+        run: PYTHONPATH=.:scripts python scripts/inspect_gbmap_duplicate_features.py /tmp/core_gbmap.h5ad
       - name: Build compact patient-aware reference
         run: |
           PYTHONPATH=. python scripts/build_gbmap_reference_v3.py \
+            --h5ad /tmp/core_gbmap.h5ad \
             --output data/gbmap_gene_state_summary.csv.gz \
             --metadata-output data/gbmap_reference_metadata.json \
             --chunk-size 4096
