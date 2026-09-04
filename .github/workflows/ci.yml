@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, research-grade-cohorts, v5-research-capacity, v6-discovery-system]
+    branches: [main, research-grade-cohorts, v5-research-capacity, v6-discovery-system, v7-frozen-scope]
   pull_request:
 
 jobs:
@@ -34,13 +34,17 @@ jobs:
             gbm_evidence_engine/connectors/stringdb.py \
             gbm_evidence_engine/connectors/b3db_live.py \
             gbm_evidence_engine/connectors/l1000cds2.py \
+            gbm_evidence_engine/connectors/gbmap.py \
             gbm_evidence_engine/research_intelligence.py \
             gbm_evidence_engine/research_intelligence_v3.py \
             gbm_evidence_engine/research_intelligence_v4.py \
             gbm_evidence_engine/research_intelligence_v5.py \
             gbm_evidence_engine/research_intelligence_v6.py \
             gbm_evidence_engine/research_discovery.py \
-            streamlit_app.py streamlit_app_v5.py streamlit_app_v6.py streamlit_app_v6_guarded.py api/app.py
+            gbm_evidence_engine/research_intelligence_v7.py \
+            gbm_evidence_engine/benchmarking.py \
+            scripts/build_gbmap_reference.py \
+            streamlit_app.py streamlit_app_v5.py streamlit_app_v6.py streamlit_app_v6_guarded.py streamlit_app_v7.py api/app.py
       - name: Scientific and grounding tests
         run: |
           PYTHONPATH=. python tests/test_survival.py
@@ -53,6 +57,7 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
           PYTHONPATH=. python tests/test_research_intelligence_v6.py
           PYTHONPATH=. python tests/test_research_discovery.py
+          PYTHONPATH=. python tests/test_research_intelligence_v7.py
       - name: Streamlit render and rerun regression
         run: |
           python - <<'PY'
@@ -68,10 +73,14 @@ jobs:
           gene.set_value("PTEN").run(timeout=30)
           assert not list(at.exception), list(at.exception)
           assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
-          print("STREAMLIT V6 RERUN TEST PASSED")
+          print("STREAMLIT V7 RERUN TEST PASSED")
           PY
-      - name: Live DepMap NextGen smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system'
+      - name: Inspect published GBmap asset metadata
+        if: github.ref == 'refs/heads/v7-frozen-scope'
+        run: |
+          PYTHONPATH=. python scripts/build_gbmap_reference.py --metadata-only
+      - name: Live DepMap model-context smoke test
+        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope'
         run: |
           PYTHONPATH=. python - <<'PY'
           from gbm_evidence_engine.connectors.depmap import summarize_gene_dependency
@@ -80,10 +89,10 @@ jobs:
           assert result.get("ok"), result
           assert result.get("n_gbm", 0) >= 3
           assert "nextgen_model_context" in result
-          print("DEPMAP LIVE V6 OK")
+          print("DEPMAP LIVE OK")
           PY
       - name: Live L1000CDS2 reversal smoke test
-        if: github.ref == 'refs/heads/v6-discovery-system'
+        if: github.ref == 'refs/heads/v6-discovery-system' || github.ref == 'refs/heads/v7-frozen-scope'
         run: |
           PYTHONPATH=. python - <<'PY'
           from gbm_evidence_engine.connectors.l1000cds2 import reverse_weighted_signature
@@ -95,7 +104,25 @@ jobs:
           assert result.get("top_drugs"), result
           assert all(row.get("drug") not in {"-666", "666"} for row in result["top_drugs"])
           assert all(row.get("drug_1") != row.get("drug_2") for row in result.get("combinations", []))
-          print("L1000 LIVE V6 OK")
+          print("L1000 LIVE OK")
+          PY
+      - name: Full live V7 EGFR profile smoke test
+        if: github.ref == 'refs/heads/v7-frozen-scope'
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.research_intelligence_v7 import build_research_profile
+          profile = build_research_profile("EGFR")
+          print("gene", profile.gene)
+          print("score", profile.score.overall, "coverage", profile.score.evidence_coverage_pct)
+          print("confidence", profile.live.get("overall_evidence_confidence"))
+          print("model relevance", profile.live.get("model_relevance"))
+          print("gbmap", profile.live.get("gbmap_cell_state"))
+          assert profile.gene == "EGFR"
+          assert profile.score.overall is not None
+          assert profile.live.get("overall_evidence_confidence", {}).get("score") is not None
+          assert profile.live.get("model_relevance", {}).get("level")
+          assert "gbmap_cell_state" in profile.live
+          print("FULL LIVE V7 PROFILE OK")
           PY
       - name: Full live guarded V6 EGFR profile smoke test
         if: github.ref == 'refs/heads/v6-discovery-system'
@@ -104,11 +131,6 @@ jobs:
           from gbm_evidence_engine.research_discovery import build_research_profile
           profile = build_research_profile("EGFR")
           hypotheses = profile.live.get("mechanistic_hypotheses", [])
-          print("gene", profile.gene)
-          print("score", profile.score.overall, "coverage", profile.score.evidence_coverage_pct)
-          print("opportunities", profile.live.get("research_opportunities"))
-          print("guarded hypotheses", hypotheses)
-          print("experiments", profile.live.get("experiment_portfolio"))
           assert profile.gene == "EGFR"
           assert profile.score.overall is not None
           assert profile.live.get("experiment_portfolio")
