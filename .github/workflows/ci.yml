@@ -68,3 +68,46 @@ jobs:
           assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
           print("STREAMLIT V6 RERUN TEST PASSED")
           PY
+      - name: Live DepMap NextGen smoke test
+        if: github.ref == 'refs/heads/v6-discovery-system'
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors.depmap import summarize_gene_dependency
+          result = summarize_gene_dependency("EGFR")
+          print(result)
+          assert result.get("ok"), result
+          assert result.get("n_gbm", 0) >= 3
+          assert "nextgen_model_context" in result
+          print("DEPMAP LIVE V6 OK")
+          PY
+      - name: Live L1000CDS2 reversal smoke test
+        if: github.ref == 'refs/heads/v6-discovery-system'
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors.l1000cds2 import reverse_weighted_signature
+          genes = ["EGFR","STAT3","SOX2","CDK6","OLIG2","GFAP","CDKN1A","BAX"]
+          values = [2.4,1.6,1.4,1.2,-1.0,-1.3,-1.7,-2.0]
+          result = reverse_weighted_signature(genes, values, combinations=True, max_results=5)
+          print(result)
+          assert result.get("ok"), result
+          assert result.get("top_drugs"), result
+          print("L1000 LIVE V6 OK")
+          PY
+      - name: Full live V6 EGFR profile smoke test
+        if: github.ref == 'refs/heads/v6-discovery-system'
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.research_intelligence_v6 import build_research_profile
+          profile = build_research_profile("EGFR")
+          print("gene", profile.gene)
+          print("score", profile.score.overall, "coverage", profile.score.evidence_coverage_pct)
+          print("opportunities", profile.live.get("research_opportunities"))
+          print("hypotheses", profile.live.get("mechanistic_hypotheses"))
+          print("experiments", profile.live.get("experiment_portfolio"))
+          assert profile.gene == "EGFR"
+          assert profile.score.overall is not None
+          assert "research_opportunities" in profile.live
+          assert "mechanistic_hypotheses" in profile.live
+          assert profile.live.get("experiment_portfolio")
+          print("FULL LIVE V6 PROFILE OK")
+          PY
