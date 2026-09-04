@@ -97,17 +97,11 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
     top_malignant = malignant[0] if malignant else None
     top_overall = state_rows[0] if state_rows else None
 
-    # This is the maximum state-specific patient breadth among malignant states,
-    # not an atlas-wide prevalence estimate. The denominator for each state is
-    # patients represented in that state, reducing bias from uneven sampling.
-    malignant_patient_prevalence = max(
-        [r.get("patient_prevalence") or 0.0 for r in malignant],
-        default=None,
-    )
-    malignant_expression_breadth = max(
-        [r.get("fraction_expressing") or 0.0 for r in malignant],
-        default=None,
-    )
+    # Keep the breadth metrics tied to the same top malignant state displayed by
+    # the UI. This avoids combining the top expression state with a prevalence
+    # statistic taken from some other state.
+    malignant_patient_prevalence = None if top_malignant is None else top_malignant.get("patient_prevalence")
+    malignant_expression_breadth = None if top_malignant is None else top_malignant.get("fraction_expressing")
 
     return {
         "ok": True,
@@ -122,7 +116,7 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
         "n_microenvironment_states": len(microenvironment),
         "patient_prevalence_definition": (
             "For each state: patients with >=1 expressing cell divided by patients represented in that state. "
-            "malignant_patient_prevalence is the maximum of those state-specific malignant values."
+            "The summary patient-prevalence and expression-breadth values refer to the displayed top malignant state."
         ),
         "source": "GBmap compact reference derived from CELLxGENE Core GBmap",
         "source_url": COLLECTION_URL,
