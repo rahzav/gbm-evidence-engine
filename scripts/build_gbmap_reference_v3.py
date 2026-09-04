@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """Canonical offline builder for the compact GBmap production reference.
 
-This builder is intentionally expensive once so production queries remain cheap.
-It converts the published Core GBmap H5AD into a compact gene-by-state summary
-using the authors' annotation hierarchy:
+This is intentionally an expensive one-time/pre-release build step. The live
+Streamlit app never opens the full Core GBmap atlas.
 
-- annotation_level_1: Neoplastic / Non-neoplastic
-- annotation_level_3: harmonized cell state/type
-- patient: patient identifier
+The published CELLxGENE H5AD contains additional dense layers that can require
+>30 GiB if anndata materializes them even in backed mode. This builder therefore
+reads the HDF5 structures directly and touches only:
 
-For each gene/state it calculates cell-level expression breadth, mean normalized
-expression, and *gene-specific* patient prevalence among patients represented in
-that state. Patient prevalence is therefore not a proxy for state abundance.
+- ``obs/annotation_level_1``: Neoplastic / Non-neoplastic
+- ``obs/annotation_level_3``: harmonized GBM cell state/type
+- ``obs/patient`` (preferred) or standardized ``obs/donor_id``
+- ``var/feature_name`` (or the var index as fallback)
+- ``X``: the published expression matrix
 
-The full atlas is never used by the interactive Streamlit process.
+For every gene/state it calculates cell-level expression breadth, mean published
+X expression, and gene-specific patient prevalence among patients represented in
+that state. Expression context is non-scoring and never treated as dependency,
+causality, drug response, or clinical evidence.
 """
 from __future__ import annotations
 
@@ -26,7 +30,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Allow execution as ``python scripts/build_gbmap_reference_v3.py``.
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
@@ -34,7 +37,59 @@ import build_gbmap_reference as source  # noqa: E402
 
 STATE_COLUMN = "annotation_level_3"
 CLASS_COLUMN = "annotation_level_1"
-PATIENT_COLUMN = "patient"
+PATIENT_CANDIDATES = ("patient", "donor_id")
+
+
+def _decode_scalar(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _decode_array(values):
+    return [_decode_scalar(v) for v in values]
+
+
+def _read_dataframe_column(group, name: str):
+    """Read one H5AD dataframe column without materializing unrelated nodes."""
+    import h5py
+    import numpy as np
+
+    node = group[name]
+    if isinstance(node, h5py.Dataset):
+        return np.asarray(_decode_array(node[()]), dtype=object)
+
+    if isinstance(node, h5py.Group) and "codes" in node and "categories" in node:
+        codes = node["codes"][()]
+        categories = _decode_array(node["categories"][()])
+        out = np.empty(len(codes), dtype=object)
+        for idx, code in enumerate(codes):
+            code = int(code)
+            out[idx] = "" if code < 0 else categories[code]
+        return out
+
+    raise RuntimeError(
+        f"Unsupported H5AD encoding for column {name!r}. "
+        f"Node type={type(node).__name__}, keys={list(node.keys()) if hasattr(node, 'keys') else 'N/A'}"
+    )
+
+
+def _read_var_names(var_group):
+    columns = set(var_group.keys())
+    if "feature_name" in columns:
+        names = _read_dataframe_column(var_group, "feature_name")
+    else:
+        index_name = var_group.attrs.get("_index", "_index")
+        index_name = _decode_scalar(index_name)
+        if index_name not in columns:
+            for candidate in ("_index", "feature_id", "gene_id"):
+                if candidate in columns:
+                    index_name = candidate
+                    break
+        if index_name not in columns:
+            raise RuntimeError(f"Could not resolve GBmap var names. var keys={sorted(columns)}")
+        names = _read_dataframe_column(var_group, index_name)
+    return [str(x).strip() for x in names]
 
 
 def _class_label(value: str) -> str:
@@ -53,102 +108,160 @@ def _safe_patient(value: str) -> str | None:
     return value
 
 
-def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int = 2048) -> dict:
+def _sparse_encoding(node) -> str:
+    raw = node.attrs.get("encoding-type", "")
+    return _decode_scalar(raw).lower()
+
+
+def _read_x_rows(x_node, start: int, stop: int, n_genes: int):
+    """Read only an X row slice from dense or CSR-encoded H5AD storage."""
+    import h5py
+    import numpy as np
+    import scipy.sparse as sp
+
+    if isinstance(x_node, h5py.Dataset):
+        return np.asarray(x_node[start:stop, :])
+
+    if not isinstance(x_node, h5py.Group):
+        raise RuntimeError(f"Unsupported GBmap X node type: {type(x_node).__name__}")
+
+    encoding = _sparse_encoding(x_node)
+    required = {"data", "indices", "indptr"}
+    if not required.issubset(set(x_node.keys())):
+        raise RuntimeError(f"Unsupported GBmap X sparse structure. encoding={encoding!r}, keys={sorted(x_node.keys())}")
+    if "csr" not in encoding:
+        raise RuntimeError(
+            f"Core GBmap X is encoded as {encoding!r}; the memory-safe builder currently requires row-oriented CSR. "
+            "Refusing to materialize a full CSC matrix."
+        )
+
+    indptr = x_node["indptr"][start : stop + 1]
+    data_start = int(indptr[0])
+    data_stop = int(indptr[-1])
+    data = x_node["data"][data_start:data_stop]
+    indices = x_node["indices"][data_start:data_stop]
+    local_indptr = indptr.astype("int64", copy=True) - data_start
+    return sp.csr_matrix((data, indices, local_indptr), shape=(stop - start, n_genes))
+
+
+def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int = 4096) -> dict:
     try:
-        import anndata as ad
+        import h5py
         import numpy as np
         import scipy.sparse as sp
     except ImportError as exc:
-        raise RuntimeError("GBmap build requires anndata, numpy, scipy and h5py.") from exc
+        raise RuntimeError("GBmap build requires h5py, numpy and scipy.") from exc
 
-    data = ad.read_h5ad(h5ad_path, backed="r")
-    obs = data.obs
-    required = {STATE_COLUMN, CLASS_COLUMN, PATIENT_COLUMN}
-    missing = sorted(required - set(map(str, obs.columns)))
-    if missing:
-        available = list(map(str, obs.columns))
-        raise RuntimeError(
-            f"Published Core GBmap is missing expected annotation columns {missing}. "
-            f"Available obs columns: {available}"
+    with h5py.File(h5ad_path, "r") as handle:
+        if "obs" not in handle or "var" not in handle or "X" not in handle:
+            raise RuntimeError(f"Published Core GBmap H5AD is missing obs/var/X. root keys={sorted(handle.keys())}")
+        obs = handle["obs"]
+        var = handle["var"]
+        obs_columns = set(obs.keys())
+        required = {STATE_COLUMN, CLASS_COLUMN}
+        missing = sorted(required - obs_columns)
+        if missing:
+            raise RuntimeError(
+                f"Published Core GBmap is missing expected annotation columns {missing}. "
+                f"Available obs columns: {sorted(obs_columns)}"
+            )
+        patient_column = next((x for x in PATIENT_CANDIDATES if x in obs_columns), None)
+        if patient_column is None:
+            raise RuntimeError(
+                f"Published Core GBmap has no supported patient identifier {PATIENT_CANDIDATES}. "
+                f"Available obs columns: {sorted(obs_columns)}"
+            )
+
+        states = _read_dataframe_column(obs, STATE_COLUMN)
+        classes_raw = _read_dataframe_column(obs, CLASS_COLUMN)
+        patients_raw = _read_dataframe_column(obs, patient_column)
+        if not (len(states) == len(classes_raw) == len(patients_raw)):
+            raise RuntimeError("GBmap obs annotation lengths are inconsistent.")
+
+        class_by_state: dict[str, str] = {}
+        for state_raw, class_value in zip(states, classes_raw):
+            state = str(state_raw)
+            label = _class_label(class_value)
+            prior = class_by_state.get(state)
+            if prior is not None and prior != label:
+                raise RuntimeError(
+                    f"GBmap state {state!r} maps to both malignant and microenvironment level-1 classes; refusing ambiguous build."
+                )
+            class_by_state[state] = label
+
+        patient_values = sorted({p for raw in patients_raw if (p := _safe_patient(raw)) is not None})
+        patient_index = {p: idx for idx, p in enumerate(patient_values)}
+        if not patient_values:
+            raise RuntimeError("No valid patient identifiers were found in Core GBmap metadata.")
+
+        state_names = sorted({str(x) for x in states})
+        state_index = {state: idx for idx, state in enumerate(state_names)}
+        n_states = len(state_names)
+        n_patients = len(patient_values)
+        gene_names = _read_var_names(var)
+        n_genes = len(gene_names)
+        if len(set(gene_names)) != len(gene_names):
+            duplicates = len(gene_names) - len(set(gene_names))
+            raise RuntimeError(
+                f"Core GBmap feature names contain {duplicates} duplicate gene label(s). "
+                "Refusing to create ambiguous gene-level summaries."
+            )
+
+        n_cells = len(states)
+        x_node = handle["X"]
+        x_shape = tuple(int(x) for x in x_node.shape) if hasattr(x_node, "shape") and x_node.shape else None
+        if x_shape is None and isinstance(x_node, h5py.Group):
+            shape_attr = x_node.attrs.get("shape")
+            if shape_attr is not None:
+                x_shape = tuple(int(x) for x in shape_attr)
+        if x_shape and x_shape != (n_cells, n_genes):
+            raise RuntimeError(f"GBmap X shape {x_shape} does not match obs/var {(n_cells, n_genes)}")
+
+        state_ids = np.fromiter((state_index[str(x)] for x in states), dtype=np.int16, count=n_cells)
+        patient_ids = np.fromiter(
+            (patient_index.get(_safe_patient(x), -1) for x in patients_raw),
+            dtype=np.int32,
+            count=n_cells,
         )
 
-    states = obs[STATE_COLUMN].astype(str).fillna("Unknown").to_numpy()
-    classes_raw = obs[CLASS_COLUMN].astype(str).fillna("").to_numpy()
-    patients_raw = obs[PATIENT_COLUMN].astype(str).fillna("").to_numpy()
+        sums = np.zeros((n_states, n_genes), dtype=np.float64)
+        nonzero_cells = np.zeros((n_states, n_genes), dtype=np.int64)
+        state_cell_counts = np.zeros(n_states, dtype=np.int64)
+        state_patient_present = np.zeros((n_states, n_patients), dtype=np.bool_)
+        patient_gene_present = np.zeros((n_states, n_patients, n_genes), dtype=np.bool_)
 
-    # Validate the author's level-1 classes before touching expression data.
-    class_by_state: dict[str, str] = {}
-    for state, class_value in zip(states, classes_raw):
-        label = _class_label(class_value)
-        prior = class_by_state.get(state)
-        if prior is not None and prior != label:
-            raise RuntimeError(
-                f"GBmap state {state!r} maps to both malignant and microenvironment level-1 classes; refusing ambiguous build."
-            )
-        class_by_state[state] = label
+        for start in range(0, n_cells, int(chunk_size)):
+            stop = min(n_cells, start + int(chunk_size))
+            x = _read_x_rows(x_node, start, stop, n_genes)
+            chunk_states = state_ids[start:stop]
+            chunk_patients = patient_ids[start:stop]
 
-    patient_values = sorted({p for raw in patients_raw if (p := _safe_patient(raw)) is not None})
-    patient_index = {p: idx for idx, p in enumerate(patient_values)}
-    if not patient_values:
-        raise RuntimeError("No valid patient identifiers were found in the published Core GBmap metadata.")
-
-    state_names = sorted(set(states))
-    state_index = {state: idx for idx, state in enumerate(state_names)}
-    n_states = len(state_names)
-    n_patients = len(patient_values)
-    n_genes = int(data.n_vars)
-    gene_series = data.var.get("feature_name") if "feature_name" in data.var.columns else None
-    gene_names = [str(x) for x in (gene_series.to_numpy() if gene_series is not None else data.var_names)]
-
-    # Core aggregate arrays remain modest. The state/patient/gene boolean cube
-    # is the largest structure but is still far smaller than the full atlas and
-    # lets us calculate true gene-specific patient breadth without retaining cells.
-    sums = np.zeros((n_states, n_genes), dtype=np.float64)
-    nonzero_cells = np.zeros((n_states, n_genes), dtype=np.int64)
-    state_cell_counts = np.zeros(n_states, dtype=np.int64)
-    state_patient_present = np.zeros((n_states, n_patients), dtype=np.bool_)
-    patient_gene_present = np.zeros((n_states, n_patients, n_genes), dtype=np.bool_)
-
-    for start in range(0, int(data.n_obs), int(chunk_size)):
-        stop = min(int(data.n_obs), start + int(chunk_size))
-        x = data.X[start:stop]
-        if sp.issparse(x):
-            x = x.tocsr()
-        else:
-            x = np.asarray(x)
-        chunk_states = states[start:stop]
-        chunk_patients = patients_raw[start:stop]
-
-        # State-level cell means and fractions.
-        for state in set(chunk_states):
-            s_idx = state_index[state]
-            cell_idx = np.where(chunk_states == state)[0]
-            state_cell_counts[s_idx] += len(cell_idx)
-            sub = x[cell_idx]
-            if sp.issparse(sub):
-                sums[s_idx] += np.asarray(sub.sum(axis=0)).ravel()
-                nonzero_cells[s_idx] += np.asarray((sub != 0).sum(axis=0)).ravel()
-            else:
-                sums[s_idx] += np.asarray(sub).sum(axis=0)
-                nonzero_cells[s_idx] += (np.asarray(sub) != 0).sum(axis=0)
-
-            # Patient breadth for this gene/state. Because a patient's cells may
-            # span chunks, booleans are OR-ed rather than counted repeatedly.
-            local_patients = {_safe_patient(chunk_patients[i]) for i in cell_idx}
-            local_patients.discard(None)
-            for patient in local_patients:
-                p_idx = patient_index[patient]
-                state_patient_present[s_idx, p_idx] = True
-                p_cells = [i for i in cell_idx if _safe_patient(chunk_patients[i]) == patient]
-                p_sub = x[p_cells]
-                if sp.issparse(p_sub):
-                    present = np.asarray((p_sub != 0).sum(axis=0)).ravel() > 0
+            for s_idx in np.unique(chunk_states):
+                cell_idx = np.flatnonzero(chunk_states == s_idx)
+                state_cell_counts[s_idx] += len(cell_idx)
+                sub = x[cell_idx]
+                if sp.issparse(sub):
+                    sums[s_idx] += np.asarray(sub.sum(axis=0)).ravel()
+                    nonzero_cells[s_idx] += np.asarray(sub.getnnz(axis=0)).ravel()
                 else:
-                    present = (np.asarray(p_sub) != 0).any(axis=0)
-                patient_gene_present[s_idx, p_idx] |= present
+                    dense = np.asarray(sub)
+                    sums[s_idx] += dense.sum(axis=0)
+                    nonzero_cells[s_idx] += (dense != 0).sum(axis=0)
 
-        if start == 0 or stop == int(data.n_obs) or (start // int(chunk_size)) % 20 == 0:
-            print(f"GBmap aggregation: {stop:,}/{int(data.n_obs):,} cells", flush=True)
+                valid_patients = np.unique(chunk_patients[cell_idx])
+                valid_patients = valid_patients[valid_patients >= 0]
+                for p_idx in valid_patients:
+                    state_patient_present[s_idx, p_idx] = True
+                    p_cells = cell_idx[chunk_patients[cell_idx] == p_idx]
+                    p_sub = x[p_cells]
+                    if sp.issparse(p_sub):
+                        present = np.asarray(p_sub.getnnz(axis=0)).ravel() > 0
+                    else:
+                        present = (np.asarray(p_sub) != 0).any(axis=0)
+                    patient_gene_present[s_idx, p_idx] |= present
+
+            if start == 0 or stop == n_cells or (start // int(chunk_size)) % 20 == 0:
+                print(f"GBmap aggregation: {stop:,}/{n_cells:,} cells", flush=True)
 
     means = sums / np.maximum(state_cell_counts[:, None], 1)
     fractions = nonzero_cells / np.maximum(state_cell_counts[:, None], 1)
@@ -157,8 +270,8 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
 
     output.parent.mkdir(parents=True, exist_ok=True)
     rows_written = 0
-    with gzip.open(output, "wt", newline="", encoding="utf-8", compresslevel=9) as handle:
-        writer = csv.writer(handle)
+    with gzip.open(output, "wt", newline="", encoding="utf-8", compresslevel=9) as out_handle:
+        writer = csv.writer(out_handle)
         writer.writerow([
             "gene", "state", "state_class", "n_cells", "n_state_patients",
             "n_expressing_patients", "patient_prevalence", "fraction_expressing",
@@ -191,23 +304,19 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
                 ])
                 rows_written += 1
 
-    try:
-        data.file.close()
-    except Exception:
-        pass
-
     result = {
-        "reference_schema_version": "1.0.0",
+        "reference_schema_version": "1.1.0",
         "source_collection_id": source.COLLECTION_ID,
         "state_column": STATE_COLUMN,
         "class_column": CLASS_COLUMN,
-        "patient_column": PATIENT_COLUMN,
-        "n_cells": int(len(states)),
+        "patient_column": patient_column,
+        "n_cells": n_cells,
         "n_patients": n_patients,
         "n_states": n_states,
         "n_genes": n_genes,
         "rows_written": rows_written,
         "output": str(output),
+        "builder": "direct_hdf5_memory_safe",
         "semantics": {
             "patient_prevalence": "n patients with >=1 expressing cell / n patients represented in that state",
             "fraction_expressing": "expressing cells / cells in that state",
@@ -227,7 +336,7 @@ def main():
     parser.add_argument("--metadata-output", default="data/gbmap_reference_metadata.json")
     parser.add_argument("--h5ad")
     parser.add_argument("--metadata-only", action="store_true")
-    parser.add_argument("--chunk-size", type=int, default=2048)
+    parser.add_argument("--chunk-size", type=int, default=4096)
     args = parser.parse_args()
 
     dataset = source._find_core_dataset()
