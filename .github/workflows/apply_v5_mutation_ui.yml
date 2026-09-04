@@ -1,0 +1,59 @@
+name: Apply V5 mutation UI
+
+on:
+  push:
+    branches: [v5-research-capacity]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v5-research-capacity
+      - name: Add recurrent mutation detail to interface
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('streamlit_app_v5.py')
+          text = path.read_text()
+          old = '''        g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
+
+        section_space()
+        gaps_col, studies_col = st.columns(2)
+'''
+          new = '''        g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
+
+        mutation_detail = cbio.get("mutation") or {}
+        if mutation_detail.get("top_variants"):
+            section_space(0.75)
+            st.markdown("#### Recurrent Mutation Detail")
+            variant_rows = [{
+                "Protein Change": row.get("protein_change"),
+                "Samples": row.get("sample_count"),
+                "Cohort Frequency": pct(row.get("frequency_in_profiled_cohort")),
+                "Mutation Records": row.get("mutation_records"),
+            } for row in mutation_detail.get("top_variants", [])]
+            st.dataframe(variant_rows, use_container_width=True, hide_index=True)
+            st.caption("Counts are based on unique profiled samples. Recurrent protein changes provide variant-level context and do not independently alter the Target Priority Score.")
+
+        section_space()
+        gaps_col, studies_col = st.columns(2)
+'''
+          if old not in text:
+              raise SystemExit('Expected Streamlit genomic section was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Remove temporary validation workflows
+        run: rm -f .github/workflows/apply_v5_mutation_ui.yml .github/workflows/v5_live_smoke.yml
+      - name: Commit interface patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app_v5.py .github/workflows
+          git commit -m "Show recurrent mutation detail in gene analysis"
+          git push origin HEAD:v5-research-capacity
