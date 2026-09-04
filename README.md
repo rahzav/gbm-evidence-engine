@@ -1,47 +1,61 @@
-# GBM Evidence Engine — research-grade target intelligence
+# GBM Gene Analysis
 
-A provenance-tracked glioblastoma research tool built for **Rutgers Gray for Glioblastoma**.
+A provenance-tracked glioblastoma gene research tool built for **Rutgers Gray for Glioblastoma**.
 
-Enter a gene (for example `EGFR`, `PTEN`, `TERT`, `CDK6`) and V3 assembles a GBM-specific research profile across genomics, functional dependency, spatial biology, external human cohorts, druggability, clinical translation and literature. It is designed to answer:
+Enter a gene such as `EGFR`, `PTEN`, `TERT`, or `CDK6` to assemble a GBM-specific research profile across tumor genomics, functional dependency, spatial expression, independent patient cohorts, longitudinal recurrence, druggability, clinical trials, literature, normal-tissue context, interaction networks, and available blood-brain barrier evidence for target-directed compounds.
 
-1. **How strong and selective is the current GBM evidence footprint?**
-2. **Where does the target sit in GBM anatomy and independent patient cohorts?**
-3. **How translationally mature/druggable is it?**
-4. **What evidence is missing, contradictory, or most useful to test next?**
+The tool is designed to help researchers answer four practical questions:
 
-The target-priority signal is a transparent **research-triage heuristic**, not a clinical prediction model and not evidence of treatment benefit.
+1. **How strong and selective is the current GBM evidence for this gene?**
+2. **Does the signal reproduce across functional, spatial, and independent human datasets?**
+3. **What translational opportunities or liabilities are already visible?**
+4. **Which evidence gaps are most important to resolve experimentally?**
 
-## Evidence sources
+The Target Priority Score is a transparent research-prioritization heuristic. It is not a clinical prediction model and does not establish treatment benefit or causality.
 
-- **cBioPortal / TCGA-GBM** — mutation and high-level copy-number evidence
-- **Open Targets Platform** — GBM association evidence, tractability and target-directed candidates
-- **DepMap Breadbox / Chronos** — live CRISPR dependency for the strict OncoTree subtype `Glioblastoma, IDH-Wildtype` versus the remaining DepMap panel, with a pan-essential safeguard
-- **Ivy Glioblastoma Atlas Project** — official normalized RNA-seq across seven laser-microdissection GBM anatomic zones; source ZIP is cached locally and genes are streamed on demand
-- **CGGA mRNAseq_693 + mRNAseq_325** — two independent public patient cohorts; survival models are restricted to adult, primary, WHO-IV histologic GBM, IDH-wildtype and meta-analysed when both cohorts are usable
-- **ClinicalTrials.gov API v2** — GBM trials matching the gene and target-directed candidates
-- **Europe PMC** — literature volume, papers and GBM-context coverage
-- **GLASS / Synapse** — controlled longitudinal TPM ingestion via `SYNAPSE_AUTH_TOKEN`; paired primary/recurrent diffuse-glioma context is deliberately excluded from the GBM priority score until subtype-specific controlled clinical filtering is available
+## Scored evidence sources
+
+- **cBioPortal / TCGA-GBM**: mutation and high-level copy-number evidence
+- **Open Targets**: GBM association evidence, tractability, and target-directed candidates
+- **DepMap / Chronos**: CRISPR dependency in strict IDH-wildtype GBM models versus the remaining DepMap panel, with a pan-essential safeguard
+- **Ivy Glioblastoma Atlas Project**: normalized RNA-seq across seven laser-microdissection GBM anatomic zones
+- **CGGA mRNAseq_693 + mRNAseq_325**: independent patient-cohort survival validation restricted to adult primary IDH-wildtype GBM
+- **ClinicalTrials.gov API v2**: GBM trials matching the gene and target-directed candidates
+- **Europe PMC**: literature volume, publications, and GBM-context coverage
+- **GLASS / Synapse**: clinically verified IDH-wildtype GBM primary-to-recurrent longitudinal expression when authorized controlled data are available
+
+## V5 contextual research layers
+
+These layers are intentionally displayed separately and do **not** change the Target Priority Score:
+
+- **MyGene.info**: canonical human gene-symbol and alias resolution
+- **Human Protein Atlas**: normal-tissue, normal-brain, single-cell, and single-nuclei brain expression context
+- **STRING**: high-confidence protein interaction partners and pathway enrichment
+- **B3DB**: experimental blood-brain barrier records for resolvable target-directed candidate compounds
+- **GBmap**: direct access to the public IDH-wildtype glioblastoma single-cell and spatial reference collection
+- **Evidence consistency review**: source-level discordance and important interpretation flags without treating unrelated evidence types as interchangeable
 
 ## Scoring model
 
-V3 exposes eight independent score dimensions rather than collapsing unlike evidence into one hidden model:
+V4/V5 preserve nine independently visible scoring dimensions. V5 does not modify the validated score with the new contextual layers.
 
 | Dimension | Weight |
 |---|---:|
-| TCGA GBM genomic signal | 18% |
-| Open Targets GBM disease relevance | 14% |
-| Druggability | 14% |
-| Clinical translation | 12% |
-| Literature/context depth | 10% |
-| DepMap functional dependency | 16% |
-| Ivy GAP spatial context signal | 8% |
-| Independent CGGA human validation | 8% |
+| TCGA GBM genomic signal | 16.9% |
+| Open Targets GBM disease relevance | 13.2% |
+| Druggability | 13.2% |
+| Clinical translation | 11.3% |
+| Literature/context depth | 9.4% |
+| DepMap functional dependency | 15.0% |
+| Ivy GAP spatial context | 7.5% |
+| Independent CGGA human validation | 7.5% |
+| GLASS longitudinal recurrence | 6.0% |
 
-Missing sources reduce **evidence coverage** rather than being converted into negative evidence. Synthetic V1 files remain only for deterministic method testing and **never increase a live V3 score**.
+Missing sources reduce **evidence coverage** rather than being converted into negative biological evidence. Synthetic V1 files remain only for deterministic method testing and never increase a live score.
 
 ## Data handling
 
-Large Ivy/CGGA source files are downloaded from the upstream resource into `data/_cache/` at runtime and are git-ignored. Controlled GLASS files are only requested after authorized Synapse authentication. Raw external matrices are not committed or re-hosted.
+Large Ivy and CGGA source files are downloaded from upstream resources into `data/_cache/` at runtime and are git-ignored. Controlled GLASS files are requested only after authorized Synapse authentication. B3DB is read from its public upstream dataset and cached in memory during a running process. Raw controlled or external matrices are not committed or re-hosted.
 
 ## Run the app
 
@@ -50,7 +64,7 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-For authorized GLASS access, configure the deployment secret/environment variable:
+For authorized GLASS access, configure:
 
 ```bash
 SYNAPSE_AUTH_TOKEN=<authorized-personal-access-token>
@@ -75,8 +89,10 @@ PYTHONPATH=. python3 tests/test_evidence_model.py
 PYTHONPATH=. python3 tests/test_grounding_validator.py
 PYTHONPATH=. python3 tests/test_research_intelligence.py
 PYTHONPATH=. python3 tests/test_research_intelligence_v3.py
+PYTHONPATH=. python3 tests/test_glass_gbm_specific.py
+PYTHONPATH=. python3 tests/test_research_intelligence_v5.py
 ```
 
 ## Core design rule
 
-Every quantitative claim presented as evidence is wrapped in an `EvidenceRecord` with source, access tier, method, retrieval timestamp and confidence. A source outage, controlled-access barrier, missing gene, or insufficient cohort is shown explicitly; no placeholder statistic is substituted.
+Every quantitative claim presented as scored evidence is source-tracked with method, access tier, retrieval metadata, and confidence. A source outage, controlled-access barrier, missing gene, or insufficient cohort is shown explicitly. No placeholder statistic is substituted for missing live evidence.
