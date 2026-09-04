@@ -1,0 +1,73 @@
+name: Inspect research-grade sources
+
+on:
+  push:
+    branches: [research-grade-cohorts]
+    paths: ['.github/workflows/inspect_research_sources.yml']
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install probe dependencies
+        run: pip install requests synapseclient
+      - name: Probe DepMap Breadbox
+        run: |
+          python - <<'PY'
+          import requests
+          base='https://depmap.org/portal/breadbox'
+          h={'Accept':'application/json','User-Agent':'GBM-Evidence-Engine/3.0 (+https://github.com/rahzav/gbm-evidence-engine)'}
+          r=requests.post(base+'/datasets/matrix/Chronos_Combined',json={'features':['EGFR'],'feature_identifier':'label'},headers=h,timeout=120)
+          print('depmap matrix status',r.status_code)
+          r.raise_for_status(); obj=r.json(); vals=obj.get('EGFR') or next(iter(obj.values()))
+          print('depmap matrix n',len(vals),'first ids',list(vals)[:3])
+          r=requests.post(base+'/datasets/tabular/depmap_model_metadata',json={'columns':['CellLineName','OncotreeLineage','OncotreePrimaryDisease','OncotreeSubtype']},headers=h,timeout=120)
+          print('depmap metadata status',r.status_code)
+          r.raise_for_status(); meta=r.json()
+          for col in ['OncotreeLineage','OncotreePrimaryDisease','OncotreeSubtype']:
+              d=meta.get(col,{})
+              uniq=sorted({str(v) for v in d.values() if v and ('glio' in str(v).lower() or 'brain' in str(v).lower() or 'nerv' in str(v).lower())})
+              print(col,uniq[:50])
+          PY
+      - name: Probe Ivy GAP downloads
+        run: |
+          set -euxo pipefail
+          curl -L --fail --retry 3 'https://glioblastoma.alleninstitute.org/api/v2/gbm/rna_seq_samples_details.csv' -o /tmp/ivy_samples.csv
+          echo 'IVY SAMPLE HEADER'; head -n 1 /tmp/ivy_samples.csv
+          curl -L --fail --retry 3 'https://glioblastoma.alleninstitute.org/api/v2/well_known_file_download/305873915' -o /tmp/ivy_expr.zip
+          echo 'IVY ZIP'; unzip -l /tmp/ivy_expr.zip | head -n 20
+          f=$(unzip -Z1 /tmp/ivy_expr.zip | head -n 1)
+          echo "IVY MATRIX FILE $f"
+          unzip -p /tmp/ivy_expr.zip "$f" | head -n 3 | cut -c1-500 || true
+      - name: Probe CGGA public cohorts
+        run: |
+          set -euxo pipefail
+          curl -L --fail --retry 3 'https://www.cgga.org.cn/download?file=download%2F20200506%2FCGGA.mRNAseq_693_clinical.20200506.txt.zip&time=20200506&type=mRNAseq_693_clinical' -o /tmp/cgga_clin.zip
+          curl -L --fail --retry 3 'https://www.cgga.org.cn/download?file=download%2F20200506%2FCGGA.mRNAseq_693.RSEM-genes.20200506.txt.zip&time=20200506&type=mRNAseq_693' -o /tmp/cgga_expr.zip
+          echo 'CGGA CLIN ZIP'; unzip -l /tmp/cgga_clin.zip | head -n 10
+          echo 'CGGA EXPR ZIP'; unzip -l /tmp/cgga_expr.zip | head -n 10
+          cf=$(unzip -Z1 /tmp/cgga_clin.zip | head -n 1); ef=$(unzip -Z1 /tmp/cgga_expr.zip | head -n 1)
+          echo "CGGA CLIN FILE $cf"; unzip -p /tmp/cgga_clin.zip "$cf" | head -n 3 | cut -c1-800 || true
+          echo "CGGA EXPR FILE $ef"; unzip -p /tmp/cgga_expr.zip "$ef" | head -n 3 | cut -c1-800 || true
+      - name: Probe GLASS Synapse anonymous access
+        run: |
+          python - <<'PY'
+          import synapseclient, os
+          syn=synapseclient.Synapse()
+          try:
+              ent=syn.get('syn57367276', downloadFile=False)
+              print('glass entity',ent.id,ent.name,'version',getattr(ent,'versionNumber',None))
+              try:
+                  path=syn.get('syn57367276', downloadLocation='/tmp/glass').path
+                  print('glass download ok',os.path.basename(path),os.path.getsize(path))
+                  with open(path,'rt',errors='replace') as f:
+                      print('glass header',f.readline().strip()[:1000])
+              except Exception as exc:
+                  print('glass download failed',type(exc).__name__,str(exc)[:500])
+          except Exception as exc:
+              print('glass entity failed',type(exc).__name__,str(exc)[:500])
+          PY
