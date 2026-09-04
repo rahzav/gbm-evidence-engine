@@ -1,0 +1,81 @@
+{
+  "gene": "EGFR",
+  "facts": [
+    {
+      "claim": "EGFR gene amplification is present in roughly 40 to 60% of primary (IDH-wildtype) glioblastomas.",
+      "citation": "Multiple concordant reports, e.g. PMC9844636 (23.9%-50% range across cohorts, NGS-detected 40-50%); s11010-022-04435-y (\"almost 60% of primary GBM\"); classic astrocytic-glioma cohort study s00109-005-0700-2 (41% of 160 GBM by Southern blot/qPCR).",
+      "source_urls": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9844636/",
+        "https://link.springer.com/10.1007/s11010-022-04435-y",
+        "https://link.springer.com/article/10.1007/s00109-005-0700-2"
+      ]
+    },
+    {
+      "claim": "EGFRvIII (the constitutively active exon 2 to 7 deletion variant) is found in roughly a fifth to a quarter of all GBM, and in about half of EGFR-amplified tumors.",
+      "citation": "PMC9844636 (EGFRvIII positivity in 21% of EGFR-amplified GBM); PMC7275784 / scholars.duke.edu 1448361 (\"occurs in over 20% of GBMs\"); s00109-005-0700-2 (EGFRvIII in 54% of amplified GBM in a 160-patient cohort).",
+      "source_urls": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9844636/",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7275784/"
+      ]
+    },
+    {
+      "claim": "A 2024/2025 systematic review and meta-analysis of 32 studies (4,208 GBM patients) found EGFR amplification significantly associated with worse overall survival, pooled HR = 1.27 (95% CI 1.03 to 1.57).",
+      "citation": "PMC12027172 (systematic review and meta-analysis, EGFR amplification and EGFRvIII prognostic significance in GBM).",
+      "source_urls": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12027172/"
+      ],
+      "statistic_name": "hazard_ratio",
+      "statistic_value": 1.27,
+      "confidence_interval": [
+        1.03,
+        1.57
+      ],
+      "sample_size": 4208
+    },
+    {
+      "claim": "CONFLICTING/HETEROGENEOUS EVIDENCE: the same meta-analysis found strong regional heterogeneity in EGFR amplification's prognostic value \u2014 American cohorts showed a much stronger, clearly significant association (HR = 1.53, 95% CI 1.28 to 1.84, p = 0.001), while other geographic regions did not show a significant prognostic effect. A researcher who only checks a single cohort (commonly TCGA, which is American) risks concluding EGFR amplification is a universally reliable prognostic marker when the evidence is materially region/cohort-dependent.",
+      "citation": "PMC12027172.",
+      "source_urls": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12027172/"
+      ],
+      "statistic_name": "hazard_ratio",
+      "statistic_value": 1.53,
+      "p_value": 0.001,
+      "confidence_interval": [
+        1.28,
+        1.84
+      ]
+    },
+    {
+      "claim": "CONFLICTING EVIDENCE: EGFRvIII's prognostic value across the general GBM population was inconclusive in the same meta-analysis (pooled HR = 1.13, 95% CI 0.94 to 1.36, not significant), but a subgroup analysis suggested EGFRvIII becomes more clearly associated with worse outcomes specifically in recurrent GBM.",
+      "citation": "PMC12027172.",
+      "source_urls": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12027172/"
+      ],
+      "statistic_name": "hazard_ratio",
+      "statistic_value": 1.13,
+      "confidence_interval": [
+        0.94,
+        1.36
+      ]
+    },
+    {
+      "claim": "Multiple independent clinical trials of first- and second-generation EGFR tyrosine kinase inhibitors (erlotinib, gefitinib, lapatinib, afatinib) failed to show efficacy in GBM; a recurring explanation across the literature is that these agents have poor blood-brain-barrier penetration, compounded in some trials by not stratifying patients by EGFR/EGFRvIII activation status.",
+      "citation": "PMC6380895 (explicit critique of trial design flaws: unselected patients + poor brain penetration); PMC7275784 (osimertinib rationale explicitly cites poor BBB penetration of afatinib/erlotinib/gefitinib/lapatinib); PMC7086303 (same conclusion, proposes afatinib+pacritinib combination).",
+      "source_urls": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC6380895",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7275784/",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7086303/"
+      ]
+    },
+    {
+      "claim": "GBM cell lines are well documented to rapidly lose EGFR gene amplification during standard adherent (serum-containing) culture, a phenomenon first reported in 1990 and repeatedly confirmed since; amplification is much better preserved in xenografts and in serum-free spheroid/stem-cell culture. This is a documented reason to treat cell-line-based dependency screens (e.g. DepMap) for EGFR with caution.",
+      "citation": "Bigner et al., Cancer Res 1990 (scholars.duke.edu/publication/675273); PMC5608330 (EGFR amplification maintained only under serum-free, EGF-modulated conditions); PMC4468289 (review of EGFR amplification loss in conventional GBM cell lines vs. preservation in GS-cells).",
+      "source_urls": [
+        "https://scholars.duke.edu/publication/675273",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5608330/",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4468289/"
+      ]
+    }
+  ]
+}

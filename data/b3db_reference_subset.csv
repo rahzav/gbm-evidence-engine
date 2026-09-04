@@ -1,0 +1,8 @@
+compound,bbb_class,evidence_note,citation
+Temozolomide,BBB+,"Standard-of-care GBM alkylating agent; well-established CNS/CSF penetration.","Standard GBM pharmacology literature; well documented CNS penetration used to justify its role as first-line GBM chemotherapy."
+Osimertinib,BBB+,"Third-generation EGFR-TKI with high reported CNS penetration; under evaluation against EGFRvIII+ GBM models.","Chagoya et al., Oncotarget 2020 (PMC7275784); Tsang et al., ACS Med Chem Lett 2020 (JCN037 paper, discussing osimertinib CNS penetration)."
+Erlotinib,BBB-,"First-generation EGFR-TKI; repeatedly implicated in clinical GBM trial failures attributed in part to poor brain penetration.","PMC6380895; PMC7275784; PMC7086303 — all describe erlotinib as poorly brain-penetrant in the GBM clinical-failure literature."
+Gefitinib,BBB-,"First-generation EGFR-TKI; same poor-brain-penetration pattern as erlotinib in GBM trial-failure literature.","PMC6380895; PMC7275784."
+Lapatinib,BBB-,"Dual EGFR/HER2 TKI; included among agents cited for poor GBM brain penetration.","PMC6380895; PMC7275784."
+Afatinib,BBB-partial,"Irreversible EGFR-TKI; some preclinical brain-penetrant activity reported (BTSC models) but clinical GBM trials still criticized for inadequate confirmation of brain exposure.","PMC7086303 (afatinib decreases BTSC growth in vitro/in vivo); PMC6380895 (afatinib GBM trial critiqued for not confirming brain exposure)."
+JCN037,BBB+,"Purpose-built brain-penetrant EGFR TKI (research compound, not yet approved) designed specifically to address the brain-exposure failures of first-generation EGFR-TKIs in GBM.","Tsang et al., ACS Med Chem Lett 2020 (chem.ucla.edu/~jung/pdfs/366.pdf)."
