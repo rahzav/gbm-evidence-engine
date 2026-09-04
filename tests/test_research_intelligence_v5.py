@@ -4,6 +4,7 @@ from gbm_evidence_engine.research_intelligence import ResearchProfile, ScoreDime
 from gbm_evidence_engine.research_intelligence_v5 import _consistency_review, _key_findings
 from gbm_evidence_engine.connectors.mygene import _aliases
 from gbm_evidence_engine.connectors.b3db_live import _norm
+from gbm_evidence_engine.connectors.cbioportal import _summarize_mutation_variants
 
 
 def _profile():
@@ -66,8 +67,24 @@ def test_identity_and_compound_normalizers_are_deterministic():
     assert _norm("Osimertinib (AZD-9291)") == "osimertinibazd9291"
 
 
+def test_recurrent_mutations_count_unique_samples():
+    rows = [
+        {"sampleId": "S1", "proteinChange": "p.R132H", "mutationType": "Missense_Mutation"},
+        {"sampleId": "S1", "proteinChange": "p.R132H", "mutationType": "Missense_Mutation"},
+        {"sampleId": "S2", "proteinChange": "p.R132H", "mutationType": "Missense_Mutation"},
+        {"sampleId": "S3", "proteinChange": "p.G34R", "mutationType": "Missense_Mutation"},
+    ]
+    result = _summarize_mutation_variants(rows, denominator=10)
+    assert result["top_variants"][0]["protein_change"] == "p.R132H"
+    assert result["top_variants"][0]["sample_count"] == 2
+    assert result["top_variants"][0]["mutation_records"] == 3
+    assert result["top_variants"][0]["frequency_in_profiled_cohort"] == 0.2
+    assert result["mutation_types"][0]["sample_count"] == 3
+
+
 if __name__ == "__main__":
     test_consistency_review_flags_only_real_interpretation_issues()
     test_key_findings_include_context_without_rescoring()
     test_identity_and_compound_normalizers_are_deterministic()
+    test_recurrent_mutations_count_unique_samples()
     print("ALL V5 RESEARCH-CONTEXT TESTS PASSED")
