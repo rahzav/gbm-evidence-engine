@@ -111,6 +111,15 @@ def markdown_brief(profile) -> str:
     for row in live.get("experiment_portfolio", []):
         lines.append(f"- **{row['experiment']}** ({row['priority']}/100): {row['design']}")
     lines += ["", "## Evidence Gaps"] + [f"- {x}" for x in profile.evidence_gaps]
+    papers = live.get("literature", {}).get("top_papers") or []
+    if papers:
+        lines += ["", "## Relevant Publications"]
+        for paper in papers:
+            title = paper.get("title") or "Untitled"
+            url = paper.get("url")
+            identifier = paper.get("doi") or (f"PMID {paper.get('pmid')}" if paper.get("pmid") else "")
+            lines.append((f"- [{title}]({url})" if url else f"- {title}") + (f" — {identifier}" if identifier else ""))
+    lines += ["", f"**Generated:** {profile.dossier.generated_at}"]
     lines += ["", "## Data Source Status"] + [f"- **{k}:** {v}" for k, v in profile.source_status.items()]
     lines += ["", f"> {score.caveat}"]
     return "\n".join(lines)
@@ -208,7 +217,8 @@ def render_cell_state(cell: dict):
         rows.append({
             "State": row.get("state"),
             "Class": row.get("state_class"),
-            "Patients": row.get("n_patients"),
+            "State Patients": row.get("n_state_patients"),
+            "Expressing Patients": row.get("n_expressing_patients"),
             "Patient Prevalence": row.get("patient_prevalence"),
             "Cells": row.get("n_cells"),
             "Fraction Expressing": row.get("fraction_expressing"),
@@ -424,6 +434,8 @@ def render_profile(profile):
             if hpa.get("brain_region_expression"):
                 st.dataframe([{"Brain Region": k, "Expression": v} for k, v in hpa["brain_region_expression"].items()], width="stretch", hide_index=True)
             st.caption(hpa.get("interpretation", ""))
+            if hpa.get("source_url"):
+                st.link_button("Open Human Protein Atlas", hpa["source_url"])
         else:
             st.info(hpa.get("error", "Human Protein Atlas context is unavailable."))
         section_space(1.0)
@@ -435,6 +447,8 @@ def render_profile(profile):
                 st.markdown("##### Network Enrichment")
                 st.dataframe(network["enrichment"], width="stretch", hide_index=True)
             st.caption(network.get("interpretation", ""))
+            if network.get("source_url"):
+                st.link_button("Open STRING Network", network["source_url"])
         else:
             st.info(network.get("error", "STRING network context is unavailable."))
 
@@ -457,7 +471,14 @@ def render_profile(profile):
                         stats.append(f"n={record.provenance.sample_size}")
                     if stats:
                         st.caption(" | ".join(stats))
-                    st.caption(f"Source: {record.provenance.source_dataset} | Confidence: {record.confidence.value} | Access: {record.provenance.access_tier.value}")
+                    provenance = record.provenance
+                    retrieved = str(provenance.retrieved_at or "")[:10] or "N/A"
+                    version = provenance.dataset_version or "live/current"
+                    st.caption(f"Source: {provenance.source_dataset} | Version: {version} | Confidence: {record.confidence.value} | Access: {provenance.access_tier.value} | Retrieved: {retrieved}")
+                    if provenance.method:
+                        st.caption(f"Method: {provenance.method}")
+                    if provenance.citation_url:
+                        st.markdown(f"[Open source / citation]({provenance.citation_url})")
                     for caveat in record.caveats:
                         st.caption(f"Caveat: {caveat}")
                     st.divider()
@@ -472,8 +493,15 @@ def render_profile(profile):
             if papers:
                 st.markdown("#### Relevant Publications")
                 for paper in papers:
-                    st.markdown(f"**{paper.get('title') or 'Untitled'}**")
-                    metadata = " | ".join(str(x) for x in [paper.get("journal"), paper.get("year"), paper.get("pmid") and f"PMID {paper.get('pmid')}"] if x)
+                    title = str(paper.get("title") or "Untitled")
+                    safe_title = title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+                    if paper.get("url"):
+                        st.markdown(f"**[{safe_title}]({paper['url']})**")
+                    else:
+                        st.markdown(f"**{title}**")
+                    if paper.get("authors"):
+                        st.caption(paper.get("authors"))
+                    metadata = " | ".join(str(x) for x in [paper.get("journal"), paper.get("year"), paper.get("pmid") and f"PMID {paper.get('pmid')}", paper.get("doi") and f"DOI {paper.get('doi')}"] if x)
                     if metadata:
                         st.caption(metadata)
 
@@ -691,7 +719,7 @@ with methods_tab:
     st.write("The validated Target Priority Score remains separate from V7 context layers. It integrates TCGA/cBioPortal, Open Targets, ClinicalTrials.gov, Europe PMC, DepMap, Ivy GAP, CGGA and strict GLASS recurrence evidence when authorized. Missing sources reduce coverage rather than becoming negative biology.")
     section_space(0.7)
     st.markdown("### Native GBmap Cell-State Intelligence")
-    st.write("Production queries use a compact, precomputed reference derived from the published GBmap CELLxGENE atlas. The full >1.1-million-cell atlas is never downloaded per user query. Cell-state expression and patient prevalence are contextual evidence and do not change the Target Priority Score.")
+    st.write("Production queries use a compact, precomputed reference derived from the published GBmap CELLxGENE atlas. The full Core GBmap H5AD is never downloaded per user query; production uses a compact patient-aware reference built offline from the published Core atlas. Cell-state expression and patient prevalence are contextual evidence and do not change the Target Priority Score.")
     section_space(0.7)
     st.markdown("### Confidence & Model Relevance")
     st.write("Confidence is distinct from signal strength. It reflects sample size, replication, statistical support, cross-source consistency and evidence availability. Model relevance separately flags whether functional results come mainly from conventional models or include next-generation 3D contexts.")

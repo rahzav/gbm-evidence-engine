@@ -8,6 +8,7 @@ from pathlib import Path
 
 from gbm_evidence_engine.benchmarking import evaluate_case
 from gbm_evidence_engine.connectors.gbmap import summarize_gene_cell_states, state_vector
+from gbm_evidence_engine.connectors.europepmc import publication_url
 from gbm_evidence_engine.evidence_model import Dossier
 from gbm_evidence_engine.research_intelligence import ResearchProfile, ScoreDimension, TargetPriorityScore
 from gbm_evidence_engine.research_intelligence_v7 import (
@@ -98,23 +99,58 @@ def test_gbmap_compact_reference_is_patient_aware_and_state_aware():
         with gzip.open(path, "wt", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
             writer.writerow([
-                "gene", "state", "state_class", "n_cells", "n_patients", "patient_prevalence",
-                "fraction_expressing", "mean_expression", "median_expression", "expression_z_across_states",
+                "gene", "state", "state_class", "n_cells", "n_state_patients", "n_expressing_patients", "patient_prevalence",
+                "fraction_expressing", "mean_expression", "expression_z_across_states",
             ])
-            writer.writerow(["GENEX", "MES-like", "malignant", 1000, 20, 0.50, 0.70, 3.0, "", 1.2])
-            writer.writerow(["GENEX", "OPC-like", "malignant", 800, 10, 0.25, 0.30, 1.0, "", -0.2])
-            writer.writerow(["GENEX", "Macrophage", "microenvironment", 1500, 25, 0.625, 0.60, 2.0, "", 0.4])
-            writer.writerow(["GENEY", "MES-like", "malignant", 1000, 20, 0.50, 0.20, 0.5, "", -0.5])
-            writer.writerow(["GENEY", "OPC-like", "malignant", 800, 25, 0.625, 0.80, 4.0, "", 1.5])
+            writer.writerow(["GENEX", "MES-like", "malignant", 1000, 20, 10, 0.50, 0.70, 3.0, 1.2])
+            writer.writerow(["GENEX", "OPC-like", "malignant", 800, 10, 3, 0.30, 0.30, 1.0, -0.2])
+            writer.writerow(["GENEX", "Macrophage", "microenvironment", 1500, 25, 15, 0.60, 0.60, 2.0, 0.4])
+            writer.writerow(["GENEY", "MES-like", "malignant", 1000, 20, 4, 0.20, 0.20, 0.5, -0.5])
+            writer.writerow(["GENEY", "OPC-like", "malignant", 800, 25, 20, 0.80, 0.80, 4.0, 1.5])
         x = summarize_gene_cell_states("GENEX", path=path)
         y = summarize_gene_cell_states("GENEY", path=path)
         assert x["ok"] and y["ok"]
         assert x["top_malignant_state"]["state"] == "MES-like"
         assert x["malignant_patient_prevalence"] == 0.5
+        assert x["top_malignant_state"]["n_expressing_patients"] == 10
         comp = _state_complementarity(x, y)
         assert comp is not None and comp > 50
         assert abs(sum(state_vector(x).values()) - 1.0) < 1e-9
 
+
+
+def test_publication_urls_are_clickable_and_stable():
+    assert publication_url({"doi": "10.1000/example"}) == "https://doi.org/10.1000/example"
+    assert publication_url({"pmid": "12345"}) == "https://pubmed.ncbi.nlm.nih.gov/12345/"
+    assert publication_url({"pmcid": "PMC123"}) == "https://pmc.ncbi.nlm.nih.gov/articles/PMC123/"
+    assert publication_url({"title": "A GBM paper"}).startswith("https://europepmc.org/search?query=")
+
+
+def test_pair_analysis_builds_each_target_once():
+    import copy
+    import gbm_evidence_engine.research_intelligence_v7 as v7
+    a = _profile()
+    b = copy.deepcopy(a)
+    a.gene, b.gene = "GENEA", "GENEB"
+    for profile, partner in ((a, "GENEB"), (b, "GENEA")):
+        profile.live["interaction_network"] = {"partners": [{"gene": partner}]}
+        profile.live["bbb_candidates"] = {"bbb_positive_count": 1}
+        profile.live["gbmap_cell_state"] = {"ok": False}
+        profile.live["model_relevance"] = {"level": "high", "score": 85}
+        profile.live["overall_evidence_confidence"] = {"level": "high", "score": 82}
+    calls = []
+    original = v7.build_research_profile
+    try:
+        def fake(gene):
+            calls.append(gene.upper())
+            return a if gene.upper() == "GENEA" else b
+        v7.build_research_profile = fake
+        result = v7.evaluate_gene_pair("GENEA", "GENEB")
+    finally:
+        v7.build_research_profile = original
+    assert calls == ["GENEA", "GENEB"], calls
+    assert result["gene_a"] == "GENEA" and result["gene_b"] == "GENEB"
+    assert "pair_evidence_confidence" in result
 
 def test_benchmark_framework_refuses_to_call_live_case_retrospective():
     p = _profile()
@@ -134,5 +170,7 @@ if __name__ == "__main__":
     test_model_relevance_rewards_3d_context_without_claiming_efficacy()
     test_signature_significance_changes_input_priority()
     test_gbmap_compact_reference_is_patient_aware_and_state_aware()
+    test_publication_urls_are_clickable_and_stable()
+    test_pair_analysis_builds_each_target_once()
     test_benchmark_framework_refuses_to_call_live_case_retrospective()
     print("ALL V7 FINAL-SCOPE TESTS PASSED")
