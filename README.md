@@ -1,67 +1,71 @@
-# GBM Evidence Engine (V1 prototype)
+# GBM Evidence Engine — live-first research target intelligence
 
-A cross-cohort, cross-modality, provenance-tracked evidence dossier
-generator for glioblastoma research — built as the first vertical slice of
-a research platform for **Rutgers Gray for Glioblastoma** (rutgersg4g.org).
+A provenance-tracked glioblastoma research tool built for **Rutgers Gray for Glioblastoma**.
 
-Given a gene, it deterministically computes and cross-validates survival
-association (across TCGA-GBM, CGGA, and GLASS-recurrent), anatomic/spatial
-enrichment (Ivy GAP), GBM-selective dependency (DepMap), known compounds
-and blood-brain-barrier evidence (Open Targets, B3DB), trial landscape
-(ClinicalTrials.gov), and literature support (Europe PMC) — then produces a
-structured, confidence-tiered dossier plus a numerically-grounded natural-
-language synthesis that cannot state a statistic it didn't actually compute
-(enforced by an automated validator, not just a system-prompt request).
+Enter a gene (for example `EGFR`, `PTEN`, `TERT`, `CDK6`) and the app assembles a live research profile from public sources, then answers four practical questions:
 
-**Read `docs/ARCHITECTURE.md` for the full design and `docs/
-VALIDATION_REPORT.md` before trusting any specific number this prototype
-prints** — it documents exactly which parts ran against real, cited data
-versus clearly-labeled synthetic placeholders, and why (this prototype was
-built in a network-disabled sandbox; see that report for specifics).
+1. **How strong is the current GBM evidence footprint?**
+2. **How translationally mature/druggable is the target?**
+3. **What evidence is missing or contradictory?**
+4. **What experiment or analysis is most useful next?**
 
-## Quickstart
+The target-priority signal is a transparent **research-triage heuristic**, not a clinical/prognostic model.
+
+## Live sources
+
+- **cBioPortal / TCGA-GBM** — mutation, high-level CNA, expression layers when exposed by the selected study
+- **Open Targets Platform** — target identity, GBM association evidence, tractability and known drugs/candidates
+- **ClinicalTrials.gov API v2** — GBM trials matching the gene and top target-directed drugs
+- **Europe PMC** — literature volume, top matching papers and GBM-context coverage (recurrence, IDH, MGMT, single-cell, spatial, treatment resistance, BBB)
+
+## Deliberately not scored yet
+
+The repo still contains the V1 statistical methods and labeled synthetic demonstration files used to validate survival, dependency, spatial and grounding logic. **Synthetic values never increase the live target score.**
+
+The remaining high-value integrations are:
+
+- real **DepMap** CRISPR dependency release ingestion
+- real **Ivy GAP** spatial/anatomic expression ingestion
+- **CGGA** external validation after registration/data-use setup
+- **GLASS** longitudinal primary/recurrent data after Synapse/DUA setup
+
+Until those are integrated, the score exposes a `Cross-cohort functional validation` dimension as missing and reduces evidence coverage accordingly.
+
+## Run the standalone app
 
 ```bash
-pip install -r requirements.txt   # numpy/pandas/scipy already sufficient
-                                    # for everything except api/app.py
-PYTHONPATH=. python3 scripts/generate_synthetic_reference_data.py  # rebuild demo data (already included)
-PYTHONPATH=. python3 scripts/run_demo_dossier.py EGFR               # -> out/EGFR_dossier.json, out/EGFR_report.md
-PYTHONPATH=. python3 scripts/run_batch_demo.py                      # 4-gene batch triage with BH-FDR correction
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-# Tests (pytest not required -- each file also runs standalone):
+## API
+
+```bash
+uvicorn api.app:app --reload
+```
+
+- `POST /profile` with `{"gene":"EGFR"}`
+- `POST /profile/batch` with `{"genes":["EGFR","PTEN","TERT"]}`
+- `GET /health`
+
+## Tests
+
+```bash
 PYTHONPATH=. python3 tests/test_survival.py
 PYTHONPATH=. python3 tests/test_dependency.py
 PYTHONPATH=. python3 tests/test_evidence_model.py
 PYTHONPATH=. python3 tests/test_grounding_validator.py
-
-# API (requires `pip install fastapi uvicorn` on a machine with network access):
-uvicorn api.app:app --reload
+PYTHONPATH=. python3 tests/test_research_intelligence.py
 ```
 
-## Layout
+Deployment-only network check:
 
-```
-gbm_evidence_engine/
-  evidence_model.py       # EvidenceRecord / Dossier / EvidenceTier / Provenance
-  connectors/              # one module per data source, real endpoints, see base.py::SOURCE_REGISTRY
-  analysis/                 # deterministic statistics -- survival, dependency, spatial, multiple-testing
-  knowledge/                # curated, citation-backed domain safeguards (e.g. culture-instability flags)
-  orchestrator/            # planner (query -> tasks), build_dossier (the pipeline), synthesizer (grounded AI prose)
-api/app.py                  # FastAPI wrapper (real code, not executable in this offline sandbox)
-data/                        # demo datasets -- see data/README.md for real-vs-synthetic labeling of every file
-scripts/                     # generate_synthetic_reference_data.py, run_demo_dossier.py, run_batch_demo.py
-tests/                        # plain-assert test scripts, no pytest dependency
-docs/ARCHITECTURE.md        # full Phase 4 product/technical specification
-docs/VALIDATION_REPORT.md   # what was actually tested, what broke and was fixed, known limitations
+```bash
+PYTHONPATH=. python3 scripts/live_smoke_test.py
 ```
 
-## What this is not (yet)
+## Core design rule
 
-This is a V1 vertical slice, not the full platform described in
-`docs/ARCHITECTURE.md`'s roadmap. It proves the core primitive (harmonized
-cross-cohort, cross-modality evidence assembly with enforced provenance and
-hallucination-resistant synthesis) works end to end on one real, well-
-documented example (EGFR) and generalizes to a small batch. It does not yet
-have live network connectivity wired up in a deployed environment, a web
-front-end, real CGGA/GLASS ingestion (registration pending), or the V2+
-free-text/scRNA/longitudinal-recurrence features on the roadmap.
+Every quantitative claim presented as evidence is wrapped in an `EvidenceRecord` with source, access tier, method, retrieval timestamp and confidence. Missing sources are shown as missing; they are not silently substituted with synthetic values.
+
+See `docs/ARCHITECTURE.md` and `docs/VALIDATION_REPORT.md` for the V1 statistical architecture and validation history.

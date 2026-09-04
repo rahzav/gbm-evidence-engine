@@ -1,158 +1,231 @@
-"""
-streamlit_app.py
-==================
+"""Standalone Streamlit UI for the live-first GBM Evidence Engine."""
+from __future__ import annotations
 
-The actual clickable front-end. Everything it calls
-(gbm_evidence_engine.orchestrator) is already unit-tested — this file is
-just a UI shell around it, kept deliberately thin so bugs have nowhere to
-hide but the display logic.
-
-NOT EXECUTED IN THIS SANDBOX: streamlit is not installed here (no network
-to pip install it) and this could not be click-tested end-to-end the way
-tests/*.py and scripts/run_demo_dossier.py were. Read it before trusting
-it, and run it locally once (`streamlit run streamlit_app.py`) before
-deploying. It calls only functions that already have passing unit tests,
-which keeps the risk surface small, but "the UI renders correctly" itself
-is untested.
-
-Run locally:
-    pip install streamlit
-    streamlit run streamlit_app.py
-
-Deploy for free (recommended path — see chat for the full walkthrough):
-    1. Push this repo to a GitHub repo.
-    2. https://share.streamlit.io -> "New app" -> pick the repo ->
-       main file path: streamlit_app.py -> Deploy.
-    3. You get a public URL (e.g. gbm-evidence-engine.streamlit.app) in
-       a few minutes, for free, with no server to manage.
-"""
+import json
 import streamlit as st
 
-from gbm_evidence_engine.orchestrator import (
-    build_single_gene_dossier, generate_synthesis, validate_numeric_grounding,
-)
+from gbm_evidence_engine.research_intelligence import build_research_profile, rank_gene_list
 from gbm_evidence_engine.evidence_model import EvidenceTier
-from gbm_evidence_engine.analysis.multiple_testing import benjamini_hochberg
 
-st.set_page_config(page_title="GBM Evidence Engine", layout="wide")
+st.set_page_config(page_title="GBM Evidence Engine", page_icon="🧬", layout="wide")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_profile(gene: str):
+    return build_research_profile(gene)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_batch(genes: tuple[str, ...]):
+    return rank_gene_list(list(genes), max_workers=3)
+
+
+def pct(x):
+    return "—" if x is None else f"{100*x:.1f}%"
+
+
+def num(x, digits=2):
+    if x is None:
+        return "—"
+    return f"{x:.{digits}f}" if isinstance(x, float) else str(x)
+
+
+def markdown_brief(profile) -> str:
+    s = profile.score
+    lines = [
+        f"# GBM Evidence Engine — {profile.gene}",
+        "",
+        f"**Priority signal:** {s.overall if s.overall is not None else 'N/A'}/100 — {s.label}",
+        f"**Evidence coverage:** {s.evidence_coverage_pct}%",
+        "",
+        "## Score dimensions",
+    ]
+    for name, d in s.dimensions.items():
+        lines.append(f"- **{name}:** {num(d.score, 1)}/100 — {d.rationale}")
+    lines += ["", "## Evidence gaps"] + [f"- {x}" for x in profile.evidence_gaps]
+    lines += ["", "## Suggested next experiments"] + [f"- {x}" for x in profile.next_experiments]
+    lines += ["", "## Source status"] + [f"- **{k}:** {v}" for k, v in profile.source_status.items()]
+    lines += ["", f"> {s.caveat}"]
+    return "\n".join(lines)
+
 
 st.title("GBM Evidence Engine")
-st.caption(
-    "A cross-cohort, cross-modality evidence dossier for glioblastoma research targets. "
-    "Built for Rutgers Gray for Glioblastoma (rutgersg4g.org)."
-)
+st.caption("Live-first target intelligence for glioblastoma research — evidence assembly, prioritisation, gaps, and next experiments.")
 
-with st.expander("⚠️ Read before trusting any number below", expanded=False):
-    st.markdown(
-        "This deployment's demo genes (EGFR, PTEN, TP53, CDK4) run partly on **synthetic, "
-        "calibrated placeholder data** where a live data pull hasn't been wired up yet for "
-        "this deployment -- see `data/README.md` and `docs/VALIDATION_REPORT.md` in the repo "
-        "for exactly which numbers are real-cited vs. synthetic, and why. Every record below "
-        "states its own source and access tier -- check that field, not just the headline claim."
+with st.expander("What this tool does", expanded=False):
+    st.write(
+        "Enter a gene to assemble GBM-specific genomic evidence, target-disease evidence, drugs, trials, "
+        "and literature context from public research sources. The tool then produces a transparent research-" 
+        "priority signal and identifies what evidence is still missing. The score is for research triage, not clinical use."
     )
 
-AVAILABLE_GENES = ["EGFR", "PTEN", "TP53", "CDK4"]
+single_tab, batch_tab, methods_tab = st.tabs(["Target profile", "Batch prioritisation", "Methods & source coverage"])
 
-tab_single, tab_batch = st.tabs(["Single-gene dossier", "Batch triage"])
-
-with tab_single:
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        gene = st.selectbox(
-            "Gene", AVAILABLE_GENES,
-            help="This deployment only has demo data loaded for these four genes. "
-                 "In a networked deployment with live connectors wired up, any HUGO gene "
-                 "symbol would work.",
-        )
-    with col2:
-        run = st.button("Build dossier", type="primary")
+with single_tab:
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        gene = st.text_input("Gene symbol", value="EGFR", placeholder="e.g. EGFR, PTEN, TERT, CDK6").strip().upper()
+    with c2:
+        st.write("")
+        run = st.button("Build live profile", type="primary", use_container_width=True)
 
     if run:
-        with st.spinner(f"Assembling evidence for {gene}..."):
-            dossier = build_single_gene_dossier(gene)
-            synthesis = generate_synthesis(dossier)
-            check = validate_numeric_grounding(synthesis, dossier)
-            dossier.ai_synthesis = synthesis
-            dossier.ai_synthesis_grounding_ok = check.ok
+        try:
+            with st.spinner(f"Querying live GBM evidence for {gene}..."):
+                profile = cached_profile(gene)
+            st.session_state["profile"] = profile
+        except Exception as exc:
+            st.error(f"Could not build the profile: {exc}")
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Evidence records", len(dossier.evidence))
-        c2.metric("Safeguard warnings", len(dossier.warnings))
-        c3.metric("Synthesis grounding check", "PASS" if check.ok else "FAIL")
+    profile = st.session_state.get("profile")
+    if profile:
+        score = profile.score
+        st.subheader(profile.gene)
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Priority signal", "—" if score.overall is None else f"{score.overall}/100")
+        m2.metric("Evidence coverage", f"{score.evidence_coverage_pct}%")
+        m3.metric("Live evidence records", len(profile.dossier.evidence))
+        m4.metric("Active matching GBM trials", profile.live["clinical_trials"].get("active", 0))
+        st.caption(f"{score.label}. {score.caveat}")
 
-        if dossier.warnings:
-            for w in dossier.warnings:
-                st.warning(w)
-
-        st.subheader("AI synthesis")
-        if not check.ok:
-            st.error(f"Synthesis failed the numeric grounding check (unmatched: "
-                     f"{check.unmatched_numbers}) -- showing the structured evidence "
-                     f"below instead of trusting this prose.")
-        st.text(dossier.ai_synthesis)
-
-        st.subheader("Evidence, by tier")
-        for tier in EvidenceTier:
-            records = dossier.by_tier(tier)
-            if not records:
-                continue
-            with st.expander(f"{tier.value} ({len(records)})", expanded=(tier == EvidenceTier.STATISTICAL_ASSOCIATION)):
-                for r in records:
-                    st.markdown(f"**{r.claim_text}**")
-                    meta_bits = []
-                    if r.statistic_name:
-                        meta_bits.append(f"{r.statistic_name}={r.statistic_value}")
-                    if r.p_value is not None:
-                        meta_bits.append(f"p={r.p_value:.3g}")
-                    if r.confidence_interval and r.confidence_interval[0] is not None:
-                        meta_bits.append(f"95% CI [{r.confidence_interval[0]:.3g}, {r.confidence_interval[1]:.3g}]")
-                    if meta_bits:
-                        st.caption(" · ".join(meta_bits))
-                    st.caption(
-                        f"Source: {r.provenance.source_dataset} ({r.provenance.dataset_version}) "
-                        f"· access: {r.provenance.access_tier.value} · confidence: {r.confidence.value}"
-                        + (f" · n={r.provenance.sample_size}" if r.provenance.sample_size else "")
-                    )
-                    if r.provenance.citation:
-                        st.caption(f"Citation: {r.provenance.citation}")
-                    for cav in r.caveats:
-                        st.caption(f"⚠️ {cav}")
-                    st.divider()
-
-        st.download_button("Download full dossier (JSON)", dossier.to_json(),
-                            file_name=f"{gene}_dossier.json", mime="application/json")
-
-with tab_batch:
-    st.write("Triage a gene list the way a researcher would triage their own "
-             "differential-expression hit list (see high-value capability test #5 "
-             "in the architecture doc).")
-    genes = st.multiselect("Genes", AVAILABLE_GENES, default=AVAILABLE_GENES)
-    if st.button("Run batch triage"):
+        st.markdown("### Why the score looks this way")
         rows = []
-        with st.spinner("Running batch..."):
-            for g in genes:
-                d = build_single_gene_dossier(g)
-                meta = next((e for e in d.evidence if e.statistic_name == "pooled_hazard_ratio"), None)
-                dep = next((e for e in d.by_tier(EvidenceTier.STATISTICAL_ASSOCIATION)
-                            if e.statistic_name == "U_statistic"), None)
-                pan_essential = any("pan-essential" in c for e in d.evidence for c in e.caveats)
-                rows.append({
-                    "gene": g,
-                    "pooled_HR": round(meta.statistic_value, 2) if meta else None,
-                    "pooled_p": meta.p_value if meta else None,
-                    "I2_pct": round(meta.effect_size, 0) if meta else None,
-                    "dependency_p": dep.p_value if dep else None,
-                    "pan_essential": pan_essential,
-                })
-        p_vals = [r["pooled_p"] for r in rows if r["pooled_p"] is not None]
-        if p_vals:
-            corrected = iter(benjamini_hochberg(p_vals))
-            for r in rows:
-                r["BH_corrected_p"] = next(corrected) if r["pooled_p"] is not None else None
-        st.dataframe(rows, use_container_width=True)
+        for name, d in score.dimensions.items():
+            rows.append({
+                "Dimension": name,
+                "Score": None if d.score is None else round(d.score, 1),
+                "Weight": f"{d.weight:.0%}",
+                "Source": d.source,
+                "Rationale": d.rationale,
+            })
+        st.dataframe(rows, use_container_width=True, hide_index=True)
 
-st.divider()
-st.caption(
-    "Every claim above traces to a specific source, method, and confidence tier -- "
-    "see docs/ARCHITECTURE.md in the repository for the full evidence model."
-)
+        cbio = profile.live["cbioportal"]
+        ot = profile.live["open_targets"]
+        trials = profile.live["clinical_trials"]
+        lit = profile.live["literature"]
+
+        st.markdown("### GBM genomic signal")
+        g1, g2, g3, g4 = st.columns(4)
+        g1.metric("TCGA mutation", pct((cbio.get("mutation") or {}).get("frequency")))
+        g2.metric("TCGA amplification", pct((cbio.get("copy_number") or {}).get("amplification_frequency")))
+        g3.metric("TCGA deep deletion", pct((cbio.get("copy_number") or {}).get("deep_deletion_frequency")))
+        g4.metric("Open Targets GBM score", num(ot.get("gbm_association_score"), 3))
+
+        left, right = st.columns(2)
+        with left:
+            st.markdown("### Evidence gaps")
+            for gap in profile.evidence_gaps:
+                st.markdown(f"- {gap}")
+        with right:
+            st.markdown("### Suggested next experiments")
+            for idea in profile.next_experiments:
+                st.markdown(f"- {idea}")
+
+        detail_tabs = st.tabs(["Evidence ledger", "Drugs & trials", "Literature & GBM context", "Export"])
+        with detail_tabs[0]:
+            if not profile.dossier.evidence:
+                st.info("No live evidence records were returned. Check source status below.")
+            for tier in EvidenceTier:
+                records = profile.dossier.by_tier(tier)
+                if not records:
+                    continue
+                with st.expander(f"{tier.value.replace('_', ' ').title()} ({len(records)})",
+                                 expanded=tier in (EvidenceTier.OBSERVED_DATA, EvidenceTier.COMPUTATIONAL_PREDICTION)):
+                    for r in records:
+                        st.markdown(f"**{r.claim_text}**")
+                        bits = []
+                        if r.statistic_name and r.statistic_value is not None:
+                            bits.append(f"{r.statistic_name}={r.statistic_value:.4g}")
+                        if r.provenance.sample_size:
+                            bits.append(f"n={r.provenance.sample_size}")
+                        if bits:
+                            st.caption(" · ".join(bits))
+                        st.caption(f"Source: {r.provenance.source_dataset} · confidence: {r.confidence.value} · access: {r.provenance.access_tier.value}")
+                        for caveat in r.caveats:
+                            st.caption(f"Caveat: {caveat}")
+                        st.divider()
+
+        with detail_tabs[1]:
+            d1, d2, d3 = st.columns(3)
+            d1.metric("Known target-directed drugs/candidates", ot.get("known_drug_count", 0) if ot.get("ok") else "—")
+            d2.metric("Highest target drug phase", ot.get("max_phase", 0) if ot.get("ok") else "—")
+            d3.metric("Matching GBM trials", trials.get("total", 0) if trials.get("ok") else "—")
+            drug_rows = ot.get("drugs") or []
+            if drug_rows:
+                st.markdown("#### Target-directed drug landscape")
+                st.dataframe(drug_rows, use_container_width=True, hide_index=True)
+            if trials.get("studies"):
+                st.markdown("#### ClinicalTrials.gov matches")
+                st.dataframe(trials["studies"], use_container_width=True, hide_index=True)
+
+        with detail_tabs[2]:
+            l1, l2 = st.columns([1, 2])
+            with l1:
+                st.metric("GBM literature co-mentions", lit.get("hit_count", 0) if lit.get("ok") else "—")
+                context_rows = [{"Context": k.replace("_", " ").title(), "Indexed papers": v}
+                                for k, v in profile.context_map.items()]
+                st.dataframe(context_rows, use_container_width=True, hide_index=True)
+            with l2:
+                papers = lit.get("top_papers") or []
+                if papers:
+                    st.markdown("#### Top matching papers")
+                    for paper in papers:
+                        title = paper.get("title") or "Untitled"
+                        meta = " · ".join(str(x) for x in [paper.get("journal"), paper.get("year"), paper.get("pmid") and f"PMID {paper.get('pmid')}"] if x)
+                        st.markdown(f"**{title}**")
+                        if meta:
+                            st.caption(meta)
+
+        with detail_tabs[3]:
+            profile_json = json.dumps(profile.to_dict(), indent=2, default=str)
+            st.download_button("Download full research profile (JSON)", profile_json,
+                               file_name=f"{profile.gene}_gbm_research_profile.json", mime="application/json")
+            brief = markdown_brief(profile)
+            st.download_button("Download decision brief (Markdown)", brief,
+                               file_name=f"{profile.gene}_gbm_decision_brief.md", mime="text/markdown")
+
+with batch_tab:
+    st.write("Paste a short gene list to rank targets using the same live, transparent scoring system.")
+    raw = st.text_area("Genes (comma, space, or new line separated)", value="EGFR, PTEN, TP53, CDK4")
+    genes = [x.strip().upper() for x in raw.replace(",", " ").split() if x.strip()]
+    genes = list(dict.fromkeys(genes))
+    if len(genes) > 8:
+        st.warning("Batch mode is limited to 8 genes per run to keep public API use reasonable.")
+        genes = genes[:8]
+    if st.button("Rank gene list", type="primary") and genes:
+        try:
+            with st.spinner("Building and comparing live profiles..."):
+                profiles = cached_batch(tuple(genes))
+            table = []
+            for p in profiles:
+                table.append({
+                    "Gene": p.gene,
+                    "Priority signal": p.score.overall,
+                    "Coverage %": p.score.evidence_coverage_pct,
+                    "Label": p.score.label,
+                    "Active GBM trials": p.live["clinical_trials"].get("active", 0),
+                    "GBM literature": p.live["literature"].get("hit_count"),
+                })
+            st.dataframe(table, use_container_width=True, hide_index=True)
+        except Exception as exc:
+            st.error(f"Batch ranking failed: {exc}")
+
+with methods_tab:
+    st.markdown("### Live sources")
+    st.write(
+        "The production-facing profile queries cBioPortal/TCGA-GBM, Open Targets, ClinicalTrials.gov, and Europe PMC. "
+        "Each layer can fail independently; source status is shown rather than silently substituting a value."
+    )
+    st.markdown("### What is intentionally not scored yet")
+    st.write(
+        "Real DepMap dependency data, Ivy GAP spatial expression, CGGA validation, and GLASS longitudinal recurrence data "
+        "require bulk ingestion or registration/data-use steps. The older synthetic demonstration files remain useful for "
+        "testing statistical code, but they never increase the live target-priority score."
+    )
+    st.markdown("### Interpretation")
+    st.write(
+        "A high score means the target has a dense, translationally mature evidence footprint worth deeper review. It does not "
+        "mean the gene is causal, safe to target, or likely to improve patient outcomes. Researchers should use the evidence "
+        "ledger and gaps—not the score alone—to decide what to test next."
+    )

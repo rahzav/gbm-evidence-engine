@@ -120,8 +120,28 @@ def http_get_json(url: str, timeout: int = 20) -> Optional[dict]:
     fails — this sandbox has no egress, so this always returns None here, but
     the function is what a deployed instance with network access would use."""
     try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "GBM-Evidence-Engine/2.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, ValueError):
+        return None
+
+
+def http_post_json(url: str, payload: dict | list, timeout: int = 20) -> Optional[dict | list]:
+    """Best-effort POST+JSON counterpart to ``http_get_json``.
+
+    Returns ``None`` on transport/JSON failure so upstream research workflows
+    can degrade source-by-source instead of failing the entire dossier.
+    """
+    try:
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Accept": "application/json", "Content-Type": "application/json",
+                     "User-Agent": "GBM-Evidence-Engine/2.0"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
         return None

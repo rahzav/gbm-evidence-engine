@@ -1,35 +1,72 @@
-"""
-connectors/europepmc.py
-========================
-
-Live REST client for Europe PMC (no registration required). Used for the
-literature-evidence layer: co-mention counts and top abstracts for a
-gene + GBM-context query, so the dossier can show "N papers support this,
-M discuss it as unresolved/controversial" rather than a single vibe-based
-LLM summary of "what the literature says".
-
-Real endpoint (confirmed against Europe PMC's documented RESTful API):
-    GET https://www.ebi.ac.uk/europepmc/webservices/rest/search
-        ?query=...&resultType=core&pageSize=...&format=json
-"""
-
+"""Live Europe PMC literature connector."""
 from __future__ import annotations
 from typing import Optional
 from .base import http_get_json, SOURCE_REGISTRY
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 
 BASE = SOURCE_REGISTRY["europepmc"].base_url
 
 
-def search(query: str, page_size: int = 10) -> Optional[dict]:
-    q = urllib.parse.quote_plus(query)
-    url = f"{BASE}/search?query={q}&resultType=core&pageSize={page_size}&format=json"
-    return http_get_json(url)
+def search(query: str, page_size: int = 10, result_type: str = "core") -> Optional[dict]:
+    params = urllib.parse.urlencode({
+        "query": query,
+        "resultType": result_type,
+        "pageSize": page_size,
+        "format": "json",
+    })
+    return http_get_json(f"{BASE}/search?{params}")
 
 
 def co_mention_count(gene: str, context: str = "glioblastoma") -> Optional[int]:
-    """Rough literature-support signal: how many indexed articles mention both terms."""
-    result = search(f'"{gene}" AND "{context}"', page_size=1)
-    if result is None:
-        return None
-    return result.get("hitCount")
+    result = search(f'"{gene}" AND "{context}"', page_size=1, result_type="lite")
+    return result.get("hitCount") if result else None
+
+
+def top_papers(gene: str, page_size: int = 8) -> list[dict]:
+    result = search(f'"{gene}" AND (glioblastoma OR GBM)', page_size=page_size, result_type="core") or {}
+    rows = result.get("resultList", {}).get("result", [])
+    papers = []
+    for r in rows:
+        papers.append({
+            "title": r.get("title"),
+            "authors": r.get("authorString"),
+            "journal": r.get("journalTitle"),
+            "year": r.get("pubYear"),
+            "pmid": r.get("pmid"),
+            "pmcid": r.get("pmcid"),
+            "doi": r.get("doi"),
+            "cited_by": r.get("citedByCount"),
+            "abstract": r.get("abstractText"),
+        })
+    return papers
+
+
+CONTEXT_QUERIES = {
+    "recurrent": '(recurrent OR recurrence)',
+    "treatment_resistance": '(resistance OR resistant OR refractory)',
+    "IDH": 'IDH',
+    "MGMT": 'MGMT',
+    "single_cell": '("single-cell" OR "single cell" OR scRNA)',
+    "spatial": '(spatial OR "Ivy GAP" OR "anatomic niche")',
+    "blood_brain_barrier": '("blood-brain barrier" OR BBB)',
+}
+
+
+def context_counts(gene: str) -> dict[str, Optional[int]]:
+    def one(item):
+        label, tail = item
+        data = search(f'"{gene}" AND (glioblastoma OR GBM) AND {tail}', page_size=1, result_type="lite")
+        return label, (data.get("hitCount") if data else None)
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        return dict(ex.map(one, CONTEXT_QUERIES.items()))
+
+
+def summarize_gene_literature(gene: str) -> dict:
+    base = search(f'"{gene}" AND (glioblastoma OR GBM)', page_size=1, result_type="lite")
+    return {
+        "ok": base is not None,
+        "hit_count": base.get("hitCount") if base else None,
+        "contexts": context_counts(gene),
+        "top_papers": top_papers(gene),
+    }
