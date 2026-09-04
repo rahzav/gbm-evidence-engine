@@ -33,7 +33,7 @@ jobs:
           PYTHONPATH=. python tests/test_grounding_validator.py
           PYTHONPATH=. python tests/test_research_intelligence.py
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
-      - name: Live EGFR multi-source validation
+      - name: Live EGFR multi-source validation after parallel CGGA
         run: |
           PYTHONPATH=. python - <<'PY'
           import time
