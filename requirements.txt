@@ -11,8 +11,8 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
 
-# Web UI. V6 uses current width/container APIs and Streamlit testing behavior.
-streamlit>=1.63,<2
+# Web UI. V7 production audits and rerun regression tests are validated on this runtime.
+streamlit==1.63.0
 
 # GLASS ingestion once a team member has completed Synapse registration and
 # the GLASS data-use agreement.
