@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, research-grade-cohorts, v5-research-capacity]
+    branches: [main, research-grade-cohorts, v5-research-capacity, v6-discovery-system]
   pull_request:
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install scientific test dependencies
+      - name: Install scientific and UI test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy
+          pip install numpy pandas scipy streamlit==1.63.0
       - name: Syntax validation
         run: |
           python -m py_compile \
@@ -33,11 +33,13 @@ jobs:
             gbm_evidence_engine/connectors/hpa.py \
             gbm_evidence_engine/connectors/stringdb.py \
             gbm_evidence_engine/connectors/b3db_live.py \
+            gbm_evidence_engine/connectors/l1000cds2.py \
             gbm_evidence_engine/research_intelligence.py \
             gbm_evidence_engine/research_intelligence_v3.py \
             gbm_evidence_engine/research_intelligence_v4.py \
             gbm_evidence_engine/research_intelligence_v5.py \
-            streamlit_app.py streamlit_app_v5.py api/app.py
+            gbm_evidence_engine/research_intelligence_v6.py \
+            streamlit_app.py streamlit_app_v5.py streamlit_app_v6.py api/app.py
       - name: Scientific and grounding tests
         run: |
           PYTHONPATH=. python tests/test_survival.py
@@ -48,3 +50,21 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
           PYTHONPATH=. python tests/test_glass_gbm_specific.py
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
+          PYTHONPATH=. python tests/test_research_intelligence_v6.py
+      - name: Streamlit render and rerun regression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from streamlit.testing.v1 import AppTest
+
+          app = Path.cwd() / "streamlit_app.py"
+          at = AppTest.from_file(app, default_timeout=30).run(timeout=30)
+          assert not list(at.exception), list(at.exception)
+          assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
+          assert len(at.tabs) == 5
+          gene = next(x for x in at.text_input if x.label == "Gene symbol")
+          gene.set_value("PTEN").run(timeout=30)
+          assert not list(at.exception), list(at.exception)
+          assert any(getattr(x, "value", None) == "GBM Gene Analysis" for x in at.title)
+          print("STREAMLIT V6 RERUN TEST PASSED")
+          PY
