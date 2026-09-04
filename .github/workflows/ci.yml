@@ -50,8 +50,6 @@ jobs:
               'main()\n'
           )
 
-          # Bound cached profile counts so repeated arbitrary-gene queries cannot
-          # grow the in-memory Streamlit cache without limit.
           p = Path('streamlit_app_v5.py')
           text = p.read_text()
           text = text.replace(
@@ -66,7 +64,7 @@ jobs:
           )
           p.write_text(text)
 
-          Path('tests/test_streamlit_rerun.py').write_text('''"""Regression test: Streamlit entrypoint must render after widget reruns."""\nfrom streamlit.testing.v1 import AppTest\n\n\ndef _has_title(at):\n    return any(getattr(item, "value", None) == "GBM Gene Analysis" for item in at.title)\n\n\ndef test_entrypoint_rerenders_after_widget_change():\n    at = AppTest.from_file("streamlit_app.py", default_timeout=20).run(timeout=20)\n    assert not list(at.exception), list(at.exception)\n    assert _has_title(at)\n    gene = next(w for w in at.text_input if w.label == "Gene symbol")\n    gene.set_value("PTEN").run(timeout=20)\n    assert not list(at.exception), list(at.exception)\n    assert _has_title(at), "Entrypoint went blank after Streamlit rerun"\n\n\nif __name__ == "__main__":\n    test_entrypoint_rerenders_after_widget_change()\n    print("STREAMLIT RERUN REGRESSION TEST PASSED")\n''')
+          Path('tests/test_streamlit_rerun.py').write_text('''"""Regression test: Streamlit entrypoint must render after widget reruns."""\nfrom pathlib import Path\nfrom streamlit.testing.v1 import AppTest\n\nAPP_PATH = Path(__file__).resolve().parents[1] / "streamlit_app.py"\n\n\ndef _has_title(at):\n    return any(getattr(item, "value", None) == "GBM Gene Analysis" for item in at.title)\n\n\ndef test_entrypoint_rerenders_after_widget_change():\n    at = AppTest.from_file(APP_PATH, default_timeout=20).run(timeout=20)\n    assert not list(at.exception), list(at.exception)\n    assert _has_title(at)\n    gene = next(w for w in at.text_input if w.label == "Gene symbol")\n    gene.set_value("PTEN").run(timeout=20)\n    assert not list(at.exception), list(at.exception)\n    assert _has_title(at), "Entrypoint went blank after Streamlit rerun"\n\n\nif __name__ == "__main__":\n    test_entrypoint_rerenders_after_widget_change()\n    print("STREAMLIT RERUN REGRESSION TEST PASSED")\n''')
           PY
 
       - name: Install test dependencies
