@@ -23,6 +23,20 @@ def co_mention_count(gene: str, context: str = "glioblastoma") -> Optional[int]:
     return result.get("hitCount") if result else None
 
 
+def _publication_url(row: dict) -> str:
+    doi = str(row.get("doi") or "").strip()
+    if doi:
+        return f"https://doi.org/{doi}"
+    pmcid = str(row.get("pmcid") or "").strip()
+    if pmcid:
+        return f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/"
+    pmid = str(row.get("pmid") or "").strip()
+    if pmid:
+        return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+    title = str(row.get("title") or "").strip()
+    return "https://europepmc.org/search?query=" + urllib.parse.quote(title)
+
+
 def top_papers(gene: str, page_size: int = 8) -> list[dict]:
     result = search(f'"{gene}" AND (glioblastoma OR GBM)', page_size=page_size, result_type="core") or {}
     rows = result.get("resultList", {}).get("result", [])
@@ -38,6 +52,7 @@ def top_papers(gene: str, page_size: int = 8) -> list[dict]:
             "doi": r.get("doi"),
             "cited_by": r.get("citedByCount"),
             "abstract": r.get("abstractText"),
+            "url": _publication_url(r),
         })
     return papers
 

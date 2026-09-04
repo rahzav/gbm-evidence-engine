@@ -205,18 +205,17 @@ with analysis_tab:
                         st.markdown(f"**{record.claim_text}**")
                         stats = []
                         if record.statistic_name and record.statistic_value is not None:
-                            stats.append(f"{record.statistic_name}={record.statistic_value:.4g}")
+                            statistic_label = record.statistic_name.replace("_", " ").strip().title()
+                            stats.append(f"{statistic_label}: {record.statistic_value:.4g}")
                         if record.p_value is not None:
-                            stats.append(f"p={record.p_value:.3g}")
+                            stats.append(f"p = {record.p_value:.3g}")
                         if record.provenance.sample_size:
-                            stats.append(f"n={record.provenance.sample_size}")
+                            stats.append(f"n = {record.provenance.sample_size}")
                         if stats:
                             st.caption(" | ".join(stats))
                         st.caption(
-                            f"Source: {record.provenance.source_dataset} | Confidence: {record.confidence.value} | Access: {record.provenance.access_tier.value}"
+                            f"Source: {record.provenance.source_dataset} | Confidence: {record.confidence.value.title()}"
                         )
-                        for caveat in record.caveats:
-                            st.caption(f"Caveat: {caveat}")
                         st.divider()
 
         with detail_tabs[1]:
@@ -389,15 +388,22 @@ with analysis_tab:
                 if papers:
                     st.markdown("#### Relevant Publications")
                     for paper in papers:
-                        paper_title = paper.get("title") or "Untitled"
+                        paper_title = str(paper.get("title") or "Untitled")
+                        safe_title = paper_title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+                        if paper.get("url"):
+                            st.markdown(f"**[{safe_title}]({paper['url']})**")
+                        else:
+                            st.markdown(f"**{paper_title}**")
+                        if paper.get("authors"):
+                            st.caption(paper.get("authors"))
                         metadata = " | ".join(
                             str(x) for x in [
                                 paper.get("journal"),
                                 paper.get("year"),
                                 paper.get("pmid") and f"PMID {paper.get('pmid')}",
+                                paper.get("doi") and f"DOI {paper.get('doi')}",
                             ] if x
                         )
-                        st.markdown(f"**{paper_title}**")
                         if metadata:
                             st.caption(metadata)
 
