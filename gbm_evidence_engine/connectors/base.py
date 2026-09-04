@@ -1,38 +1,18 @@
-"""
-connectors/base.py
-===================
-
-Shared plumbing for every data connector, plus SOURCE_REGISTRY: an explicit,
-human-auditable record of how each upstream resource is actually reached.
-
-This registry exists because Phase 4 of the product brief demands the system
-be honest about provenance, and Phase 4's "Privacy/legal" section demands we
-"audit licenses and API restrictions before implementation." A generic
-tool-calling agent (see docs/ARCHITECTURE.md's discussion of ToolUniverse/
-TxAgent) treats every API the same way — call it, get JSON back. GBM research
-data doesn't work like that: cBioPortal/Open Targets/Europe PMC/
-ClinicalTrials.gov are genuinely live, no-registration REST/GraphQL APIs;
-Ivy GAP and DepMap's public release are open but distributed as versioned
-bulk downloads, not low-latency per-gene endpoints; CGGA and GLASS require a
-free registration / data-use agreement before any ingestion. Collapsing that
-distinction is how a tool ends up over-promising "live" data or, worse,
-silently re-hosting data it wasn't licensed to redistribute.
-"""
-
+"""Shared source metadata, cache paths, and best-effort JSON HTTP helpers."""
 from __future__ import annotations
 
-import time
 import json
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from gbm_evidence_engine.evidence_model import AccessTier
 
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+USER_AGENT = "GBM-Evidence-Engine/3.0 (+https://github.com/rahzav/gbm-evidence-engine)"
 
 
 @dataclass
@@ -49,96 +29,84 @@ SOURCE_REGISTRY: dict[str, SourceMeta] = {
         name="cBioPortal (TCGA-GBM and other public studies)",
         access_tier=AccessTier.OPEN_LIVE_API,
         base_url="https://www.cbioportal.org/api",
-        version_note="Live query against whatever study snapshot cBioPortal currently serves; "
-                      "record the portalVersion (GET /api/info) alongside every result.",
-        license_note="Public studies are CC0/open for research use; no API key needed.",
+        version_note="Live public-study query; retain study/profile identifiers and retrieval time.",
+        license_note="Public study data are openly accessible through cBioPortal; source-study terms still apply.",
     ),
     "open_targets": SourceMeta(
         name="Open Targets Platform",
         access_tier=AccessTier.OPEN_LIVE_API,
         base_url="https://api.platform.opentargets.org/api/v4/graphql",
-        version_note="Bi-monthly Open Targets data releases; record the release tag returned by the API.",
-        license_note="Apache 2.0 code, open data, free for academic and commercial use with citation.",
+        version_note="Live Open Targets Platform GraphQL query.",
+        license_note="Open platform data; cite Open Targets and underlying evidence sources.",
     ),
     "europepmc": SourceMeta(
         name="Europe PMC",
         access_tier=AccessTier.OPEN_LIVE_API,
         base_url="https://www.ebi.ac.uk/europepmc/webservices/rest",
-        version_note="Live full-text/abstract search, continuously updated.",
-        license_note="Open API, no registration required.",
+        version_note="Live literature index, continuously updated.",
+        license_note="Open API; individual article reuse rights vary by publication.",
     ),
     "clinicaltrials": SourceMeta(
         name="ClinicalTrials.gov",
         access_tier=AccessTier.OPEN_LIVE_API,
         base_url="https://clinicaltrials.gov/api/v2",
-        version_note="Live registry query.",
-        license_note="US government public data.",
+        version_note="Live ClinicalTrials.gov API v2 registry query.",
+        license_note="US government public registry data.",
     ),
     "ivygap": SourceMeta(
         name="Ivy Glioblastoma Atlas Project",
         access_tier=AccessTier.OPEN_BULK_DOWNLOAD,
-        base_url="http://glioblastoma.alleninstitute.org / http://www.ivygap.org",
-        version_note="~270 laser-microdissection RNA-seq samples from 41 patients across 7 anatomic "
-                      "zones; ingest as a versioned snapshot, not a per-query live call.",
-        license_note="Free Allen Institute resource; no registration for bulk download.",
+        base_url="https://glioblastoma.alleninstitute.org",
+        version_note="Official normalized RNA-seq snapshot: 270 laser-microdissection samples across seven GBM anatomic structures.",
+        license_note="Allen Institute research resource; cache source files locally and cite the Ivy GAP resource rather than re-hosting raw matrices.",
     ),
     "depmap": SourceMeta(
-        name="DepMap (CRISPR gene-effect scores, public release)",
-        access_tier=AccessTier.OPEN_BULK_DOWNLOAD,
-        base_url="https://depmap.org/portal/download/",
-        version_note="Quarterly public releases (e.g. 24Q4); pin the exact release string in every "
-                      "EvidenceRecord — dependency scores shift slightly between releases.",
-        license_note="CC0 / open for research use, no registration required for the public release.",
+        name="DepMap public Breadbox / Chronos",
+        access_tier=AccessTier.OPEN_LIVE_API,
+        base_url="https://depmap.org/portal/breadbox",
+        version_note="Live Breadbox access to the current public Chronos_Combined matrix and model metadata; dependency values may change across DepMap releases.",
+        license_note="Public research access is available; DepMap's current data-use terms apply and commercial use may require separate licensing.",
     ),
     "cgga": SourceMeta(
         name="Chinese Glioma Genome Atlas",
-        access_tier=AccessTier.REGISTRATION_GATED,
-        base_url="http://www.cgga.org.cn",
-        version_note="Free registration required before download; re-verify the data-use terms "
-                      "before serving anything beyond derived summary statistics.",
-        license_note="Free for academic research after registration; do not re-host raw matrices.",
+        access_tier=AccessTier.OPEN_BULK_DOWNLOAD,
+        base_url="https://www.cgga.org.cn/download.jsp",
+        version_note="Public mRNAseq_693 and mRNAseq_325 RSEM-gene/clinical snapshots dated 2020-05-06, as currently exposed by the CGGA download site.",
+        license_note="Use for research with CGGA citation; cache locally and do not re-host raw matrices.",
     ),
     "glass": SourceMeta(
         name="GLASS Consortium (Glioma Longitudinal AnalySiS)",
         access_tier=AccessTier.REGISTRATION_GATED,
         base_url="https://www.synapse.org (project syn17038081)",
-        version_note="Free Synapse account + acceptance of the GLASS data-use policy required.",
-        license_note="Open research-use data once registered; do not re-host raw matrices.",
+        version_note="Current gene TPM matrix entity syn57367276; download requires an authenticated Synapse account with applicable access conditions accepted.",
+        license_note="Controlled research-use data; never expose credentials or re-host controlled raw matrices.",
     ),
     "b3db": SourceMeta(
         name="B3DB blood-brain barrier permeability database",
         access_tier=AccessTier.OPEN_BULK_DOWNLOAD,
         base_url="https://github.com/theochem/B3DB",
-        version_note="Static curated compilation (~7,800 compounds, ~1,058 with numeric logBB).",
-        license_note="Open, citation requested.",
+        version_note="Static curated BBB permeability compilation.",
+        license_note="Open research resource; citation requested.",
     ),
 }
 
 
 def http_get_json(url: str, timeout: int = 20) -> Optional[dict]:
-    """Best-effort GET+JSON. Returns None (never raises) if the network call
-    fails — this sandbox has no egress, so this always returns None here, but
-    the function is what a deployed instance with network access would use."""
     try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "GBM-Evidence-Engine/2.0"})
+        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, ValueError):
+    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
         return None
 
 
 def http_post_json(url: str, payload: dict | list, timeout: int = 20) -> Optional[dict | list]:
-    """Best-effort POST+JSON counterpart to ``http_get_json``.
-
-    Returns ``None`` on transport/JSON failure so upstream research workflows
-    can degrade source-by-source instead of failing the entire dossier.
-    """
     try:
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
-            url, data=body,
-            headers={"Accept": "application/json", "Content-Type": "application/json",
-                     "User-Agent": "GBM-Evidence-Engine/2.0"},
+            url,
+            data=body,
+            headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT},
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
