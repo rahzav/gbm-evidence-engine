@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply deterministic audit fixes
-        run: python scripts/apply_v7_production_audit.py
+        run: |
+          python scripts/apply_v7_production_audit.py
+          python scripts/final_v7_contract_patch.py
       - name: Install production requirements
         run: |
           python -m pip install --upgrade pip
@@ -117,6 +119,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No audit patch changes to commit.'
           else
-            git commit -m "Complete V7 production audit and polish"
+            git commit -m "Finalize V7 data contracts after production audit"
             git push origin HEAD:v7-frozen-scope
           fi
