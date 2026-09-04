@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, research-grade-cohorts, v5-research-capacity]
+    branches: [main, research-grade-cohorts, v5-research-capacity, runtime-diagnostic]
   pull_request:
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install scientific test dependencies
+      - name: Install full app requirements
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy
+          pip install -r requirements.txt
       - name: Syntax validation
         run: |
           python -m py_compile \
@@ -48,3 +48,26 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
           PYTHONPATH=. python tests/test_glass_gbm_specific.py
           PYTHONPATH=. python tests/test_research_intelligence_v5.py
+      - name: Import deployed Streamlit entrypoint
+        run: |
+          python - <<'PY'
+          import streamlit_app
+          print('ENTRYPOINT_IMPORT_OK')
+          PY
+      - name: Start Streamlit and probe health
+        run: |
+          streamlit run streamlit_app.py --server.headless true --server.port 8501 > /tmp/streamlit.log 2>&1 &
+          pid=$!
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8501/_stcore/health; then
+              echo
+              echo STREAMLIT_HEALTH_OK
+              kill $pid || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo '--- streamlit log ---'
+          cat /tmp/streamlit.log
+          kill $pid || true
+          exit 1
