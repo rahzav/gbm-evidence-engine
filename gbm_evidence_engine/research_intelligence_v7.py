@@ -111,7 +111,7 @@ def _dimension_confidence(profile: ResearchProfile) -> dict[str, dict]:
         ["Completed trials with interpretable target engagement and efficacy data would increase confidence."],
     )
 
-    pub_count = int(lit.get("gbm_publication_count") or lit.get("total") or 0)
+    pub_count = int(lit.get("hit_count") or lit.get("gbm_publication_count") or lit.get("total") or 0)
     literature_conf = (45 + min(35, math.log10(max(pub_count, 1) + 1) * 20)) if lit.get("ok") else None
     out["Literature/context depth"] = _confidence(
         literature_conf,

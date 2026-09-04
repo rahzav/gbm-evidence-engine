@@ -39,7 +39,7 @@ def _profile():
             "cbioportal": {"ok": True, "n_samples": 400, "mutation": {"n_profiled": 400}},
             "open_targets": {"ok": True, "gbm_association_score": 0.8, "known_drug_count": 4},
             "clinical_trials": {"ok": True, "total": 3},
-            "literature": {"ok": True, "gbm_publication_count": 150},
+            "literature": {"ok": True, "hit_count": 150},
             "depmap": {
                 "ok": True,
                 "n_gbm": 30,
