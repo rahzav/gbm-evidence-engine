@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, research-grade-cohorts]
+    branches: [main, research-grade-cohorts, v5-research-capacity]
   pull_request:
 
 jobs:
@@ -29,9 +29,15 @@ jobs:
             gbm_evidence_engine/connectors/ivygap.py \
             gbm_evidence_engine/connectors/cgga.py \
             gbm_evidence_engine/connectors/glass.py \
+            gbm_evidence_engine/connectors/mygene.py \
+            gbm_evidence_engine/connectors/hpa.py \
+            gbm_evidence_engine/connectors/stringdb.py \
+            gbm_evidence_engine/connectors/b3db_live.py \
             gbm_evidence_engine/research_intelligence.py \
             gbm_evidence_engine/research_intelligence_v3.py \
-            streamlit_app.py api/app.py
+            gbm_evidence_engine/research_intelligence_v4.py \
+            gbm_evidence_engine/research_intelligence_v5.py \
+            streamlit_app.py streamlit_app_v5.py api/app.py
       - name: Scientific and grounding tests
         run: |
           PYTHONPATH=. python tests/test_survival.py
@@ -40,3 +46,5 @@ jobs:
           PYTHONPATH=. python tests/test_grounding_validator.py
           PYTHONPATH=. python tests/test_research_intelligence.py
           PYTHONPATH=. python tests/test_research_intelligence_v3.py
+          PYTHONPATH=. python tests/test_glass_gbm_specific.py
+          PYTHONPATH=. python tests/test_research_intelligence_v5.py
