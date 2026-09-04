@@ -12,6 +12,9 @@ __pycache__/
 venv/
 env/
 
+# Local research-source cache (bulk Ivy/CGGA/GLASS files are never committed)
+data/_cache/
+
 # Local configuration / secrets
 .env
 .env.*
