@@ -59,7 +59,7 @@ HELP = {
     "brain_single_nuclei": "How specifically the gene is expressed across normal brain cell populations measured by single-nucleus RNA sequencing.",
     "network": "STRING protein-association networks show experimentally supported or curated functional relationships around the target. They support mechanism generation but do not establish causality.",
     "gbmap": "GBmap is an integrated glioblastoma single-cell and spatial reference atlas used to place a gene in cellular and tumor-state context.",
-    "literature_count": "The number of Europe PMC records matching the gene together with glioblastoma/GBM terms. It reflects literature volume, not evidence quality by itself.",
+    "literature_count": "The number of indexed biomedical literature records matching the gene together with glioblastoma/GBM terms. It reflects literature volume, not evidence quality by itself.",
     "bbb": "The blood–brain barrier (BBB) limits entry of many compounds into brain tissue and is a key consideration for GBM drug development.",
     "b3db_matches": "The number of checked compounds with matching records in B3DB, a database of experimentally measured blood–brain barrier permeability.",
     "bbb_positive": "The number of matching B3DB records labeled BBB-positive/permeable. A missing record is not evidence that a compound cannot cross the BBB.",
@@ -410,7 +410,7 @@ def _publication_metadata(paper: dict) -> str:
     if paper.get("doi"):
         parts.append(f"DOI {paper['doi']}")
     if not parts:
-        source = str(paper.get("source") or "Europe PMC")
+        source = str(paper.get("source") or "Literature index")
         identifier = paper.get("id")
         parts.append(f"{source} {identifier}".strip())
     return " · ".join(parts)
@@ -436,7 +436,7 @@ def _render_publication(paper: dict, index: int) -> None:
                     f"<div style='text-align:right;font-size:.82rem;font-weight:600;opacity:.62;white-space:nowrap;'>{year}</div>",
                     unsafe_allow_html=True,
                 )
-        st.caption(authors if authors else "Authors not indexed in Europe PMC.")
+        st.caption(authors if authors else "Authors not available for this record.")
         st.caption(metadata)
 
 
@@ -448,12 +448,12 @@ def render_literature(profile, lit):
     with heading_col:
         st.markdown("### Literature Explorer")
         st.caption(
-            "Search the live Europe PMC index for this gene and narrow results by GBM disease context."
+            "Search the live biomedical literature for this gene and narrow results by GBM disease context."
         )
     with source_col:
-        indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live Europe PMC"
+        indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live literature index"
         st.markdown(
-            f"<div style='text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>Europe PMC · {indexed_text}</div>",
+            f"<div style='text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>{indexed_text}</div>",
             unsafe_allow_html=True,
         )
 
@@ -497,7 +497,7 @@ def render_literature(profile, lit):
                     "Search publications",
                     key=search_input_key,
                     placeholder="Search title/abstract — e.g. osimertinib, CAR T, resistance",
-                    help="Searches within this gene's GBM literature in Europe PMC. Empty the field and search again to reset.",
+                    help="Searches within this gene's GBM literature index. Empty the field and search again to reset.",
                     label_visibility="collapsed",
                 )
             with button_col:
@@ -577,7 +577,7 @@ def render_literature(profile, lit):
                     st.session_state[cursor_key] = more.get("next_cursor")
                     st.rerun()
                 else:
-                    st.info(more.get("error", "Europe PMC is temporarily unavailable."))
+                    st.info(more.get("error", "The literature service is temporarily unavailable."))
 
 
 def render_translation(ot, trials, bbb):

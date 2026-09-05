@@ -79,7 +79,7 @@ Compares a bounded set of genes through the same production profile architecture
 
 ### Research Assistant
 
-Provides an evidence-grounded conversational layer over the production workflows. The assistant can build gene dossiers, run target-pair and gene-set analyses, inspect analysis already present in the current session, and retrieve live Europe PMC publications. Important factual claims are tied to evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools. The assistant does not redefine production scores or convert hypotheses into evidence.
+Provides an evidence-grounded conversational layer over the production workflows. The assistant can build gene dossiers, run target-pair and gene-set analyses, inspect analysis already present in the current session, and retrieve live biomedical publications. Important factual claims are tied to evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools. The assistant does not redefine production scores or convert hypotheses into evidence.
 
 The assistant uses Groq through its OpenAI-compatible Responses API with function calling. Configure `GROQ_API_KEY`; `GROQ_MODEL` is optional and defaults to `openai/gpt-oss-120b`. The application handles Groq rate-limit responses without falling back to paid usage.
 
