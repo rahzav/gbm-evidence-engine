@@ -4,7 +4,6 @@ import re
 path = Path("streamlit_app_v5.py")
 text = path.read_text()
 
-# Keep help icons only for genuinely technical concepts that benefit from an in-context definition.
 help_block = '''HELP = {
     "target_priority_score": "A 0–100 research-prioritization score integrating supported GBM evidence across multiple sources. It is not a measure of clinical benefit or causality.",
     "evidence_coverage": "The percentage of the scored evidence model supported by usable data for this gene. Missing sources reduce coverage rather than counting as negative evidence.",
@@ -27,15 +26,13 @@ help_block = '''HELP = {
     "bbb_positive": "The number of matching B3DB records labeled BBB-positive/permeable. A missing record is not evidence that a compound cannot cross the BBB.",
 }
 '''
-text, n = re.subn(r'HELP = \{.*?\}\n\n(?=@st\.cache_data)', help_block + '\n', text, count=1, flags=re.S)
+text, n = re.subn(r'HELP = \{.*?\}\n+(?=@st\.cache_data)', help_block + '\n', text, count=1, flags=re.S)
 if n != 1:
     raise SystemExit("Could not replace HELP dictionary")
 
-# Remove all help arguments first, then add back only the technical definitions worth keeping.
 text = re.sub(r',\s*help=HELP\["[^"]+"\]', '', text)
 text = re.sub(r'\n\s*help=HELP\["[^"]+"\],', '', text)
 
-# Selected section-level help.
 section_help = {
     'st.subheader("DepMap Functional Dependency", anchor=False)': 'st.subheader("DepMap Functional Dependency", help=HELP["depmap"], anchor=False)',
     'st.subheader("Ivy GAP Spatial Expression", anchor=False)': 'st.subheader("Ivy GAP Spatial Expression", help=HELP["ivy_gap"], anchor=False)',
@@ -49,7 +46,6 @@ for old, new in section_help.items():
     if old in text:
         text = text.replace(old, new)
 
-# Selected metric-level help.
 metric_help = {
     'm1.metric("Target Priority Score", "N/A" if score.overall is None else f"{score.overall}/100")': 'm1.metric("Target Priority Score", "N/A" if score.overall is None else f"{score.overall}/100", help=HELP["target_priority_score"])',
     'm2.metric("Evidence Coverage", f"{score.evidence_coverage_pct}%")': 'm2.metric("Evidence Coverage", f"{score.evidence_coverage_pct}%", help=HELP["evidence_coverage"])',
@@ -68,7 +64,6 @@ for old, new in metric_help.items():
         raise SystemExit(f"Missing metric target: {old}")
     text = text.replace(old, new)
 
-# Keep a concise pan-essential definition on the existing context line.
 old_pan = '''        st.caption(
             f"GBM definition: {dep.get('gbm_definition')}. Pan-essential classification: {'Yes' if dep.get('pan_essential') else 'No'}."
         )'''
@@ -79,7 +74,6 @@ new_pan = '''        st.caption(
 if old_pan in text:
     text = text.replace(old_pan, new_pan)
 
-# Remove nonessential guidance and creator-facing language.
 nav = '''    section_space(0.4)
     st.caption(
         "Start with Overview. Use Evidence for source-derived biology, Translation for therapeutic context, "
@@ -92,25 +86,19 @@ text = text.replace(
     'st.caption("Source-derived molecular and human evidence. Tool-generated recommendations are kept out of this workspace.")',
     'st.caption("Source-derived molecular and human evidence.")',
 )
-
-# Shorten the score interpretation displayed beneath the summary metrics.
 text = text.replace(
     'st.caption(f"{score.label}. {score.caveat}")',
     'st.caption(f"{score.label}. Research prioritization only; not a measure of causality or clinical benefit.")',
 )
 
-# Remove the gene-symbol and Analyze-button help icons entirely.
 text = re.sub(r'\n\s*help=HELP\["gene_symbol"\],', '', text)
 text = re.sub(r'\n\s*help=HELP\["analyze"\],', '', text)
-
-# Remove redundant help from self-explanatory synthesis sections if any survived.
 text = text.replace('st.subheader("Evidence Consistency", help=HELP["evidence_consistency"], anchor=False)', 'st.subheader("Evidence Consistency", anchor=False)')
 text = text.replace('st.subheader("Evidence Gaps", help=HELP["evidence_gaps"], anchor=False)', 'st.subheader("Evidence Gaps", anchor=False)')
 text = text.replace('st.subheader("Potential Validation Studies", help=HELP["validation_studies"], anchor=False)', 'st.subheader("Potential Validation Studies", anchor=False)')
 text = re.sub(r'\n\s*st\.caption\("How the overall research-prioritization score is assembled\."[^\n]*\)', '', text)
 text = re.sub(r'\n\s*st\.caption\("Auditable claims used by the profile\."[^\n]*\)', '', text)
 
-# Researcher-facing Methods copy: remove internal version/build/infrastructure commentary.
 text = text.replace(
     '"The Target Priority Score retains the validated V4 evidence model: TCGA genomic signal, Open Targets disease relevance and druggability, clinical translation, literature context, DepMap functional dependency, Ivy GAP spatial expression, CGGA external human validation, and clinically verified GLASS longitudinal recurrence when available. Missing sources reduce evidence coverage rather than becoming negative biological evidence."',
     '"The Target Priority Score integrates TCGA genomic signal, Open Targets disease relevance and druggability, clinical translation, literature context, DepMap functional dependency, Ivy GAP spatial expression, CGGA external human validation, and GLASS longitudinal recurrence when available. Missing sources reduce evidence coverage rather than being treated as negative evidence."',
@@ -124,7 +112,6 @@ text = text.replace(
     '"GBmap provides a public IDH-wildtype glioblastoma single-cell and spatial reference for cellular and tumor-state context. GBmap reference information is presented separately from the Target Priority Score."',
 )
 
-# Make source-status values readable when a backend status uses machine-style labels.
 if 'def display_status(value):' not in text:
     marker = 'def section_space(size: float = 1.0):\n    st.markdown(f"<div style=\'height:{size}rem\'></div>", unsafe_allow_html=True)\n\n\n'
     replacement = marker + '''def display_status(value):
@@ -150,7 +137,6 @@ text = text.replace(
     '{"Data Source": str(name).replace("_", " ").title(), "Status": display_status(status)}',
 )
 
-# Guardrails: no obsolete/internal-facing version language in visible Methods copy; no nonessential gene/button help.
 required_absent = [
     'Start with Overview.',
     'Tool-generated recommendations are kept out of this workspace.',
