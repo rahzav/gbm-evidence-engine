@@ -72,7 +72,7 @@ TOOL USE
 - build_gene_dossier: full single-gene evidence synthesis.
 - compare_target_pair: existing two-target rationale workflow.
 - compare_gene_set: existing bounded side-by-side target comparison.
-- search_gbm_publications: live Europe PMC title/abstract retrieval.
+- search_gbm_publications: live biomedical literature title/abstract retrieval.
 - inspect_current_analysis: retrieves analysis already created in the user's
   current application session, including processed Researcher Data results.
 
@@ -136,7 +136,7 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "name": "search_gbm_publications",
-        "description": "Search live Europe PMC title/abstract fields for publications about a gene in glioblastoma, optionally narrowed by disease context and keywords.",
+        "description": "Search live biomedical literature title/abstract fields for publications about a gene in glioblastoma, optionally narrowed by disease context and keywords.",
         "parameters": {
             "type": "object",
             "properties": {
