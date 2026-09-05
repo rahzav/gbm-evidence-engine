@@ -1,0 +1,60 @@
+name: Generalize Literature Copy
+
+on:
+  push:
+    branches: [generalize-literature-source-copy]
+    paths:
+      - '.github/workflows/generalize_literature_copy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: generalize-literature-source-copy
+      - name: Remove unnecessary source branding from user-facing copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              'app_ui.py': [
+                  ('The number of Europe PMC records matching the gene together with glioblastoma/GBM terms. It reflects literature volume, not evidence quality by itself.', 'The number of indexed biomedical literature records matching the gene together with glioblastoma/GBM terms. It reflects literature volume, not evidence quality by itself.'),
+                  ('source = str(paper.get("source") or "Europe PMC")', 'source = str(paper.get("source") or "Literature index")'),
+                  ('Authors not indexed in Europe PMC.', 'Authors not available for this record.'),
+                  ('Search the live Europe PMC index for this gene and narrow results by GBM disease context.', 'Search the live biomedical literature for this gene and narrow results by GBM disease context.'),
+                  ('indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live Europe PMC"', 'indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live literature index"'),
+                  ('f"<div style=\'text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;\'>Europe PMC · {indexed_text}</div>"', 'f"<div style=\'text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;\'>{indexed_text}</div>"'),
+                  ('Searches within this gene\'s GBM literature in Europe PMC. Empty the field and search again to reset.', 'Searches within this gene\'s GBM literature index. Empty the field and search again to reset.'),
+                  ('Europe PMC is temporarily unavailable.', 'The literature service is temporarily unavailable.'),
+              ],
+              'gbm_evidence_engine/research_agent.py': [
+                  ('search_gbm_publications: live Europe PMC title/abstract retrieval.', 'search_gbm_publications: live biomedical literature title/abstract retrieval.'),
+                  ('Search live Europe PMC title/abstract fields for publications about a gene in glioblastoma, optionally narrowed by disease context and keywords.', 'Search live biomedical literature title/abstract fields for publications about a gene in glioblastoma, optionally narrowed by disease context and keywords.'),
+              ],
+              'README.md': [
+                  ('and retrieve live Europe PMC publications.', 'and retrieve live biomedical publications.'),
+              ],
+          }
+
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'Missing expected text in {filename}: {old}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile app_ui.py gbm_evidence_engine/research_agent.py
+          git add app_ui.py gbm_evidence_engine/research_agent.py README.md
+          git commit -m "Generalize literature source copy"
+          git push origin generalize-literature-source-copy
