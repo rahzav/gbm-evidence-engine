@@ -101,6 +101,9 @@ def normalize_publication(record: dict) -> dict:
 
 
 def top_papers(gene: str, page_size: int = 8) -> list[dict]:
+    # Preserve the established scoring/profile query. The interactive browser
+    # below uses a stricter title/abstract relevance query without changing the
+    # frozen V7 literature score.
     result = search(f'"{gene}" AND (glioblastoma OR GBM)', page_size=page_size, result_type="core") or {}
     return [normalize_publication(row) for row in result.get("resultList", {}).get("result", [])]
 
@@ -127,22 +130,49 @@ CONTEXT_LABELS = {
 }
 
 
-def _safe_user_terms(terms: str | None) -> str | None:
-    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9_.+/-]*", str(terms or ""))[:12]
-    if not tokens:
-        return None
-    return " AND ".join(f'"{token}"' for token in tokens)
+BROWSER_CONTEXT_TERMS = {
+    "recurrent": ["recurrent", "recurrence"],
+    "treatment_resistance": ["resistance", "resistant", "refractory"],
+    "IDH": ["IDH"],
+    "MGMT": ["MGMT"],
+    "single_cell": ["single-cell", "single cell", "scRNA"],
+    "spatial": ["spatial", "Ivy GAP", "anatomic niche"],
+    "blood_brain_barrier": ["blood-brain barrier", "BBB"],
+}
+
+
+def _fielded_term(term: str) -> str:
+    escaped = str(term).replace('"', "").strip()
+    return f'(TITLE:"{escaped}" OR ABSTRACT:"{escaped}")'
+
+
+def _safe_user_tokens(terms: str | None) -> list[str]:
+    return re.findall(r"[A-Za-z0-9][A-Za-z0-9_.+/-]*", str(terms or ""))[:12]
 
 
 def build_publication_query(gene: str, context_key: str | None = None, terms: str | None = None) -> str:
-    query = f'"{gene.strip()}" AND (glioblastoma OR GBM)'
-    if context_key:
-        tail = CONTEXT_QUERIES.get(context_key)
-        if tail:
-            query += f" AND {tail}"
-    safe_terms = _safe_user_terms(terms)
-    if safe_terms:
-        query += f" AND ({safe_terms})"
+    """Build the interactive-browser query without changing score semantics.
+
+    Browser results are constrained to title/abstract matches so a keyword that
+    merely appears elsewhere in a long PMC full-text issue does not make an
+    unrelated conference abstract look relevant.
+    """
+    gene_term = _fielded_term(gene.strip())
+    disease_term = "(" + " OR ".join([
+        'TITLE:"glioblastoma"',
+        'ABSTRACT:"glioblastoma"',
+        'TITLE:"GBM"',
+        'ABSTRACT:"GBM"',
+    ]) + ")"
+    query = f"{gene_term} AND {disease_term}"
+
+    context_terms = BROWSER_CONTEXT_TERMS.get(context_key or "", [])
+    if context_terms:
+        query += " AND (" + " OR ".join(_fielded_term(term) for term in context_terms) + ")"
+
+    user_tokens = _safe_user_tokens(terms)
+    if user_tokens:
+        query += " AND " + " AND ".join(_fielded_term(token) for token in user_tokens)
     return query
 
 
