@@ -1,0 +1,46 @@
+name: Publication Browser Fielded Live QA
+
+on:
+  push:
+    branches: [publication-browser-and-citation-fix]
+    paths:
+      - .github/workflows/publication_browser_fielded_live_qa.yml
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: publication-browser-and-citation-fix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test fielded live Europe PMC browser
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors import europepmc
+
+          default = europepmc.search_publications('EGFR', page_size=10)
+          assert default['ok'] and default['papers'], default
+          assert default['hit_count'] > 10, default
+          assert default['next_cursor'], default
+          assert 'TITLE:"EGFR"' in default['query'] and 'ABSTRACT:"glioblastoma"' in default['query']
+          print('DEFAULT_RELEVANT_COUNT', default['hit_count'])
+
+          recurrent = europepmc.search_publications('EGFR', context_key='recurrent', page_size=10)
+          assert recurrent['ok'] and recurrent['papers'], recurrent
+          assert recurrent['hit_count'] <= default['hit_count'], (default['hit_count'], recurrent['hit_count'])
+          print('RECURRENT_COUNT', recurrent['hit_count'])
+
+          targeted = europepmc.search_publications('EGFR', terms='BDTX-1535', page_size=10)
+          assert targeted['ok'] and targeted['papers'], targeted
+          assert targeted['hit_count'] < 20, targeted['hit_count']
+          first_titles = [str(p.get('title') or '') for p in targeted['papers']]
+          assert any('BDTX-1535' in title.upper() for title in first_titles), first_titles
+          assert all(p.get('journal') or p.get('year') or p.get('pmid') or p.get('pmcid') or p.get('doi') for p in targeted['papers'])
+          print('TARGETED_COUNT', targeted['hit_count'])
+          for paper in targeted['papers']:
+              print('TARGETED', paper.get('title'), '|', paper.get('authors'), '|', paper.get('journal'), '|', paper.get('year'), '|', paper.get('pmcid'), '|', paper.get('doi'))
+          PY
