@@ -54,3 +54,24 @@ jobs:
               print('BENCHMARK_CASE', gene, json.dumps(output[gene], sort_keys=True))
           print('BENCHMARK_PROBE_JSON', json.dumps(output, sort_keys=True))
           PY
+      - name: Run fixed nine-case benchmark
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          from gbm_evidence_engine.benchmarking import run_benchmark
+          from gbm_evidence_engine.research_intelligence_v7_prod import build_research_profile
+
+          result = run_benchmark(build_research_profile)
+          print('FIXED_BENCHMARK', json.dumps(result, sort_keys=True))
+          assert result['benchmark_version'] == '0.3.0', result
+          assert result['n_cases'] == 9, result
+          assert result['n_unique_genes'] == 6, result
+          assert result['case_class_counts'] == {
+              'context_specific': 3,
+              'known_negative': 3,
+              'known_positive': 3,
+          }, result
+          assert result['n_retrospective_cases'] == 0, result
+          assert result['retrospective_claim_allowed'] is False, result
+          assert result['all_cases_passed'], result
+          PY
