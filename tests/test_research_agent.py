@@ -177,7 +177,7 @@ def test_history_memory_and_output_budget_are_bounded_before_provider_call():
     )
     kwargs = client.responses.kwargs
     assert kwargs is not None
-    assert kwargs["max_output_tokens"] == 320
+    assert kwargs["max_output_tokens"] == 260
     serialized = json.dumps(kwargs["input"], default=str)
     assert len(serialized) < 9000
 

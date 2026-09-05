@@ -15,6 +15,51 @@ TOUR_TITLES = [
     "Glia",
 ]
 
+PRODUCT_SHELL_CSS = """
+<style>
+.st-key-glia_command_center {
+  border: 1px solid color-mix(in srgb, var(--st-primary-color, #ff4b4b) 24%, rgba(128,128,128,.22)) !important;
+  border-radius: 1rem !important;
+  background:
+    radial-gradient(circle at 50% -35%, color-mix(in srgb, var(--st-primary-color, #ff4b4b) 16%, transparent), transparent 58%),
+    color-mix(in srgb, var(--st-text-color, #111) 2.2%, transparent) !important;
+  box-shadow: 0 12px 34px rgba(0,0,0,.055);
+  padding: .35rem .65rem .55rem .65rem !important;
+}
+.st-key-glia_launch_center button {
+  min-height: 3.15rem !important;
+  border-radius: .78rem !important;
+  font-weight: 760 !important;
+  letter-spacing: -.01em !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--st-primary-color, #ff4b4b) 58%, transparent),
+    0 0 20px color-mix(in srgb, var(--st-primary-color, #ff4b4b) 34%, transparent),
+    0 7px 20px rgba(0,0,0,.12) !important;
+  animation: gliaHeroGlow 2.8s ease-in-out infinite;
+}
+.st-key-glia_launch_center button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--st-primary-color, #ff4b4b) 75%, transparent),
+    0 0 30px color-mix(in srgb, var(--st-primary-color, #ff4b4b) 48%, transparent),
+    0 9px 24px rgba(0,0,0,.15) !important;
+}
+.st-key-open_tool_tour_info button {
+  min-height: 2.25rem !important;
+  width: 2.25rem !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+}
+@keyframes gliaHeroGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.055); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-key-glia_launch_center button { animation: none !important; transition: none !important; }
+}
+</style>
+"""
+
 
 def _persisted_suppressed() -> bool:
     raw = st.query_params.get(PERSISTED_SUPPRESSION_PARAM, "")
@@ -184,43 +229,118 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
     show_tool_walkthrough()
 
 
+def render_product_header() -> None:
+    """Render the product identity and keep the walkthrough control beside the product title."""
+    st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
+    title_col, info_col, spacer_col = st.columns([3.0, 0.28, 6.72], vertical_alignment="center")
+    with title_col:
+        st.markdown(
+            "<div data-glia-ignore-selection='true' style='font-size:clamp(2.15rem,3vw,2.75rem);font-weight:720;"
+            "line-height:1.06;letter-spacing:-.025em;margin:0;padding:0;white-space:nowrap;'>GBM Gene Analysis</div>",
+            unsafe_allow_html=True,
+        )
+    with info_col:
+        if st.button(
+            "",
+            icon=":material/info:",
+            key="open_tool_tour_info",
+            help="Open product walkthrough",
+            type="tertiary",
+        ):
+            _launch_tool_tour(manual=True)
+    st.markdown(
+        """
+        <div data-glia-ignore-selection="true" style="font-size:1.03rem;line-height:1.42;opacity:.68;margin:.38rem 0 0 0;">Real-time integrated gene-level evidence synthesis for glioblastoma research.</div>
+        <div style="font-size:.89rem;line-height:1.38;opacity:.66;margin:.22rem 0 .95rem 0;"><b style="opacity:.95;">Research use only:</b> Results support research prioritization and hypothesis development, not clinical decision-making.</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _current_glia_context() -> str:
+    active = str(st.session_state.get("research_workflow_tabs") or "Gene Analysis")
+    if active == "Gene Analysis":
+        profile = st.session_state.get("profile")
+        gene = getattr(profile, "gene", None) if profile is not None else None
+        return f"Current context: {gene} gene dossier" if gene else "No dossier loaded yet — start with a gene or ask Glia to investigate one."
+    if active == "Target Pair Analysis":
+        pair = st.session_state.get("pair") or {}
+        if isinstance(pair, dict) and pair:
+            return f"Current context: {pair.get('gene_a', '')} + {pair.get('gene_b', '')} target pair"
+        return "No target pair loaded yet — Glia can help frame which combination is worth testing."
+    if active == "Researcher Data":
+        return "Current context: processed researcher results" if st.session_state.get("signature") else "No researcher result loaded yet — Glia can help interpret one after analysis."
+    if active == "Gene Set Comparison":
+        profiles = st.session_state.get("comparison_profiles") or []
+        return f"Current context: {len(profiles)}-gene comparison" if profiles else "No gene set comparison loaded yet — Glia can help prioritize a focused set."
+    return "Current context: methods, evidence sources, and interpretation boundaries."
+
+
+def render_glia_command_center() -> None:
+    """Render Glia as the flagship research-interrogation layer above the workflows."""
+    with st.container(border=True, key="glia_command_center"):
+        st.markdown(
+            "<div style='text-align:center;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;"
+            "opacity:.56;margin-top:.1rem;'>Glia · Evidence-Grounded Research Copilot</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div style='text-align:center;font-size:clamp(1.45rem,2vw,1.9rem);font-weight:710;letter-spacing:-.022em;"
+            "line-height:1.16;margin:.32rem auto 0;max-width:48rem;'>Interrogate the evidence. Challenge the conclusion. Decide what to test next.</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div style='text-align:center;font-size:.91rem;line-height:1.48;opacity:.67;margin:.4rem auto .8rem;max-width:52rem;'>"
+            "Glia works across the current workspace to identify the decisive signal, expose contradictions, retrieve relevant GBM literature, compare targets, and turn uncertainty into a discriminating experiment.</div>",
+            unsafe_allow_html=True,
+        )
+        capability_cols = st.columns(3)
+        capabilities = (
+            ("Interrogate", "Ask what actually changes the research decision."),
+            ("Challenge", "Find the strongest reason a target or interpretation could fail."),
+            ("Design", "Convert unresolved evidence into the highest-information next test."),
+        )
+        for col, (label, copy) in zip(capability_cols, capabilities):
+            with col:
+                st.markdown(
+                    f"<div style='text-align:center;border:1px solid rgba(128,128,128,.18);border-radius:.72rem;padding:.58rem .7rem;min-height:4.2rem;'>"
+                    f"<div style='font-size:.82rem;font-weight:720;'>{label}</div>"
+                    f"<div style='font-size:.76rem;line-height:1.35;opacity:.6;margin-top:.14rem;'>{copy}</div></div>",
+                    unsafe_allow_html=True,
+                )
+        left, center, right = st.columns([3.1, 1.8, 3.1], vertical_alignment="center")
+        with center:
+            if st.button(
+                "Ask Glia",
+                icon=":material/auto_awesome:",
+                key="glia_launch_center",
+                type="primary",
+                width="stretch",
+                help="Open the Glia research copilot",
+            ):
+                _open_glia()
+        st.markdown(
+            f"<div style='text-align:center;font-size:.74rem;line-height:1.35;opacity:.5;margin:.12rem 0 .05rem 0;'>{_current_glia_context()}</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_tool_tour_launcher() -> None:
-    """Compatibility no-op: the unified tour now opens from the Gene Analysis info button."""
+    """Compatibility no-op retained for release-contract checks."""
     return None
 
 
 def render_feature_header(title: str, feature: str, caption: str | None = None) -> None:
-    """Render a cohesive workflow header with in-layout Glia access and one tour info control."""
-    content_col, glia_col = st.columns([8.8, 1.2], vertical_alignment="center")
-    with content_col:
-        if feature == "gene":
-            title_col, info_col, spacer_col = st.columns([1.75, 0.28, 8.0], vertical_alignment="center")
-            with title_col:
-                st.markdown(
-                    f"<div style='font-size:1.5rem;font-weight:650;line-height:1.25;letter-spacing:-.01em;"
-                    f"margin:0;padding:0;'>{title}</div>",
-                    unsafe_allow_html=True,
-                )
-            with info_col:
-                if st.button(
-                    "",
-                    icon=":material/info:",
-                    key="open_tool_tour_info",
-                    help="Open tool walkthrough",
-                    type="tertiary",
-                ):
-                    _launch_tool_tour(manual=True)
-        else:
-            st.markdown(
-                f"<div style='font-size:1.5rem;font-weight:650;line-height:1.25;letter-spacing:-.01em;"
-                f"margin:0;padding:0;'>{title}</div>",
-                unsafe_allow_html=True,
-            )
-        if caption:
-            st.caption(caption)
-    with glia_col:
-        if st.button("Ask Glia", key=f"open_glia_{feature}", type="primary", width="stretch"):
-            _open_glia()
+    """Render a focused workflow header without competing global controls."""
+    st.markdown(
+        f"<div style='font-size:1.48rem;font-weight:680;line-height:1.2;letter-spacing:-.016em;margin:.15rem 0 0 0;'>{title}</div>",
+        unsafe_allow_html=True,
+    )
+    if caption:
+        st.markdown(
+            f"<div style='font-size:.88rem;line-height:1.42;opacity:.62;margin:.22rem 0 .72rem 0;'>{caption}</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def maybe_show_initial_tool_walkthrough() -> None:

@@ -37,7 +37,7 @@ MAX_HISTORY_CHARS = 900
 MAX_MEMORY_CHARS = 1400
 MAX_TOOL_OUTPUT_CHARS = 6500
 MAX_PUBLICATION_ABSTRACT_CHARS = 700
-MAX_OUTPUT_TOKENS = 320
+MAX_OUTPUT_TOKENS = 260
 
 
 SYSTEM_INSTRUCTIONS = """\
@@ -79,8 +79,8 @@ NON-NEGOTIABLE GROUNDING RULES
     rank, challenge, or interpret the evidence needed to answer the actual question.
 13. Lead with the research decision or conclusion. Only repeat a visible metric
     when it changes the interpretation.
-14. Default to 120 words or fewer unless the researcher explicitly asks for a
-    detailed analysis. Use at most three short paragraphs or five compact bullets.
+14. Default to 100 words or fewer unless the researcher explicitly asks for a
+    detailed analysis. Use at most two short paragraphs or four compact bullets.
 15. Every substantive answer should add analytical value beyond restating the
     workspace: an implication, contradiction, prioritization, falsifiable inference,
     or discriminating experiment. If the evidence cannot support one, say so.
@@ -89,6 +89,14 @@ NON-NEGOTIABLE GROUNDING RULES
 17. When asked what to test next, recommend one highest-information experiment
     by default, including the key readout/control and what outcome would resolve
     the uncertainty.
+18. Do not produce generic caveats or repeat visible scores merely to sound
+    comprehensive. Use the minimum evidence chain that changes a research decision.
+19. When asked to critique or challenge an interpretation, actively identify the
+    strongest plausible failure mode, confound, or non-generalizability issue that
+    is supported by the retrieved evidence boundary.
+20. If no current analysis exists and the question does not identify a target or
+    searchable research question, ask one precise clarifying question instead of
+    generating a generic GBM overview.
 
 TOOL USE
 - build_gene_dossier: full single-gene evidence synthesis.
@@ -665,22 +673,27 @@ def _create_response(client: Any, *, model: str, input_items: list[Any], tools: 
 def _response_directive(question: str, active_workflow: str = "", selected_quote: str = "") -> str:
     q = str(question or "").strip().lower()
     base = (
-        "Answer the research decision, not the interface. Lead with the conclusion; "
-        "use only the minimum evidence needed; avoid a layer-by-layer recap."
+        "Do not summarize the workspace. Give a decision-grade answer. The first sentence must answer "
+        "the question directly. Then use at most two evidence-backed reasons plus one caveat or next test. "
+        "Only mention a visible score or metric when it changes the decision."
     )
-    if "strongest" in q or "matters most" in q or "most important finding" in q:
-        return base + " Choose exactly one strongest finding, why it matters, and its single biggest caveat. Keep it under 90 words."
-    if "conflict" in q or "contradiction" in q or "disagree" in q:
-        return base + " Identify the single most consequential evidence conflict, explain why it changes confidence, and name the one result that would resolve it."
-    if "experiment" in q or "validate" in q or "test next" in q:
-        return base + " Recommend one highest-information experiment with model/readout, critical control, and the decision-relevant outcome. Do not list alternatives unless asked."
-    if "compare" in q or "which target" in q or "target pair" in q:
-        return base + " Make a clear ranking or decision, then give the decisive evidence and the main reason the ranking could be wrong."
+    if "summar" in q:
+        return base + " Synthesize the workspace into one take-home conclusion and at most two supporting points; do not recap evidence layer by layer."
+    if "strongest" in q or "matters most" in q or "decision-relevant" in q:
+        return base + " Choose exactly one strongest signal, explain why it dominates, name the single biggest caveat, and stop. Keep it under 85 words."
+    if "conflict" in q or "contradiction" in q or "fail" in q or "challenge" in q or "invalidate" in q:
+        return base + " Identify the most consequential failure mode or evidence conflict, explain why it changes confidence, and name the one result that would resolve it."
+    if "experiment" in q or "validate" in q or "test next" in q or "test first" in q:
+        return base + " Recommend one highest-information experiment with model/readout, critical control, and the result that would change the research decision. Do not list alternatives unless asked."
+    if "compare" in q or "which target" in q or "ranking" in q or "move forward" in q or "target pair" in q:
+        return base + " Make a clear ranking or go/no-go judgment when the evidence permits, then give the decisive evidence and the main reason that judgment could be wrong."
     if selected_quote:
         return base + " Interpret the selected text rather than paraphrasing it: state its significance, limitation, and what it changes about the next research decision."
     if active_workflow == "Researcher Data":
-        return base + " Focus on the processed signal that most changes biological interpretation or validation priority; do not restate the uploaded result summary."
-    return base + " Default to a concise implication plus the most useful next research decision."
+        return base + " Focus on the processed signal that most changes biological interpretation or validation priority; do not restate the result table."
+    if active_workflow == "Methods & Data Sources":
+        return base + " Explain what the method or source can establish, what it cannot establish, and the single most important interpretation boundary."
+    return base + " Default to one concise implication, the decisive evidence behind it, and the most useful next research decision."
 
 def run_agent_turn(
     user_message: str,
