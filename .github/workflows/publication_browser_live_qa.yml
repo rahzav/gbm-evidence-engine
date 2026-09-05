@@ -1,0 +1,80 @@
+name: Publication Browser Live QA
+
+on:
+  push:
+    branches: [publication-browser-and-citation-fix]
+    paths:
+      - .github/workflows/publication_browser_live_qa.yml
+
+jobs:
+  live-publication-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: publication-browser-and-citation-fix
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Exercise live Europe PMC browsing
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors import europepmc
+
+          first = europepmc.search_publications('EGFR', page_size=8)
+          assert first['ok'], first
+          assert first['hit_count'] and first['hit_count'] > 8, first
+          assert len(first['papers']) == 8, first
+          assert first['next_cursor'], first
+          for paper in first['papers']:
+              assert paper.get('title'), paper
+              assert paper.get('url'), paper
+              assert paper.get('year') or paper.get('pmid') or paper.get('pmcid') or paper.get('doi') or paper.get('id'), paper
+          print('DEFAULT_BROWSE_OK', first['hit_count'])
+
+          second = europepmc.search_publications('EGFR', page_size=8, cursor_mark=first['next_cursor'])
+          assert second['ok'], second
+          first_ids = {p.get('doi') or p.get('pmid') or p.get('pmcid') or p.get('id') or p.get('title') for p in first['papers']}
+          second_ids = {p.get('doi') or p.get('pmid') or p.get('pmcid') or p.get('id') or p.get('title') for p in second['papers']}
+          assert second_ids - first_ids, (first_ids, second_ids)
+          print('CURSOR_PAGINATION_OK', len(second['papers']))
+
+          recurrent = europepmc.search_publications('EGFR', context_key='recurrent', page_size=8)
+          assert recurrent['ok'] and recurrent['papers'], recurrent
+          assert 'recurrent OR recurrence' in recurrent['query'], recurrent['query']
+          print('CONTEXT_FILTER_OK', recurrent['hit_count'])
+
+          targeted = europepmc.search_publications('EGFR', terms='BDTX-1535', page_size=10)
+          assert targeted['ok'], targeted
+          assert targeted['papers'], targeted
+          assert any('BDTX-1535' in str(p.get('title') or '').upper() for p in targeted['papers']), targeted['papers']
+          for paper in targeted['papers']:
+              print('TARGETED_RECORD', {
+                  'title': paper.get('title'),
+                  'authors': paper.get('authors'),
+                  'journal': paper.get('journal'),
+                  'year': paper.get('year'),
+                  'pmid': paper.get('pmid'),
+                  'pmcid': paper.get('pmcid'),
+                  'doi': paper.get('doi'),
+              })
+          print('KEYWORD_SEARCH_OK', targeted['hit_count'])
+          PY
+      - name: Validate tab walkthrough callback mapping
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          at = AppTest.from_string('''
+          import streamlit as st
+          from ui_walkthroughs import on_workflow_tab_change
+          st.session_state["research_workflow_tabs"] = "Target Pair Analysis"
+          on_workflow_tab_change()
+          st.write(st.session_state.get("pending_feature_walkthrough"))
+          ''').run()
+          assert not list(at.exception), list(at.exception)
+          assert any(str(x.value) == 'pair' for x in at.markdown), [x.value for x in at.markdown]
+          print('TAB_WALKTHROUGH_MAPPING_OK')
+          PY
