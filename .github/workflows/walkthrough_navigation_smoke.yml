@@ -1,0 +1,44 @@
+name: Walkthrough navigation smoke
+
+on:
+  push:
+    branches: [ux-guided-carousel]
+    paths:
+      - .github/workflows/walkthrough_navigation_smoke.yml
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-guided-carousel
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Test tutorial navigation and reopen behavior
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          at = AppTest.from_file('streamlit_app.py').run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          assert at.session_state['walkthrough_open'] is True
+          assert at.session_state['walkthrough_step'] == 0
+          at.button(key='walkthrough_next_0').click().run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          assert at.session_state['walkthrough_step'] == 1
+          assert at.session_state['walkthrough_open'] is True
+
+          at.session_state['walkthrough_open'] = False
+          at.run(timeout=30)
+          at.button(key='open_walkthrough').click().run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          assert at.session_state['walkthrough_open'] is True
+          assert at.session_state['walkthrough_step'] == 0
+          print('walkthrough navigation smoke passed')
+          PY
