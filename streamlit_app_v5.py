@@ -522,7 +522,7 @@ def _open_walkthrough():
 
 def _move_walkthrough(delta: int):
     current = int(st.session_state.get("walkthrough_step", 0))
-    st.session_state["walkthrough_step"] = max(0, min(9, current + delta))
+    st.session_state["walkthrough_step"] = max(0, min(7, current + delta))
 
 
 @st.dialog(
@@ -535,106 +535,215 @@ def _move_walkthrough(delta: int):
 def show_walkthrough():
     steps = [
         {
-            "title": "Start with the research question",
-            "purpose": "Use Gene Analysis when you want to evaluate one target in depth. Enter an approved gene symbol and press Enter or select Analyze to build the profile.",
-            "read": [
-                "Begin with the Overview rather than reading every table from top to bottom.",
-                "Treat the profile as a structured evidence review: first establish priority, then inspect the evidence dimensions that matter for your question.",
-                "Use Gene Set Comparison when your decision is comparative rather than target-specific.",
+            "title": "Target Priority Score and Evidence Coverage",
+            "intro": "These two values summarize different parts of the profile and are most informative when read together.",
+            "sections": [
+                (
+                    "Target Priority Score",
+                    [
+                        "A 0–100 comparative research-priority score calculated from the weighted evidence dimensions that are available for the gene.",
+                        "The overall value can be driven by very different evidence patterns. The Priority Score Composition table shows the score, weight, source, and rationale for each contributing dimension.",
+                        "The priority classification is a label derived from the overall score; it is not a separate measurement.",
+                    ],
+                ),
+                (
+                    "Evidence Coverage",
+                    [
+                        "The percentage of the weighted scoring model supported by usable data for the current gene.",
+                        "Missing sources reduce coverage rather than lowering a biological score. This keeps unavailable evidence separate from negative evidence.",
+                        "Two genes with similar Target Priority Scores can therefore have very different evidence depth.",
+                    ],
+                ),
             ],
-            "use": "A typical workflow is Overview → relevant Evidence tabs → Translation → Interpretation & Next Steps → Sources & Export.",
         },
         {
-            "title": "Overview: decide what deserves attention",
-            "purpose": "The Overview is the fastest way to understand whether a gene warrants deeper investigation and where the strongest or weakest support lies.",
-            "read": [
-                "Target Priority Score summarizes the supported GBM evidence dimensions into a comparative research-priority score.",
-                "Evidence Coverage shows how much of the weighted model has usable data. A high score with low coverage should be reviewed more cautiously than the same score with broad coverage.",
-                "Evidence Summary highlights the strongest cross-source findings. Evidence Consistency flags agreement, discordance, or important missing dimensions.",
-                "Open Priority Score Composition only when you need to see which evidence dimensions are driving the overall score.",
+            "title": "Evidence Summary and Evidence Consistency",
+            "intro": "These outputs compress the profile into cross-source findings while preserving disagreement between evidence types.",
+            "sections": [
+                (
+                    "Evidence Summary",
+                    [
+                        "Highlights the strongest findings that can be stated directly from the assembled profile.",
+                        "A summary item may reflect genomic, functional, spatial, human-validation, tissue-context, literature, or translational evidence depending on what is strongest for the gene.",
+                    ],
+                ),
+                (
+                    "Evidence Consistency",
+                    [
+                        "Flags meaningful agreement, discordance, or missing dimensions across the evidence base.",
+                        "Different evidence layers answer different biological questions. For example, frequent genomic alteration and weak CRISPR dependency can coexist without either result being incorrect.",
+                        "The consistency output is meant to expose those relationships rather than force every source into a single narrative.",
+                    ],
+                ),
             ],
-            "use": "Use this page to decide which evidence tabs require close inspection instead of reading every result equally.",
         },
         {
-            "title": "Genomics & Identity: establish disease relevance",
-            "purpose": "This section confirms the target identity and shows how strongly the gene is implicated by GBM genomic data.",
-            "read": [
-                "TCGA mutation, amplification, and deep-deletion frequencies show how often the gene is genomically altered in GBM.",
-                "The Open Targets association score summarizes broader target–disease evidence and helps place the genomic signal in disease context.",
-                "Gene Identity verifies the canonical symbol and identifiers so downstream evidence is mapped to the intended gene.",
+            "title": "Genomic Evidence and Disease Association",
+            "intro": "This section separates direct tumor alterations from broader target–disease association evidence.",
+            "sections": [
+                (
+                    "TCGA alteration frequencies",
+                    [
+                        "Mutation Frequency is the fraction of profiled GBM tumors with a detected sequence mutation in the gene.",
+                        "Amplification Frequency reflects high-level copy-number gain; Deep Deletion Frequency reflects high-level copy-number loss.",
+                        "These values describe how often an alteration occurs. They do not indicate whether the altered gene is required for tumor survival.",
+                    ],
+                ),
+                (
+                    "Open Targets Association Score",
+                    [
+                        "A target–disease evidence score assembled by Open Targets from multiple evidence classes.",
+                        "It is broader than TCGA alteration frequency, so the two values are not expected to move together.",
+                    ],
+                ),
+                (
+                    "Gene Identity",
+                    [
+                        "Confirms the canonical symbol, approved name, Ensembl ID, Entrez ID, and alias mapping used for downstream source matching.",
+                    ],
+                ),
             ],
-            "use": "Use this section to answer whether the target is recurrently altered or otherwise associated with GBM before asking whether it is functionally important.",
         },
         {
-            "title": "Functional & Spatial: test biological dependence and location",
-            "purpose": "This section asks whether GBM models depend on the gene and whether its expression varies across anatomic tumor regions.",
-            "read": [
-                "In DepMap, more negative Chronos scores generally indicate stronger loss-of-function dependency.",
-                "Selectivity Difference compares the GBM models with the broader cancer-model set and helps distinguish GBM-selective dependency from broadly essential biology.",
-                "Ivy GAP shows expression across laser-microdissected GBM regions. Compare the highest-expression zone, the expression range, and the statistical evidence for regional differences.",
+            "title": "Functional Dependency and Spatial Expression",
+            "intro": "These tables address two different questions: whether GBM models depend on the gene and whether expression varies across tumor anatomy.",
+            "sections": [
+                (
+                    "DepMap / Chronos",
+                    [
+                        "Chronos estimates gene effect from CRISPR loss-of-function screens. More negative values generally indicate stronger dependency.",
+                        "The displayed median summarizes the strict GBM model set rather than a single cell line.",
+                        "Pan-essential classification indicates that a gene is broadly required across many cancer models, which makes a dependency less GBM-specific.",
+                    ],
+                ),
+                (
+                    "Selectivity Difference and p value",
+                    [
+                        "Selectivity Difference compares the GBM dependency distribution with the broader comparison-model distribution.",
+                        "A positive difference supports stronger dependency in the GBM set under this analysis; a negative difference indicates the opposite pattern.",
+                        "The one-sided p value quantifies the statistical evidence for that directional comparison.",
+                    ],
+                ),
+                (
+                    "Ivy GAP",
+                    [
+                        "LMD Samples are laser-microdissected tumor regions with region-specific expression measurements.",
+                        "Highest-Expression Anatomic Zone identifies the region with the largest median expression for the gene.",
+                        "Median Expression Range describes the spread between regional medians, while the Kruskal p value tests whether the regional distributions differ overall.",
+                    ],
+                ),
             ],
-            "use": "Use these results together to distinguish a genomically interesting target from one supported by functional vulnerability or spatially restricted biology.",
         },
         {
-            "title": "Human Validation: look for patient-level support",
-            "purpose": "Human Validation tests whether the target's signal is reproduced in independent GBM patient cohorts and across disease progression.",
-            "read": [
-                "CGGA reports survival association across strict GBM cohorts. Hazard ratios above 1 indicate higher observed hazard with higher expression; values below 1 indicate lower observed hazard.",
-                "Pooled estimates and consistency across cohorts matter more than any single cohort result.",
-                "GLASS compares paired primary and recurrent tumors to show whether expression changes systematically at recurrence.",
+            "title": "Human Validation: CGGA and GLASS",
+            "intro": "These datasets add patient-level evidence that is distinct from cell-line dependency and cross-sectional tumor genomics.",
+            "sections": [
+                (
+                    "CGGA survival association",
+                    [
+                        "Each cohort estimates the association between gene expression and survival within a strict GBM subset.",
+                        "HR per 1 SD is the hazard ratio associated with a one-standard-deviation increase in expression. HR > 1 corresponds to higher observed hazard; HR < 1 corresponds to lower observed hazard.",
+                        "The pooled HR combines usable cohorts. The pooled p value reflects evidence for the combined association.",
+                        "I² describes heterogeneity between cohort estimates: larger values indicate greater between-cohort inconsistency.",
+                    ],
+                ),
+                (
+                    "GLASS recurrence analysis",
+                    [
+                        "Primary/Recurrent Pairs is the number of matched patients contributing paired tumor measurements.",
+                        "Median Recurrence Change summarizes the within-patient expression shift from primary tumor to recurrence.",
+                        "The paired p value tests whether the observed within-patient changes are systematically different from zero.",
+                    ],
+                ),
             ],
-            "use": "Use this section when deciding whether a cell-line or genomic signal is also visible in human disease and whether recurrence changes the target's relevance.",
         },
         {
-            "title": "Tissue, Network & GBmap: place the target in biological context",
-            "purpose": "These layers help determine where the target is normally expressed, what biological programs surround it, and how it may relate to GBM cellular states.",
-            "read": [
-                "Human Protein Atlas context shows normal-tissue and normal-brain expression, which is useful when considering biological selectivity and experimental interpretation.",
-                "STRING identifies high-confidence functional partners and enriched processes around the target. Use these relationships to understand pathway context and candidate mechanisms.",
-                "GBmap provides an external single-cell and spatial reference for examining the target across GBM cellular and tumor-state contexts.",
+            "title": "Normal Tissue, Network, and GBM Cellular Context",
+            "intro": "These layers explain where the gene sits biologically without adding another score to the Target Priority Score.",
+            "sections": [
+                (
+                    "Human Protein Atlas",
+                    [
+                        "Tissue Specificity summarizes how restricted expression is across normal human tissues.",
+                        "Brain single-nuclei specificity and displayed brain-region expression provide normal-brain context for the target.",
+                        "These measurements describe expression context; they are not direct measurements of therapeutic safety.",
+                    ],
+                ),
+                (
+                    "STRING network",
+                    [
+                        "Partners are high-confidence functional or physical associations surrounding the target.",
+                        "Network enrichment summarizes biological processes or pathways that are overrepresented among those associated proteins.",
+                        "Network membership indicates biological context and does not by itself establish a causal mechanism.",
+                    ],
+                ),
+                (
+                    "GBmap reference",
+                    [
+                        "GBmap is a GBM single-cell and spatial reference used here to provide cellular and tumor-state context.",
+                        "The current profile links to the reference collection so the gene can be examined in the underlying atlas context.",
+                    ],
+                ),
             ],
-            "use": "Use this section to move from a gene-level signal toward a mechanistic model and to identify biological contexts that may explain heterogeneous responses.",
         },
         {
-            "title": "Literature: move from evidence to rapid literature review",
-            "purpose": "The Literature view helps you determine how extensively the target has already been studied in GBM and quickly inspect the most relevant publications.",
-            "read": [
-                "GBM Literature Co-Mentions reflects publication volume for the gene in GBM-related literature.",
-                "Disease-context counts show where the literature is concentrated across related glioma contexts.",
-                "Publication titles are clickable. Open the papers that align with the biological signal you are investigating rather than treating publication count as evidence strength by itself.",
+            "title": "Literature, Target-Directed Candidates, Trials, and BBB Evidence",
+            "intro": "These outputs describe how mature the existing research and translational landscape is around the target.",
+            "sections": [
+                (
+                    "Literature",
+                    [
+                        "GBM Literature Co-Mentions is the number of Europe PMC records matching the gene with GBM-related terms.",
+                        "The count reflects literature volume rather than study quality or direction of evidence.",
+                        "Publication titles are linked directly to the available DOI, PubMed, PMC, or Europe PMC record.",
+                    ],
+                ),
+                (
+                    "Target-Directed Candidates and Clinical Trials",
+                    [
+                        "Target-Directed Candidates are compounds associated with the target in Open Targets.",
+                        "Matching GBM Trials counts ClinicalTrials.gov records that meet the GBM-target matching logic, while Highest Matching GBM Trial Phase summarizes the most advanced matched phase.",
+                        "Candidate count and trial phase measure different stages of translational maturity and are displayed separately.",
+                    ],
+                ),
+                (
+                    "BBB / B3DB",
+                    [
+                        "B3DB Matches are target-directed compounds with a corresponding experimental blood–brain barrier record in B3DB.",
+                        "BBB+ Records are matches labeled permeable in the source dataset.",
+                        "No B3DB match means permeability evidence was not found in that dataset; it is not equivalent to a BBB-negative result.",
+                    ],
+                ),
             ],
-            "use": "Use this section for literature triage: verify established findings, identify prior mechanisms, and determine whether the profile is surfacing a mature or comparatively underexplored direction.",
         },
         {
-            "title": "Translation: assess tractability and clinical maturity",
-            "purpose": "Translation connects the biological target to available compounds, GBM clinical trials, and blood–brain barrier evidence.",
-            "read": [
-                "Target-Directed Candidates shows whether compounds have been linked to the target through Open Targets.",
-                "Clinical Trials shows whether those target-related strategies have reached GBM studies and the highest matching development phase.",
-                "BBB Evidence checks available experimental permeability records for target-directed compounds, an important practical consideration for brain-tumor drug development.",
+            "title": "Evidence Record, Evidence Gaps, Validation Studies, and Comparison",
+            "intro": "These outputs expose the provenance behind the profile and the dimensions that remain unresolved.",
+            "sections": [
+                (
+                    "Evidence Record",
+                    [
+                        "Stores source-level claims with statistics, sample size where available, source dataset, and evidence confidence.",
+                        "Evidence confidence describes the support for an individual claim and is separate from the Target Priority Score.",
+                        "Source Status shows which connected evidence sources were available for the current analysis.",
+                    ],
+                ),
+                (
+                    "Evidence Gaps and Potential Validation Studies",
+                    [
+                        "Evidence Gaps identify parts of the profile where evidence is missing, limited, or unresolved.",
+                        "Potential Validation Studies translate those specific gaps into concrete experimental or analytical tests that could address the uncertainty.",
+                        "They are presented separately from the retrieved evidence so the distinction remains visible in the interface.",
+                    ],
+                ),
+                (
+                    "Gene Set Comparison and Export",
+                    [
+                        "Gene Set Comparison applies the same scoring model to up to six genes and displays the resulting profiles side by side.",
+                        "The JSON export preserves the complete profile structure; the Markdown export provides a compact research summary with linked publications.",
+                    ],
+                ),
             ],
-            "use": "Use this section to determine whether a biologically compelling target is already tractable, clinically mature, or limited by translational constraints.",
-        },
-        {
-            "title": "Interpretation & Next Steps: convert evidence into a research plan",
-            "purpose": "This section synthesizes unresolved evidence and proposes validation directions that can help prioritize follow-up work.",
-            "read": [
-                "Evidence Gaps identifies the dimensions where support is missing, weak, or incomplete.",
-                "Potential Validation Studies translates those gaps into concrete experimental directions that could reduce uncertainty.",
-                "Prioritize studies that address the most consequential uncertainty in the profile rather than automatically pursuing every suggested experiment.",
-            ],
-            "use": "Use this section after reviewing the supporting evidence to decide what experiment or dataset would most improve confidence in the target.",
-        },
-        {
-            "title": "Verify, compare, and export",
-            "purpose": "The final step is to verify provenance, compare targets when needed, and carry the analysis into the rest of your research workflow.",
-            "read": [
-                "Evidence Record provides source-level claims, statistics, sample sizes, and confidence for auditability.",
-                "Source Status shows which evidence sources were available for the current analysis.",
-                "Export provides the complete JSON research profile and a concise Markdown summary for downstream review or documentation.",
-                "Gene Set Comparison ranks up to six targets under the same evidence model. Methods & Data Sources explains how the score and contextual layers are constructed.",
-            ],
-            "use": "Use these tools for reproducibility, lab-meeting preparation, target shortlisting, and documenting why one research direction was prioritized over another.",
         },
     ]
 
@@ -642,29 +751,23 @@ def show_walkthrough():
     item = steps[step]
 
     st.progress((step + 1) / len(steps))
-    st.caption(f"Step {step + 1} of {len(steps)}")
+    st.caption(f"{step + 1} of {len(steps)}")
     st.markdown(f"## {item['title']}")
-    st.write(item["purpose"])
+    st.write(item["intro"])
 
-    left, right = st.columns(2, gap="large")
-    with left:
-        with st.container(border=True):
-            st.markdown("**How to read this section**")
-            for point in item["read"]:
-                st.markdown(f"- {point}")
-    with right:
-        with st.container(border=True):
-            st.markdown("**How to use it**")
-            st.write(item["use"])
+    for heading, points in item["sections"]:
+        st.markdown(f"**{heading}**")
+        for point in points:
+            st.markdown(f"- {point}")
 
     st.markdown(
-        "<div style='text-align:center; letter-spacing:0.32rem; opacity:0.65; margin:0.4rem 0 0.2rem 0;'>"
+        "<div style='text-align:center; letter-spacing:0.32rem; opacity:0.65; margin:0.5rem 0 0.25rem 0;'>"
         + " ".join("●" if i == step else "○" for i in range(len(steps)))
         + "</div>",
         unsafe_allow_html=True,
     )
 
-    back_col, middle_col, next_col = st.columns([1.2, 4.6, 1.2], vertical_alignment="center")
+    back_col, middle_col, next_col = st.columns([1.25, 4.5, 1.25], vertical_alignment="center")
     with back_col:
         if step > 0:
             st.button(
@@ -684,13 +787,19 @@ def show_walkthrough():
                 on_click=_move_walkthrough,
                 args=(1,),
             )
-        elif st.button("Start analyzing", type="primary", use_container_width=True):
+        elif st.button("Close", type="primary", use_container_width=True):
             _close_walkthrough()
             st.rerun()
 
 
-with st.container(horizontal=True, vertical_alignment="center", gap="xxsmall"):
-    st.title("GBM Gene Analysis", width="content")
+title_col, info_col, spacer_col = st.columns(
+    [3.45, 0.28, 8.27],
+    gap="small",
+    vertical_alignment="center",
+)
+with title_col:
+    st.title("GBM Gene Analysis")
+with info_col:
     st.button(
         ":material/info:",
         help="Open walkthrough",
