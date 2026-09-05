@@ -77,11 +77,13 @@ Researcher uploads are processed for the requested analysis and are not written 
 
 Compares a bounded set of genes through the same production profile architecture while keeping public-source and deployment resource pressure controlled.
 
-### Research Assistant
+### Glia
 
-Provides an evidence-grounded conversational layer over the production workflows. The assistant can build gene dossiers, run target-pair and gene-set analyses, inspect analysis already present in the current session, and retrieve live biomedical publications. Important factual claims are tied to evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools. The assistant does not redefine production scores or convert hypotheses into evidence.
+Glia is the evidence-grounded copilot integrated across every production workflow rather than a standalone destination. It follows the active analysis, can build gene dossiers, run target-pair and gene-set analyses, inspect derived Researcher Data results, retrieve live biomedical publications, and reason across the evidence already present in the workspace. Researchers can highlight text in the interface and choose **Ask Glia** to bring that exact context into the composer before adding a question.
 
-The assistant uses Groq through its OpenAI-compatible Responses API with function calling. Configure `GROQ_API_KEY`; `GROQ_MODEL` is optional and defaults to `openai/gpt-oss-120b`. The application handles Groq rate-limit responses without falling back to paid usage.
+Glia keeps a bounded research trail in browser-local storage so investigated genes, recent questions, and workflow context can carry across visits on the same browser. This continuity memory does not train the underlying model and is not treated as scientific evidence. Important factual claims remain tied to retrieved evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools.
+
+Glia uses Groq through its OpenAI-compatible Responses API with function calling. Configure `GROQ_API_KEY`; `GROQ_MODEL` is optional and defaults to `openai/gpt-oss-120b`. The application handles Groq rate-limit responses without falling back to paid usage.
 
 ## Scored evidence model
 

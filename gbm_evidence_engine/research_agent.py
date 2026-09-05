@@ -32,12 +32,12 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 AGENT_VERSION = "1.0.0"
 MAX_TOOL_ROUNDS = 4
 MAX_EVIDENCE_RECORDS = 12
-MAX_HISTORY_MESSAGES = 3
+MAX_HISTORY_MESSAGES = 6
 
 
 SYSTEM_INSTRUCTIONS = """\
-You are the Research Assistant inside GBM Gene Analysis, a glioblastoma research
-evidence-synthesis system. Your job is to help a researcher interrogate the
+You are Glia, the integrated research copilot inside GBM Gene Analysis, a
+glioblastoma research evidence-synthesis system. Your job is to help a researcher interrogate the
 software's evidence, compare targets, inspect processed researcher-result
 analyses, retrieve relevant GBM publications, identify contradictions, and turn
 remaining uncertainty into defensible next experiments.
@@ -67,6 +67,9 @@ NON-NEGOTIABLE GROUNDING RULES
 10. Be concise and researcher-facing. Prefer a direct answer followed by the
     evidence that drives it and, when useful, the next experiment that would
     reduce uncertainty.
+11. Persistent research memory is continuity context, not scientific evidence.
+    Use it to remember prior questions, investigated targets, and research
+    direction, but retrieve current evidence before making substantive GBM claims.
 
 TOOL USE
 - build_gene_dossier: full single-gene evidence synthesis.
@@ -611,6 +614,7 @@ def run_agent_turn(
     *,
     history: list[dict[str, Any]] | None = None,
     session_context: dict[str, Any] | None = None,
+    persistent_memory: dict[str, Any] | None = None,
     api_key: str | None = None,
     model: str | None = None,
     client: Any | None = None,
@@ -625,7 +629,7 @@ def run_agent_turn(
     if client is None:
         key = (api_key or os.getenv("GROQ_API_KEY") or "").strip()
         if not key:
-            raise ResearchAgentError("Research Assistant is not configured yet.")
+            raise ResearchAgentError("Glia is not configured yet.")
         if OpenAI is None:
             raise ResearchAgentError("The API client dependency is unavailable.")
         client = OpenAI(api_key=key, base_url=GROQ_BASE_URL)
@@ -637,11 +641,33 @@ def run_agent_turn(
         if available
         else "No prior application analysis is currently available in this session."
     )
+    active_workflow = str(context.get("active_workflow") or "").strip()
+    selected_section = str(context.get("selected_section") or "").strip()
+    selected_quote = str(context.get("selected_quote") or "").strip()[:1800]
+    memory = persistent_memory if isinstance(persistent_memory, dict) else {}
+    continuity_note = json.dumps(memory, default=str, sort_keys=True)[:7000] if memory else "No saved research continuity yet."
+    ui_notes = []
+    if active_workflow:
+        ui_notes.append(f"Active workflow: {active_workflow}.")
+    if selected_section:
+        ui_notes.append(f"Selected section: {selected_section}.")
+    if selected_quote:
+        ui_notes.append(
+            "Selected on-screen context (use as question context, not as independent scientific evidence): "
+            + selected_quote
+        )
     input_items: list[Any] = _history_input(history)
     input_items.append(
         {
             "role": "user",
-            "content": question + "\n\nApplication context note: " + context_note,
+            "content": (
+                question
+                + "\n\nApplication context note: "
+                + context_note
+                + ("\n" + " ".join(ui_notes) if ui_notes else "")
+                + "\nPersistent research continuity: "
+                + continuity_note
+            ),
         }
     )
 
@@ -688,13 +714,13 @@ def run_agent_turn(
         lowered = message.lower()
         if status_code == 429 or "rate limit" in lowered or "too many requests" in lowered:
             raise ResearchAgentError(
-                "Research Assistant is temporarily at capacity on the shared Groq free tier. Please try again later."
+                "Glia is temporarily at capacity on the shared Groq free tier. Please try again later."
             ) from exc
         if status_code in {401, 403}:
             raise ResearchAgentError(
-                "Research Assistant could not authenticate with Groq. Check the deployment API key."
+                "Glia could not authenticate with Groq. Check the deployment API key."
             ) from exc
-        raise ResearchAgentError(f"Research Assistant request failed: {exc}") from exc
+        raise ResearchAgentError(f"Glia request failed: {exc}") from exc
 
     text = str(getattr(response, "output_text", None) or "").strip()
     if not text:

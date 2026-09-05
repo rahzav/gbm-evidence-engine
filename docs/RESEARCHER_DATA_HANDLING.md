@@ -25,9 +25,9 @@ Do not upload:
 
 Use de-identified, processed gene-level summaries whenever possible.
 
-## Research Assistant boundary
+## Glia boundary
 
-The Research Assistant does not receive the raw uploaded or pasted researcher table. If a researcher asks the assistant to inspect the current Researcher Data analysis, the application sends only the derived result-dossier context needed for that question, such as prioritized genes, pathway results, perturbational-reversal results, and summary counts. The message and retrieved derived context are processed through the configured Groq API deployment and are therefore subject to that deployment's applicable data controls and retention settings. Do not use the assistant with PHI, identifiable patient information, controlled raw genomic data, credentials, or restricted material that is not approved for that environment.
+Glia does not receive the raw uploaded or pasted researcher table. If a researcher asks Glia to inspect the current Researcher Data analysis, the application sends only the derived result-dossier context needed for that question, such as prioritized genes, pathway results, perturbational-reversal results, and summary counts. The message and retrieved derived context are processed through the configured Groq API deployment and are therefore subject to that deployment's applicable data controls and retention settings. Do not use Glia with PHI, identifiable patient information, controlled raw genomic data, credentials, or restricted material that is not approved for that environment.
 
 ## Hosting and retention boundary
 
