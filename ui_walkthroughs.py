@@ -70,11 +70,10 @@ def _nav(feature: str, step: int, titles: list[str]) -> None:
         st.checkbox(
             "Don't show this walkthrough again",
             key=preference_key,
-            help="Stops this walkthrough from opening automatically. You can still open it anytime with the info button.",
+            help="This walkthrough remains available at any time through the information button.",
             on_change=_sync_suppression,
             args=(feature,),
         )
-        st.caption("You can still reopen it anytime from the info button.")
     with back_col:
         if step > 0:
             st.button(
