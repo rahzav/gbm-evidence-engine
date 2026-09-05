@@ -38,7 +38,9 @@ The final QA pass covers the following behaviors:
 
 ## Benchmark status
 
-The bundled benchmark is a **current-data regression benchmark**. It checks whether known GBM-positive, negative-control, and context-dependent evidence patterns are preserved by the current system. It must not be described as retrospective discovery validation.
+The bundled benchmark is a **current-data regression benchmark**. It uses a fixed balanced set of known-positive, known-negative, and context-dependent GBM cases to test whether established evidence patterns and scientific safeguards are preserved by the current system. It must not be described as retrospective discovery validation.
+
+Because several benchmark inputs are live public sources, source availability is evaluated separately from scientific behavior. A biological threshold that depends on an unavailable upstream source is reported as **not evaluable** for that run and is excluded from pass/fail accuracy; it is never silently counted as a pass. The report separately exposes source-limited cases and checks. This prevents a transient API outage from being mislabeled as a scientific regression while retaining the fixed biological threshold whenever the source is available.
 
 True retrospective evaluation requires evidence snapshots frozen to a declared historical date. Prospective evaluation requires hypotheses to be registered before later experimental or external evidence becomes available.
 
@@ -60,3 +62,11 @@ The project should not claim demonstrated research utility until that external e
 ## Performance and concurrency
 
 Release testing should include a small host-level concurrency check after deployment to `main`. The objective is not load testing at scale; it is to confirm that bounded concurrency, caching, and memory behavior remain stable for a small number of simultaneous researcher sessions on the actual deployment host.
+
+The repository includes `scripts/host_smoke.py` for this purpose. Example:
+
+```bash
+python scripts/host_smoke.py https://YOUR-DEPLOYED-HOST --requests 12 --concurrency 3
+```
+
+This host-level check must be run against the actual deployment URL after the final code is live; repository CI cannot substitute for the behavior of the production hosting environment.
