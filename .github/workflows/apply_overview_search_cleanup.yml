@@ -1,0 +1,81 @@
+name: Apply Overview and Search UI Cleanup
+
+on:
+  push:
+    branches: [overview-and-search-ui-cleanup]
+    paths:
+      - .github/workflows/apply_overview_search_cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: overview-and-search-ui-cleanup
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch app UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app_ui.py')
+          text = path.read_text(encoding='utf-8')
+
+          page_config = 'st.set_page_config(page_title="GBM Gene Analysis", page_icon="🧬", layout="wide")\n'
+          css = '''st.set_page_config(page_title="GBM Gene Analysis", page_icon="🧬", layout="wide")\n\n# Keep Enter-to-submit behavior while removing Streamlit's redundant form hint.\nst.markdown(\n    """\n    <style>\n    div[data-testid="stForm"] div[data-testid="InputInstructions"] {\n        display: none !important;\n    }\n    </style>\n    """,\n    unsafe_allow_html=True,\n)\n'''
+          if page_config not in text:
+              raise SystemExit('page config anchor not found')
+          text = text.replace(page_config, css, 1)
+
+          helper = '        st.caption("Choose a disease context, then optionally narrow the result set with title/abstract keywords.")\n\n'
+          if helper not in text:
+              raise SystemExit('literature helper sentence not found')
+          text = text.replace(helper, '', 1)
+
+          start = text.index('def render_confidence_summary(profile):\n')
+          end = text.index('\ndef render_cell_state(cell: dict):\n', start)
+          new_confidence = '''def render_confidence_summary(profile):\n    live = profile.live\n    overall = live.get("overall_evidence_confidence", {})\n    model = live.get("model_relevance", {})\n    by_dim = live.get("confidence_by_dimension", {})\n\n    c1, c2 = st.columns(2)\n    c1.metric("Overall Evidence Confidence", confidence_text(overall))\n    model_score = model.get("score")\n    model_score_text = "N/A" if model_score is None else f"{model_score}/100"\n    c2.metric(\n        "Functional Model Relevance",\n        f"{str(model.get('level', 'unknown')).title()} · {model_score_text}",\n    )\n\n    reason_col, model_reason_col = st.columns(2)\n    with reason_col:\n        for reason in (overall.get("reasons") or [])[:2]:\n            st.caption(reason)\n    with model_reason_col:\n        for reason in (model.get("reasons") or [])[:2]:\n            st.caption(reason)\n\n    section_space(0.35)\n    st.markdown("#### Confidence by Evidence Dimension")\n    rows = []\n    for name, dimension in profile.score.dimensions.items():\n        conf = by_dim.get(name, {})\n        rows.append({\n            "Evidence Dimension": name,\n            "Evidence Score": None if dimension.score is None else round(dimension.score, 1),\n            "Confidence": str(conf.get("level") or "insufficient").title(),\n            "Confidence Score": conf.get("score"),\n            "Primary Source": dimension.source,\n        })\n    st.dataframe(rows, width="stretch", hide_index=True)\n\n'''
+          text = text[:start] + new_confidence + text[end:]
+
+          overview_start = text.index('    with overview_tab:\n')
+          evidence_start = text.index('    with evidence_tab:\n', overview_start)
+          new_overview = '''    with overview_tab:\n        st.caption("Integrated summary of the strongest findings, evidence consistency, confidence, and score composition.")\n        findings_tab, confidence_tab, composition_tab = st.tabs([\n            "Key Findings",\n            "Evidence Confidence",\n            "Priority Score Composition",\n        ])\n\n        with findings_tab:\n            st.markdown("#### Key Findings")\n            findings = live.get("key_findings", [])\n            if findings:\n                for finding in findings:\n                    st.markdown(f"- {finding}")\n            else:\n                st.write("No concise findings were generated from the available sources.")\n\n            section_space(0.45)\n            st.markdown("#### Evidence Consistency")\n            st.write(consistency.get("status", "Not assessed"))\n            flags = consistency.get("flags", [])\n            if flags:\n                for flag in flags:\n                    st.markdown(f"- {flag}")\n            elif consistency.get("note"):\n                st.caption(consistency.get("note", ""))\n\n        with confidence_tab:\n            render_confidence_summary(profile)\n\n        with composition_tab:\n            st.markdown("#### Priority Score Composition")\n            st.caption("Dimension-level scores, model weights, primary sources, and interpretation used in the research-prioritization score.")\n            score_rows = [{\n                "Evidence Dimension": name,\n                "Score": None if d.score is None else round(d.score, 1),\n                "Weight": f"{d.weight:.0%}",\n                "Primary Source": d.source,\n                "Interpretation": d.rationale,\n            } for name, d in score.dimensions.items()]\n            st.dataframe(score_rows, width="stretch", hide_index=True)\n\n'''
+          text = text[:overview_start] + new_overview + text[evidence_start:]
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate UI cleanup
+        run: |
+          python -m py_compile app_ui.py ui_walkthroughs.py
+          python - <<'PY'
+          from pathlib import Path
+          app = Path('app_ui.py').read_text()
+          walk = Path('ui_walkthroughs.py').read_text()
+          assert 'Choose a disease context, then optionally narrow the result set with title/abstract keywords.' not in app
+          assert 'div[data-testid="stForm"] div[data-testid="InputInstructions"]' in app
+          assert 'display: none !important;' in app
+          assert 'st.form("gene_analysis_form"' in app
+          assert 'st.form(f"literature_search_form_{gene}"' in app
+          assert '"Key Findings",' in app
+          assert '"Evidence Confidence",' in app
+          assert '"Priority Score Composition",' in app
+          assert 'summary_col, consistency_col = st.columns(2)' not in app
+          assert 'with st.expander("Priority Score Composition"' not in app
+          assert 'You can still reopen it anytime from the info button.' not in walk
+          assert 'Stops this walkthrough from opening automatically.' not in walk
+          assert 'This walkthrough remains available at any time through the information button.' in walk
+          print('Overview/search/walkthrough copy cleanup validated')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_ui.py
+          git commit -m "Clean up overview and search UI"
+          git push origin overview-and-search-ui-cleanup
