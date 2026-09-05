@@ -103,7 +103,6 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
         if str(row.get("feature_id") or "").strip()
     })
     if len(feature_ids) > 1:
-        # Defensive fallback for a custom/reference file without metadata.
         return {
             "ok": False,
             "gene": gene,
@@ -119,9 +118,6 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
 
     state_rows: list[dict] = []
     for row in rows:
-        # V1 test fixtures used n_patients; the canonical reference uses
-        # explicit numerator/denominator fields. Supporting both keeps the
-        # connector deterministic while preserving the stronger semantics.
         n_expressing = _int(row.get("n_expressing_patients"))
         if n_expressing is None:
             n_expressing = _int(row.get("n_patients"))
@@ -178,6 +174,11 @@ def summarize_gene_cell_states(gene: str, path: Path = REFERENCE_PATH) -> dict:
             "Uneven cell-type capture across studies remains a limitation. These results do not establish selective dependency, causal function, drug response, or clinical utility."
         ),
     }
+
+
+def summarize_gene(gene: str, path: Path = REFERENCE_PATH) -> dict:
+    """Stable short alias used by validation and external callers."""
+    return summarize_gene_cell_states(gene, path=path)
 
 
 def state_vector(summary: dict, malignant_only: bool = True) -> dict[str, float]:
