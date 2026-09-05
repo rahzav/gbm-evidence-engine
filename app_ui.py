@@ -931,6 +931,7 @@ def render_research_assistant():
     st.markdown("### Research Assistant")
     st.caption("Interrogate GBM evidence, compare targets, surface conflicts, connect current analyses to the literature, and identify defensible next experiments.")
 
+    # Raw Researcher Data tables are not passed to the assistant.
     context = {
         "profile": st.session_state.get("profile"),
         "pair": st.session_state.get("pair"),
