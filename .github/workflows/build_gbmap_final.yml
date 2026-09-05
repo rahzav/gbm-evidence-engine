@@ -92,8 +92,6 @@ jobs:
               expressed = features_by_gene[symbol]
               assert len(declared) > 1, (symbol, feature_ids)
               assert expressed <= declared, (symbol, expressed, declared)
-              # A feature with zero expression can be absent from the compact table.
-              # Identity ambiguity is preserved in metadata regardless of expression.
           print('GBMAP_REFERENCE_VALID', meta)
           PY
       - name: Validate runtime connector behavior
@@ -124,4 +122,6 @@ jobs:
             data/gbmap_gene_state_summary.csv.gz \
             data/gbmap_reference_metadata.json
           git commit -m "Add validated native Core GBmap cell-state reference"
+          git fetch origin final-production-integration
+          git rebase origin/final-production-integration
           git push origin HEAD:final-production-integration
