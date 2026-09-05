@@ -16,10 +16,16 @@ def _is_suppressed(feature: str) -> bool:
     return bool(st.session_state.get(_suppressed_key(feature), False))
 
 
-def _suppress_walkthrough(feature: str) -> None:
-    """Disable future automatic launches while preserving manual info-button access."""
-    st.session_state[_suppressed_key(feature)] = True
-    st.session_state.pop("pending_feature_walkthrough", None)
+def _preference_key(feature: str) -> str:
+    return f"{feature}_walkthrough_do_not_show"
+
+
+def _sync_suppression(feature: str) -> None:
+    """Sync the visible checkbox with automatic walkthrough behavior."""
+    suppressed = bool(st.session_state.get(_preference_key(feature), False))
+    st.session_state[_suppressed_key(feature)] = suppressed
+    if suppressed:
+        st.session_state.pop("pending_feature_walkthrough", None)
 
 
 def _step_key(feature: str) -> str:
@@ -49,12 +55,26 @@ def _note(text: str) -> None:
 
 def _nav(feature: str, step: int, titles: list[str]) -> None:
     st.markdown(
-        "<div style='text-align:center;letter-spacing:.26rem;opacity:.58;margin:.35rem 0 .05rem;'>"
+        "<div style='text-align:center;letter-spacing:.26rem;opacity:.58;margin:.35rem 0 .15rem;'>"
         + " ".join("●" if i == step else "○" for i in range(len(titles)))
         + "</div>",
         unsafe_allow_html=True,
     )
-    back_col, preference_col, next_col = st.columns([1.3, 4.4, 1.3], vertical_alignment="center")
+
+    preference_key = _preference_key(feature)
+    st.session_state.setdefault(preference_key, _is_suppressed(feature))
+    preference_col, back_col, next_col = st.columns(
+        [4.6, 1.25, 1.25], vertical_alignment="center"
+    )
+    with preference_col:
+        st.checkbox(
+            "Don't show this walkthrough again",
+            key=preference_key,
+            help="Stops this walkthrough from opening automatically. You can still open it anytime with the info button.",
+            on_change=_sync_suppression,
+            args=(feature,),
+        )
+        st.caption("You can still reopen it anytime from the info button.")
     with back_col:
         if step > 0:
             st.button(
@@ -64,16 +84,6 @@ def _nav(feature: str, step: int, titles: list[str]) -> None:
                 on_click=_move,
                 args=(feature, -1, len(titles)),
             )
-    with preference_col:
-        st.button(
-            "Don't show again",
-            key=f"{feature}_walkthrough_suppress_{step}",
-            type="tertiary",
-            width="stretch",
-            help="Stops this walkthrough from opening automatically. You can still open it anytime with the info button.",
-            on_click=_suppress_walkthrough,
-            args=(feature,),
-        )
     with next_col:
         if step < len(titles) - 1:
             st.button(
