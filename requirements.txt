@@ -11,9 +11,6 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
 
-# Evidence-grounded Research Assistant
-openai>=1.68.0
-
 # Web UI. Production interaction and rerun tests are validated on this runtime.
 streamlit==1.63.0
 
