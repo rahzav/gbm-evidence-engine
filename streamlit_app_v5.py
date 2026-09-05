@@ -11,59 +11,26 @@ st.set_page_config(page_title="GBM Gene Analysis", page_icon="🧬", layout="wid
 
 
 HELP = {
-    "gene_symbol": "Enter an official human gene symbol or a recognized alias, such as EGFR, PTEN, TP53, or CDK4.",
-    "analyze": "Runs the full GBM evidence synthesis for the entered gene. Pressing Enter in the gene field does the same thing.",
-    "target_priority_score": "A 0–100 research-prioritization heuristic combining supported GBM evidence across multiple sources. It is not a clinical probability or treatment recommendation.",
-    "evidence_coverage": "The percentage of the scored evidence model backed by usable data for this gene. Missing sources lower coverage rather than counting as negative evidence.",
-    "evidence_records": "The number of individual source-grounded evidence claims stored in this profile.",
-    "active_trials": "Matching ClinicalTrials.gov glioblastoma studies currently classified as active.",
-    "genomic_evidence": "Genomic evidence asks whether this gene is altered in human glioblastoma tumors and how strongly it is associated with GBM in curated target–disease resources.",
-    "tcga_mutation": "The proportion of TCGA glioblastoma samples with a reported coding mutation in this gene.",
-    "tcga_amplification": "The proportion of TCGA glioblastoma samples with high-level copy-number amplification of this gene.",
-    "tcga_deletion": "The proportion of TCGA glioblastoma samples with a deep copy-number deletion of this gene.",
-    "open_targets_score": "Open Targets' aggregated target–disease association score for this gene and glioblastoma. Higher values indicate stronger curated evidence of association, not treatment efficacy.",
-    "gene_identity": "Canonical identifiers confirm that aliases and database records refer to the same human gene before evidence is combined.",
-    "depmap": "DepMap uses CRISPR loss-of-function screens to test whether cancer models depend on a gene for growth or survival.",
-    "strict_gbm_models": "The number of IDH-wildtype GBM models that passed this tool's strict inclusion criteria for the dependency analysis.",
+    "target_priority_score": "A 0–100 research-prioritization score integrating supported GBM evidence across multiple sources. It is not a measure of clinical benefit or causality.",
+    "evidence_coverage": "The percentage of the scored evidence model supported by usable data for this gene. Missing sources reduce coverage rather than counting as negative evidence.",
+    "depmap": "DepMap uses CRISPR loss-of-function screens to estimate whether cancer models depend on a gene for growth or survival.",
     "chronos": "DepMap Chronos gene-effect score from CRISPR screens. More negative values generally indicate stronger dependency on the gene.",
-    "selectivity": "How much stronger the dependency signal is in the selected GBM models relative to the comparison cancer-model set. In this tool, a larger positive difference supports greater GBM selectivity.",
-    "one_sided_p": "A p value from a prespecified one-sided test asking whether the GBM dependency signal is stronger in the expected direction.",
-    "pan_essential": "A pan-essential gene is required by many cell types. Strong pan-essentiality can make a dependency less specific to GBM.",
+    "selectivity": "The difference in dependency between the selected GBM models and the comparison cancer-model set. A larger positive value supports greater GBM selectivity in this analysis.",
+    "pan_essential": "A pan-essential gene is required by many cell types, which can make a dependency less specific to GBM.",
     "ivy_gap": "The Ivy Glioblastoma Atlas Project measures gene expression in laser-microdissected anatomic regions of human GBM tumors.",
     "lmd_samples": "Laser-microdissected samples isolated from defined microscopic regions of glioblastoma tissue.",
-    "anatomic_zone": "The Ivy GAP tumor region with the highest median expression of the gene among the regions measured.",
-    "expression_range": "The difference between the highest and lowest median expression values across the measured Ivy GAP anatomic regions.",
-    "kruskal_p": "The p value from a Kruskal–Wallis test asking whether expression differs across the tumor regions. It does not identify which specific regions differ.",
-    "cgga": "The Chinese Glioma Genome Atlas provides independent patient cohorts used here to test whether gene expression is associated with survival in strict GBM subsets.",
-    "strict_cohorts": "The number of independent CGGA cohorts that met the tool's GBM-specific inclusion and data-quality requirements.",
+    "cgga": "The Chinese Glioma Genome Atlas provides independent patient cohorts used here to test gene-expression associations with survival in strict GBM subsets.",
     "pooled_hr": "Meta-analytic hazard ratio per 1-standard-deviation increase in gene expression. Values above 1 indicate higher observed hazard and values below 1 lower observed hazard; this is association, not causation.",
-    "pooled_p": "The p value for the pooled survival association across the usable CGGA cohorts.",
-    "glass": "GLASS is the Glioma Longitudinal Analysis Consortium. Paired primary and recurrent tumors are used to examine how expression changes when GBM returns.",
-    "pairs": "The number of matched primary-versus-recurrent tumor pairs available for this gene's longitudinal comparison.",
-    "recurrence_change": "The median within-patient change in gene expression from the primary tumor to the recurrent tumor.",
-    "paired_p": "The p value from the paired statistical comparison of primary and recurrent expression.",
-    "normal_tissue": "Normal-tissue context helps determine where the gene is normally expressed outside GBM. It is contextual evidence and is not a direct toxicity prediction.",
+    "glass": "GLASS is the Glioma Longitudinal Analysis Consortium. Paired primary and recurrent tumors are used to examine expression changes at recurrence.",
     "tissue_specificity": "How restricted the gene's expression is across normal human tissues in the Human Protein Atlas.",
     "brain_single_nuclei": "How specifically the gene is expressed across normal brain cell populations measured by single-nucleus RNA sequencing.",
-    "normal_brain_expression": "The highest displayed normal-brain expression value across the Human Protein Atlas brain regions included by the tool.",
-    "network": "STRING protein-association networks show experimentally supported or curated functional relationships around the target. They are useful for mechanism generation but do not prove causality.",
+    "network": "STRING protein-association networks show experimentally supported or curated functional relationships around the target. They support mechanism generation but do not establish causality.",
     "gbmap": "GBmap is an integrated glioblastoma single-cell and spatial reference atlas used to place a gene in cellular and tumor-state context.",
-    "literature_count": "The number of Europe PMC records matching the gene together with glioblastoma/GBM terms. It measures literature volume, not evidence quality by itself.",
-    "translation": "Translation summarizes whether target-directed compounds and GBM clinical studies already exist, plus available blood–brain barrier evidence.",
-    "target_candidates": "Compounds reported by Open Targets to act on this target. This is target-level drug information and does not mean the compound is effective in GBM.",
-    "trial_phase": "The highest clinical-development phase among matching GBM studies found for the target. A higher phase reflects development maturity, not proof of efficacy.",
-    "matching_trials": "The number of ClinicalTrials.gov GBM studies matching this target or its associated intervention context.",
-    "bbb": "The blood–brain barrier (BBB) limits entry of many compounds into brain tissue, making CNS exposure an important consideration for GBM drug development.",
-    "candidates_checked": "The number of target-directed compounds checked against the available experimental BBB database records.",
+    "literature_count": "The number of Europe PMC records matching the gene together with glioblastoma/GBM terms. It reflects literature volume, not evidence quality by itself.",
+    "bbb": "The blood–brain barrier (BBB) limits entry of many compounds into brain tissue and is a key consideration for GBM drug development.",
     "b3db_matches": "The number of checked compounds with matching records in B3DB, a database of experimentally measured blood–brain barrier permeability.",
     "bbb_positive": "The number of matching B3DB records labeled BBB-positive/permeable. A missing record is not evidence that a compound cannot cross the BBB.",
-    "evidence_consistency": "A cross-source check for agreement, discordance, and important limitations in the available evidence. Different evidence types answer different biological questions, so disagreement is interpreted cautiously.",
-    "score_composition": "Shows which evidence dimensions contribute to the Target Priority Score, their weights, source, and rationale.",
-    "evidence_gaps": "Areas where evidence is missing, weak, conflicting, or insufficient to support a confident research conclusion.",
-    "validation_studies": "Tool-generated experiments that could reduce uncertainty or test the current hypothesis. These are research suggestions, not observed results.",
-    "evidence_record": "The auditable source-grounded claims underlying the profile, grouped by evidence type and accompanied by statistics, source, and confidence.",
 }
-
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_profile(gene: str):
@@ -93,6 +60,19 @@ def pval(value):
 
 def section_space(size: float = 1.0):
     st.markdown(f"<div style='height:{size}rem'></div>", unsafe_allow_html=True)
+
+
+def display_status(value):
+    if value is None:
+        return "Unavailable"
+    raw = str(value).strip().replace("_", " ")
+    mapping = {
+        "ok": "Available",
+        "available": "Available",
+        "credentials required": "Credentials required",
+        "unavailable": "Unavailable",
+    }
+    return mapping.get(raw.lower(), raw[:1].upper() + raw[1:])
 
 
 def markdown_brief(profile) -> str:
@@ -160,15 +140,15 @@ def render_evidence_record(profile):
 
 
 def render_genomics_and_identity(identity, cbio, ot):
-    st.subheader("Genomic Evidence", help=HELP["genomic_evidence"], anchor=False)
+    st.subheader("Genomic Evidence", anchor=False)
     g1, g2, g3, g4 = st.columns(4)
-    g1.metric("TCGA Mutation Frequency", pct((cbio.get("mutation") or {}).get("frequency")), help=HELP["tcga_mutation"])
-    g2.metric("TCGA Amplification Frequency", pct((cbio.get("copy_number") or {}).get("amplification_frequency")), help=HELP["tcga_amplification"])
-    g3.metric("TCGA Deep Deletion Frequency", pct((cbio.get("copy_number") or {}).get("deep_deletion_frequency")), help=HELP["tcga_deletion"])
-    g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3), help=HELP["open_targets_score"])
+    g1.metric("TCGA Mutation Frequency", pct((cbio.get("mutation") or {}).get("frequency")))
+    g2.metric("TCGA Amplification Frequency", pct((cbio.get("copy_number") or {}).get("amplification_frequency")))
+    g3.metric("TCGA Deep Deletion Frequency", pct((cbio.get("copy_number") or {}).get("deep_deletion_frequency")))
+    g4.metric("Open Targets Association Score", num(ot.get("gbm_association_score"), 3))
 
     section_space(0.6)
-    st.subheader("Gene Identity", help=HELP["gene_identity"], anchor=False)
+    st.subheader("Gene Identity", anchor=False)
     if identity.get("ok"):
         identity_rows = [{
             "Canonical Symbol": identity.get("symbol"),
@@ -188,13 +168,12 @@ def render_functional_and_spatial(dep, ivy):
     st.subheader("DepMap Functional Dependency", help=HELP["depmap"], anchor=False)
     if dep.get("ok"):
         d1, d2, d3, d4 = st.columns(4)
-        d1.metric("Strict GBM Models", dep.get("n_gbm"), help=HELP["strict_gbm_models"])
+        d1.metric("Strict GBM Models", dep.get("n_gbm"))
         d2.metric("Median GBM Chronos Score", num(dep.get("median_effect_gbm"), 2), help=HELP["chronos"])
         d3.metric("Selectivity Difference", num(dep.get("median_selectivity_delta"), 2), help=HELP["selectivity"])
-        d4.metric("One-Sided p Value", pval(dep.get("p_value")), help=HELP["one_sided_p"])
+        d4.metric("One-Sided p Value", pval(dep.get("p_value")))
         st.caption(
             f"GBM definition: {dep.get('gbm_definition')}. Pan-essential classification: {'Yes' if dep.get('pan_essential') else 'No'}.",
-            help=HELP["pan_essential"],
         )
         if dep.get("most_dependent_gbm_models"):
             st.dataframe(dep["most_dependent_gbm_models"], use_container_width=True, hide_index=True)
@@ -206,9 +185,9 @@ def render_functional_and_spatial(dep, ivy):
     if ivy.get("ok"):
         i1, i2, i3, i4 = st.columns(4)
         i1.metric("LMD Samples", ivy.get("n_samples"), help=HELP["lmd_samples"])
-        i2.metric("Highest-Expression Anatomic Zone", str(ivy.get("top_zone", "N/A")).replace("_", " ").title(), help=HELP["anatomic_zone"])
-        i3.metric("Median Expression Range", num(ivy.get("median_range"), 2), help=HELP["expression_range"])
-        i4.metric("Kruskal p Value", pval(ivy.get("p_value")), help=HELP["kruskal_p"])
+        i2.metric("Highest-Expression Anatomic Zone", str(ivy.get("top_zone", "N/A")).replace("_", " ").title())
+        i3.metric("Median Expression Range", num(ivy.get("median_range"), 2))
+        i4.metric("Kruskal p Value", pval(ivy.get("p_value")))
         zone_rows = [{
             "Anatomic Zone": zone.replace("_", " ").title(),
             "Median log2(FPKM+1)": round(value, 3),
@@ -224,9 +203,9 @@ def render_human_validation(cgg, gla):
     if cgg.get("ok"):
         meta = cgg.get("meta_analysis")
         c1, c2, c3 = st.columns(3)
-        c1.metric("Usable Strict-GBM Cohorts", f"{cgg.get('n_usable_cohorts', 0)}/2", help=HELP["strict_cohorts"])
+        c1.metric("Usable Strict-GBM Cohorts", f"{cgg.get('n_usable_cohorts', 0)}/2")
         c2.metric("Pooled HR per 1 SD", num((meta or {}).get("pooled_hr"), 2), help=HELP["pooled_hr"])
-        c3.metric("Pooled p Value", pval((meta or {}).get("pooled_p_value")), help=HELP["pooled_p"])
+        c3.metric("Pooled p Value", pval((meta or {}).get("pooled_p_value")))
         cohort_rows = [{
             "Cohort": row.get("cohort"),
             "Usable": row.get("ok"),
@@ -249,9 +228,9 @@ def render_human_validation(cgg, gla):
     st.subheader("GLASS Longitudinal Validation", help=HELP["glass"], anchor=False)
     if gla.get("ok"):
         x1, x2, x3 = st.columns(3)
-        x1.metric("Primary/Recurrent Pairs", gla.get("n_pairs"), help=HELP["pairs"])
-        x2.metric("Median Recurrence Change", num(gla.get("median_delta"), 3), help=HELP["recurrence_change"])
-        x3.metric("Paired p Value", pval(gla.get("p_value")), help=HELP["paired_p"])
+        x1.metric("Primary/Recurrent Pairs", gla.get("n_pairs"))
+        x2.metric("Median Recurrence Change", num(gla.get("median_delta"), 3))
+        x3.metric("Paired p Value", pval(gla.get("p_value")))
         st.caption(gla.get("scope", ""))
     elif gla.get("status") == "credentials_required":
         st.info(
@@ -262,12 +241,12 @@ def render_human_validation(cgg, gla):
 
 
 def render_tissue_and_network(identity, hpa, network, gbmap):
-    st.subheader("Normal Tissue and Brain Context", help=HELP["normal_tissue"], anchor=False)
+    st.subheader("Normal Tissue and Brain Context", anchor=False)
     if hpa.get("ok"):
         h1, h2, h3 = st.columns(3)
         h1.metric("Tissue Specificity", hpa.get("tissue_specificity") or "N/A", help=HELP["tissue_specificity"])
         h2.metric("Brain Single-Nuclei Specificity", hpa.get("single_nuclei_brain_specificity") or "N/A", help=HELP["brain_single_nuclei"])
-        h3.metric("Maximum Displayed Normal-Brain Expression", num(hpa.get("normal_brain_max_expression"), 1), help=HELP["normal_brain_expression"])
+        h3.metric("Maximum Displayed Normal-Brain Expression", num(hpa.get("normal_brain_max_expression"), 1))
         if hpa.get("brain_region_expression"):
             brain_rows = [
                 {"Brain Region": region, "Expression": value}
@@ -337,9 +316,9 @@ def render_literature(profile, lit):
 
 def render_translation(ot, trials, bbb):
     t1, t2, t3 = st.columns(3)
-    t1.metric("Target-Directed Candidates", ot.get("known_drug_count", 0) if ot.get("ok") else "N/A", help=HELP["target_candidates"])
-    t2.metric("Highest Matching GBM Trial Phase", trials.get("max_phase", 0) if trials.get("ok") else "N/A", help=HELP["trial_phase"])
-    t3.metric("Matching GBM Trials", trials.get("total", 0) if trials.get("ok") else "N/A", help=HELP["matching_trials"])
+    t1.metric("Target-Directed Candidates", ot.get("known_drug_count", 0) if ot.get("ok") else "N/A")
+    t2.metric("Highest Matching GBM Trial Phase", trials.get("max_phase", 0) if trials.get("ok") else "N/A")
+    t3.metric("Matching GBM Trials", trials.get("total", 0) if trials.get("ok") else "N/A")
 
     section_space(0.5)
     candidate_tab, trial_tab, bbb_tab = st.tabs(["Candidates", "Clinical Trials", "BBB Evidence"])
@@ -361,7 +340,7 @@ def render_translation(ot, trials, bbb):
         st.subheader("Blood-Brain Barrier Evidence", help=HELP["bbb"], anchor=False)
         if bbb.get("ok"):
             b1, b2, b3 = st.columns(3)
-            b1.metric("Candidates Checked", bbb.get("candidates_checked", 0), help=HELP["candidates_checked"])
+            b1.metric("Candidates Checked", bbb.get("candidates_checked", 0))
             b2.metric("B3DB Matches", bbb.get("matched_count", 0), help=HELP["b3db_matches"])
             b3.metric("BBB+ Records", bbb.get("bbb_positive_count", 0), help=HELP["bbb_positive"])
             if bbb.get("matches"):
@@ -400,15 +379,11 @@ def render_profile(profile):
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Target Priority Score", "N/A" if score.overall is None else f"{score.overall}/100", help=HELP["target_priority_score"])
     m2.metric("Evidence Coverage", f"{score.evidence_coverage_pct}%", help=HELP["evidence_coverage"])
-    m3.metric("Evidence Records", len(profile.dossier.evidence), help=HELP["evidence_records"])
-    m4.metric("Active GBM Trials", trials.get("active", 0), help=HELP["active_trials"])
-    st.caption(f"{score.label}. {score.caveat}")
+    m3.metric("Evidence Records", len(profile.dossier.evidence))
+    m4.metric("Active GBM Trials", trials.get("active", 0))
+    st.caption(f"{score.label}. Research prioritization only; not a measure of causality or clinical benefit.")
 
     section_space(0.4)
-    st.caption(
-        "Start with Overview. Use Evidence for source-derived biology, Translation for therapeutic context, "
-        "Interpretation & Next Steps for tool-generated synthesis, and Sources & Export for the full evidence record."
-    )
 
     overview_tab, evidence_tab, translation_tab, interpretation_tab, sources_tab = st.tabs([
         "Overview",
@@ -432,7 +407,7 @@ def render_profile(profile):
                     st.write("No concise findings were generated from the available sources.")
         with consistency_col:
             with st.container(border=True):
-                st.subheader("Evidence Consistency", help=HELP["evidence_consistency"], anchor=False)
+                st.subheader("Evidence Consistency", anchor=False)
                 st.write(consistency.get("status", "Not assessed"))
                 for flag in consistency.get("flags", []):
                     st.markdown(f"- {flag}")
@@ -441,7 +416,6 @@ def render_profile(profile):
 
         section_space(0.5)
         with st.expander("Priority Score Composition", expanded=False):
-            st.caption("How the overall research-prioritization score is assembled.", help=HELP["score_composition"])
             score_rows = [{
                 "Evidence Dimension": name,
                 "Score": None if d.score is None else round(d.score, 1),
@@ -452,7 +426,7 @@ def render_profile(profile):
             st.dataframe(score_rows, use_container_width=True, hide_index=True)
 
     with evidence_tab:
-        st.caption("Source-derived molecular and human evidence. Tool-generated recommendations are kept out of this workspace.")
+        st.caption("Source-derived molecular and human evidence.")
         genomics_tab, functional_tab, human_tab, tissue_tab, literature_tab = st.tabs([
             "Genomics & Identity",
             "Functional & Spatial",
@@ -472,7 +446,7 @@ def render_profile(profile):
             render_literature(profile, lit)
 
     with translation_tab:
-        st.caption("Therapeutic and clinical-development context is separated from the underlying biological evidence.", help=HELP["translation"])
+        st.caption("Therapeutic and clinical-development context is separated from the underlying biological evidence.")
         render_translation(ot, trials, bbb)
 
     with interpretation_tab:
@@ -482,7 +456,7 @@ def render_profile(profile):
         gaps_col, studies_col = st.columns(2)
         with gaps_col:
             with st.container(border=True):
-                st.subheader("Evidence Gaps", help=HELP["evidence_gaps"], anchor=False)
+                st.subheader("Evidence Gaps", anchor=False)
                 if profile.evidence_gaps:
                     for gap in profile.evidence_gaps:
                         st.markdown(f"- {gap}")
@@ -490,7 +464,7 @@ def render_profile(profile):
                     st.write("No major evidence gaps were identified from the available sources.")
         with studies_col:
             with st.container(border=True):
-                st.subheader("Potential Validation Studies", help=HELP["validation_studies"], anchor=False)
+                st.subheader("Potential Validation Studies", anchor=False)
                 if profile.next_experiments:
                     for idea in profile.next_experiments:
                         st.markdown(f"- {idea}")
@@ -501,11 +475,10 @@ def render_profile(profile):
         st.caption("Detailed provenance, raw evidence records, source availability, and exports live here so they do not interrupt the main research workflow.")
         record_tab, status_tab, export_tab = st.tabs(["Evidence Record", "Source Status", "Export"])
         with record_tab:
-            st.caption("Auditable claims used by the profile.", help=HELP["evidence_record"])
             render_evidence_record(profile)
         with status_tab:
             source_rows = [
-                {"Data Source": str(name).replace("_", " ").title(), "Status": status}
+                {"Data Source": str(name).replace("_", " ").title(), "Status": display_status(status)}
                 for name, status in profile.source_status.items()
             ]
             st.dataframe(source_rows, use_container_width=True, hide_index=True)
@@ -549,14 +522,12 @@ with analysis_tab:
                 "Gene symbol",
                 value="EGFR",
                 placeholder="e.g. EGFR, PTEN, TERT, CDK6",
-                help=HELP["gene_symbol"],
             ).strip()
         with button_col:
             run = st.form_submit_button(
                 "Analyze",
                 type="primary",
                 use_container_width=True,
-                help=HELP["analyze"],
             )
 
     if run:
@@ -609,19 +580,19 @@ with batch_tab:
 with methods_tab:
     st.markdown("### Scored Evidence Model")
     st.write(
-        "The Target Priority Score retains the validated V4 evidence model: TCGA genomic signal, Open Targets disease relevance and druggability, clinical translation, literature context, DepMap functional dependency, Ivy GAP spatial expression, CGGA external human validation, and clinically verified GLASS longitudinal recurrence when available. Missing sources reduce evidence coverage rather than becoming negative biological evidence."
+        "The Target Priority Score integrates TCGA genomic signal, Open Targets disease relevance and druggability, clinical translation, literature context, DepMap functional dependency, Ivy GAP spatial expression, CGGA external human validation, and GLASS longitudinal recurrence when available. Missing sources reduce evidence coverage rather than being treated as negative evidence."
     )
 
     section_space(0.8)
     st.markdown("### Contextual Research Layers")
     st.write(
-        "V5 adds canonical gene identity from MyGene.info, normal-tissue and brain context from the Human Protein Atlas, high-confidence interaction and pathway context from STRING, and experimental blood-brain barrier records from B3DB. These layers are displayed separately and do not change the Target Priority Score because their interpretation depends on experimental modality and research question."
+        "Canonical gene identity is resolved with MyGene.info, normal-tissue and brain context is provided by the Human Protein Atlas, interaction and pathway context comes from STRING, and experimental blood-brain barrier records come from B3DB. These contextual layers are displayed separately from the Target Priority Score."
     )
 
     section_space(0.8)
     st.markdown("### Single-Cell Reference")
     st.write(
-        "The analysis links directly to the public GBmap IDH-wildtype glioblastoma single-cell and spatial reference collection. Quantitative GBmap expression is not incorporated into the priority score unless it can be analyzed reproducibly at gene level without requiring the application to download the full atlas during each query."
+        "GBmap provides a public IDH-wildtype glioblastoma single-cell and spatial reference for cellular and tumor-state context. GBmap reference information is presented separately from the Target Priority Score."
     )
 
     section_space(0.8)
