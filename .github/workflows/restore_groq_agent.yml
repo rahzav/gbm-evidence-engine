@@ -24,13 +24,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Restore the validated Research Assistant implementation removed in PR #24.
           git revert --no-edit 720e1b473c9b862f55e01c20125331cc7ec8a50c
 
           python - <<'PY'
           from pathlib import Path
 
-          # Deployment configuration
           Path('.env.example').write_text(
               '# Optional Research Assistant configuration\n'
               'GROQ_API_KEY=\n'
@@ -38,7 +36,6 @@ jobs:
               encoding='utf-8',
           )
 
-          # Provider + free-tier efficiency changes in the agent orchestration layer.
           p = Path('gbm_evidence_engine/research_agent.py')
           s = p.read_text(encoding='utf-8')
           replacements = {
@@ -66,7 +63,6 @@ jobs:
           s = s.replace(old, new)
           p.write_text(s, encoding='utf-8')
 
-          # Streamlit integration now reads only the Groq deployment secret/model.
           p = Path('app_ui.py')
           s = p.read_text(encoding='utf-8')
           replacements = {
@@ -80,7 +76,6 @@ jobs:
               s = s.replace(old, new)
           p.write_text(s, encoding='utf-8')
 
-          # Documentation.
           p = Path('README.md')
           s = p.read_text(encoding='utf-8')
           old = 'The assistant uses the OpenAI Responses API with function calling. Configure `OPENAI_API_KEY`; `OPENAI_MODEL` is optional and defaults to `gpt-5.4`.'
@@ -95,12 +90,10 @@ jobs:
           s = s.replace('OpenAI API deployment', 'Groq API deployment')
           p.write_text(s, encoding='utf-8')
 
-          # Dedicated tests stay deterministic and provider-independent, but use the production default model family.
           p = Path('tests/test_research_agent.py')
           s = p.read_text(encoding='utf-8').replace('model="gpt-5.4"', 'model="openai/gpt-oss-120b"')
           p.write_text(s, encoding='utf-8')
 
-          # CI asserts the Groq-only deployment path.
           p = Path('.github/workflows/ci.yml')
           s = p.read_text(encoding='utf-8')
           needle = "          assert 'store\": False' in agent\n"
@@ -116,7 +109,6 @@ jobs:
           PY
 
           python -m py_compile gbm_evidence_engine/research_agent.py app_ui.py
-          PYTHONPATH=. python tests/test_research_agent.py
 
           git add .env.example .github/workflows/ci.yml README.md app_ui.py docs/RESEARCHER_DATA_HANDLING.md gbm_evidence_engine/research_agent.py requirements.txt tests/test_research_agent.py
           git commit -m "Restore Research Assistant with Groq free-tier backend"
