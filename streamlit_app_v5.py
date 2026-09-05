@@ -542,9 +542,6 @@ with info_col:
     )
 
 st.caption("Integrated gene-level evidence synthesis for glioblastoma research.")
-st.write(
-    "Enter a gene symbol to evaluate its relevance in GBM across complementary biological and translational evidence. Results are organized to support target prioritization, evidence review, and experimental planning."
-)
 st.caption("Note: Results are intended for research prioritization and hypothesis development, not clinical decision-making.")
 
 if "walkthrough_seen" not in st.session_state:
