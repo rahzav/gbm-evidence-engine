@@ -308,7 +308,7 @@ def build_research_profile(gene: str) -> ResearchProfile:
         )
     else:
         profile.source_status["GBmap cell-state reference"] = gbm.get("status") or "unavailable"
-    profile.source_status["V7 confidence/model relevance"] = "active; contextual and non-scoring"
+    profile.source_status["Confidence and model relevance"] = "active; contextual and non-scoring"
     return profile
 
 
