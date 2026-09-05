@@ -157,7 +157,15 @@ def evaluate_case(profile, case: dict) -> dict:
     not_evaluable = [x for x in checks if x["status"] == "not_evaluable"]
     passed_count = sum(bool(x["passed"]) for x in evaluable)
     failed_count = sum(x["passed"] is False for x in evaluable)
-    case_passed = bool(evaluable) and failed_count == 0
+    if not evaluable:
+        case_passed = None
+        case_status = "not_evaluable"
+    elif failed_count:
+        case_passed = False
+        case_status = "failed"
+    else:
+        case_passed = True
+        case_status = "passed"
     return {
         "id": case.get("id"),
         "gene": case.get("gene"),
@@ -168,6 +176,7 @@ def evaluate_case(profile, case: dict) -> dict:
             else "prospective_registered" if mode == "prospective"
             else "current_data_only_not_retrospective"
         ),
+        "status": case_status,
         "passed": case_passed,
         "fully_evaluable": len(not_evaluable) == 0,
         "passed_checks": passed_count,
@@ -192,6 +201,7 @@ def run_benchmark(profile_builder: Callable[[str], Any], manifest_path: Path = D
     evaluable_total = sum(r["evaluable_checks"] for r in results)
     passed = sum(r["passed_checks"] for r in results)
     not_evaluable_total = sum(r["not_evaluable_checks"] for r in results)
+    evaluable_cases = [r for r in results if r["passed"] is not None]
     retrospective = [r for r in results if r["mode"] == "frozen_snapshot"]
     class_counts = {
         case_class: sum(r["case_class"] == case_class for r in results)
@@ -207,11 +217,13 @@ def run_benchmark(profile_builder: Callable[[str], Any], manifest_path: Path = D
         "check_accuracy": None if evaluable_total == 0 else round(passed / evaluable_total, 4),
         "evaluable_checks": evaluable_total,
         "not_evaluable_checks": not_evaluable_total,
+        "evaluable_cases": len(evaluable_cases),
+        "not_evaluable_cases": len(results) - len(evaluable_cases),
         "fully_evaluable_cases": len(results) - len(source_limited),
         "source_limited_cases": len(source_limited),
-        "all_evaluable_cases_passed": all(r["passed"] for r in results),
+        "all_evaluable_cases_passed": bool(evaluable_cases) and all(r["passed"] is True for r in evaluable_cases),
         "n_retrospective_cases": len(retrospective),
-        "retrospective_claim_allowed": bool(retrospective) and all(r["passed"] for r in retrospective),
+        "retrospective_claim_allowed": bool(retrospective) and all(r["passed"] is True for r in retrospective),
         "warning": (
             "Current-behavior cases validate scientific safeguards and regression behavior. "
             "Live-source checks whose prerequisites are unavailable are reported as not evaluable, never as passes. "
