@@ -1,7 +1,9 @@
-"""Shared source metadata, cache paths, and best-effort JSON HTTP helpers."""
+"""Shared source metadata, cache paths, and resilient JSON HTTP helpers."""
 from __future__ import annotations
 
+import http.client
 import json
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -12,7 +14,7 @@ from gbm_evidence_engine.evidence_model import AccessTier
 
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
-USER_AGENT = "GBM-Evidence-Engine/3.0 (+https://github.com/rahzav/gbm-evidence-engine)"
+USER_AGENT = "GBM-Gene-Analysis/7.0 (+https://github.com/rahzav/gbm-evidence-engine)"
 
 
 @dataclass
@@ -91,25 +93,49 @@ SOURCE_REGISTRY: dict[str, SourceMeta] = {
 }
 
 
-def http_get_json(url: str, timeout: int = 20) -> Optional[dict]:
-    try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-        return None
+_TRANSIENT_HTTP_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    ValueError,
+    json.JSONDecodeError,
+    http.client.IncompleteRead,
+    ConnectionResetError,
+    BrokenPipeError,
+)
 
 
-def http_post_json(url: str, payload: dict | list, timeout: int = 20) -> Optional[dict | list]:
-    try:
-        body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-        return None
+def _read_json(req: urllib.request.Request, timeout: int, retries: int):
+    """Read JSON with bounded retries for transient/truncated upstream responses."""
+    for attempt in range(max(1, retries)):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+            return json.loads(raw.decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {408, 425, 429, 500, 502, 503, 504}:
+                return None
+            if attempt >= retries - 1:
+                return None
+        except _TRANSIENT_HTTP_ERRORS:
+            if attempt >= retries - 1:
+                return None
+        time.sleep(0.6 * (attempt + 1))
+    return None
+
+
+def http_get_json(url: str, timeout: int = 20, retries: int = 3) -> Optional[dict]:
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
+    result = _read_json(req, timeout=timeout, retries=retries)
+    return result if isinstance(result, dict) else result
+
+
+def http_post_json(url: str, payload: dict | list, timeout: int = 20, retries: int = 3) -> Optional[dict | list]:
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT},
+        method="POST",
+    )
+    result = _read_json(req, timeout=timeout, retries=retries)
+    return result if isinstance(result, (dict, list)) else None

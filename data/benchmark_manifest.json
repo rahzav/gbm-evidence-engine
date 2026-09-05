@@ -1,0 +1,32 @@
+{
+  "benchmark_version": "0.1.0",
+  "scope": "GBM molecular research decision-support behavior",
+  "notes": "These initial cases are current-data regression checks, not retrospective discovery claims. True retrospective cases must use frozen/date-bounded evidence snapshots.",
+  "cases": [
+    {
+      "id": "egfr_current_genomic_vs_dependency",
+      "gene": "EGFR",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.cbioportal.ok",
+          "operator": "eq",
+          "value": true,
+          "rationale": "The canonical EGFR GBM profile must retrieve TCGA/cBioPortal evidence."
+        },
+        {
+          "path": "score.dimensions.GBM genomic signal.score",
+          "operator": "gte",
+          "value": 50,
+          "rationale": "EGFR should retain a substantial GBM genomic signal."
+        },
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": false,
+          "rationale": "Current DepMap behavior should not be mislabeled pan-essential."
+        }
+      ]
+    }
+  ]
+}
