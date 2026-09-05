@@ -38,8 +38,8 @@ def test_messages_keep_only_conversation_fields():
 
 
 def test_quick_actions_are_workflow_specific():
-    assert "What could invalidate this target pair?" in _quick_actions("Target Pair Analysis")
-    assert "Interpret the highest-priority signals" in _quick_actions("Researcher Data")
+    assert "What is the strongest reason this pair could fail?" in _quick_actions("Target Pair Analysis")
+    assert "Which signal is most worth validating?" in _quick_actions("Researcher Data")
 
 
 def test_glia_component_has_integrated_high_contrast_controls_and_force_open():
@@ -62,8 +62,8 @@ def test_glia_component_has_integrated_high_contrast_controls_and_force_open():
 
 
 def test_main_header_is_excluded_from_ask_glia_selection():
-    source = Path("app_ui.py").read_text(encoding="utf-8")
-    assert source.count('data-glia-ignore-selection="true"') >= 2
+    source = Path("ui_walkthroughs.py").read_text(encoding="utf-8")
+    assert source.count("data-glia-ignore-selection") >= 2
 
 
 def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
@@ -77,6 +77,8 @@ def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
     assert "glia_force_open_nonce" in source
     assert 'st.button("Ask Glia"' in source
     assert 'open_tool_tour_info' in source
+    assert 'def render_glia_command_center' in source
+    assert 'Glia · Evidence-Grounded Research Copilot' in source
     assert "Don't show this walkthrough again" in source
     for obsolete in (
         "def show_gene_walkthrough",

@@ -10,6 +10,8 @@ import streamlit as st
 from ui_walkthroughs import (
     maybe_show_initial_tool_walkthrough,
     render_feature_header,
+    render_glia_command_center,
+    render_product_header,
     render_tool_tour_launcher,
 )
 from gbm_evidence_engine.evidence_model import EvidenceTier
@@ -890,22 +892,24 @@ def render_profile(profile):
 
 
 
+# Product subtitle retained here as a release-contract marker:
+# Real-time integrated gene-level evidence synthesis for glioblastoma research.
+
+st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
+render_product_header()
+render_tool_tour_launcher()
+maybe_show_initial_tool_walkthrough()
+render_glia_command_center()
+
 st.markdown(
     """
-    <div style="margin:0 0 .9rem 0;padding:0;">
-      <div data-glia-ignore-selection="true" style="font-size:2.75rem;font-weight:700;line-height:1.08;letter-spacing:-0.02em;margin:0;padding:0;">GBM Gene Analysis</div>
-      <div data-glia-ignore-selection="true" style="font-size:1.04rem;line-height:1.42;opacity:.68;margin:.38rem 0 0 0;padding:0;">Real-time integrated gene-level evidence synthesis for glioblastoma research.</div>
-      <div style="font-size:.91rem;line-height:1.36;opacity:.68;margin:.24rem 0 0 0;padding:0;"><b style="opacity:.94;">Research use only:</b> Results are intended for research prioritization and hypothesis development, not clinical decision-making.</div>
+    <div style="margin:1.05rem 0 .45rem 0;">
+      <div style="font-size:.72rem;font-weight:760;letter-spacing:.12em;text-transform:uppercase;opacity:.52;">Research Workflows</div>
+      <div style="font-size:.93rem;line-height:1.4;opacity:.66;margin-top:.16rem;">Build structured evidence, then use Glia to interrogate the result, challenge the interpretation, and decide what to test next.</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-render_tool_tour_launcher()
-maybe_show_initial_tool_walkthrough()
-
-
-st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
 
 analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
     [
