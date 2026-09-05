@@ -905,6 +905,8 @@ render_tool_tour_launcher()
 maybe_show_initial_tool_walkthrough()
 
 
+st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
+
 analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
     [
         "Gene Analysis",
