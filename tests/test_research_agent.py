@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from gbm_evidence_engine.research_agent import (
     AgentReference,
+    ResearchAgentError,
     _signature_payload,
     run_agent_turn,
     validate_quantitative_grounding,
@@ -31,6 +32,20 @@ class FakeResponses:
 class FakeClient:
     def __init__(self):
         self.responses = FakeResponses()
+
+
+class FakeRateLimitError(RuntimeError):
+    status_code = 429
+
+
+class RateLimitedResponses:
+    def create(self, **kwargs):
+        raise FakeRateLimitError("rate limit exceeded")
+
+
+class RateLimitedClient:
+    def __init__(self):
+        self.responses = RateLimitedResponses()
 
 
 def fake_dispatch(name, arguments, session_context, registry):
@@ -92,3 +107,25 @@ def test_researcher_context_excludes_raw_table_fields():
     assert "uploaded_rows" not in payload
     assert payload["n_input_genes"] == 8
     assert "CTX:RESEARCHER_DATA" in registry
+
+
+def test_rate_limit_is_presented_as_temporary_shared_capacity():
+    try:
+        run_agent_turn(
+            "Compare EGFR and CDK4.",
+            client=RateLimitedClient(),
+            model="openai/gpt-oss-120b",
+        )
+    except ResearchAgentError as exc:
+        assert "temporarily at capacity" in str(exc)
+        assert "Groq free tier" in str(exc)
+    else:
+        raise AssertionError("Expected ResearchAgentError for a Groq 429 response")
+
+
+if __name__ == "__main__":
+    test_agent_runs_bounded_function_call_loop_with_grounded_output()
+    test_quantitative_grounding_rejects_unreturned_statistic()
+    test_researcher_context_excludes_raw_table_fields()
+    test_rate_limit_is_presented_as_temporary_shared_capacity()
+    print("RESEARCH AGENT TESTS OK")
