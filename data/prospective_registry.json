@@ -1,0 +1,6 @@
+{
+  "registry_version": "0.1.0",
+  "purpose": "Register GBM research hypotheses before later experimental or external evaluation.",
+  "instructions": "A registration should record the system version, timestamp, input, hypothesis, supporting evidence snapshot or retrieval metadata, proposed falsification test, and outcome only after the evaluation occurs. Empty registration history does not constitute validation.",
+  "registrations": []
+}
