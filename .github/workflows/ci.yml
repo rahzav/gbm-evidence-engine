@@ -31,7 +31,7 @@ jobs:
             gbm_evidence_engine/research_intelligence_v7.py \
             gbm_evidence_engine/research_intelligence_v7_prod.py \
             gbm_evidence_engine/benchmarking.py \
-            app_ui.py streamlit_app.py api/app.py
+            app_ui.py ui_walkthroughs.py streamlit_app.py api/app.py
       - name: Scientific and grounding tests
         run: |
           PYTHONPATH=. python tests/test_survival.py
@@ -99,10 +99,20 @@ jobs:
           entry = Path('streamlit_app.py').read_text(encoding='utf-8')
           assert 'app_ui.py' in entry, entry
           ui = Path('app_ui.py').read_text(encoding='utf-8')
+          walkthroughs = Path('ui_walkthroughs.py').read_text(encoding='utf-8')
           for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
-          print('SINGLE PRODUCTION UI PATH OK')
+          assert 'Real-time synthesis of live and curated gene-level evidence' in ui
+          assert 'def show_walkthrough()' not in ui
+          for function_name in (
+              'show_gene_walkthrough',
+              'show_pair_walkthrough',
+              'show_researcher_walkthrough',
+              'show_comparison_walkthrough',
+          ):
+              assert f'def {function_name}' in walkthroughs, function_name
+          print('SINGLE PRODUCTION UI + FEATURE WALKTHROUGHS OK')
           PY
       - name: Validate release metadata and documentation
         run: |
@@ -133,7 +143,7 @@ jobs:
           if at.exception:
               raise SystemExit(at.exception)
           assert any(button.label == 'Build dossier' for button in at.button)
-          assert at.session_state['walkthrough_open'] is True
+          assert bool(at.session_state['gene_walkthrough_seen'])
           print('STREAMLIT PRODUCT OK')
           PY
       - name: API and invalid-input contracts
