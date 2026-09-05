@@ -1,16 +1,42 @@
-"""Production facade for final-scope V7.
+"""Production facade for the final GBM Gene Analysis research scope.
 
-The scientific behavior is identical to V7, but target-pair analysis is computed
-from exactly two V7 profiles. This avoids the redundant four-profile execution
-that would otherwise waste public-API calls and increase Streamlit memory/load.
+The scientific behavior is delegated to the validated V7 research layer, while
+this facade keeps production-specific execution bounded and attaches a stable
+software release identifier to non-profile outputs.
 """
 from __future__ import annotations
 
 from gbm_evidence_engine import research_intelligence_v7 as v7
 
-build_research_profile = v7.build_research_profile
-rank_gene_list = v7.rank_gene_list
-analyze_researcher_signature = v7.analyze_researcher_signature
+SOFTWARE_VERSION = "7.0.0"
+
+
+def build_research_profile(gene: str):
+    return v7.build_research_profile(gene)
+
+
+def rank_gene_list(genes: list[str], max_workers: int = 1):
+    return v7.rank_gene_list(genes, max_workers=max_workers)
+
+
+def analyze_researcher_signature(
+    genes: list[str] | tuple[str, ...],
+    values: list[float] | tuple[float, ...],
+    *,
+    p_values=None,
+    fdr_values=None,
+    **kwargs,
+):
+    result = v7.analyze_researcher_signature(
+        genes,
+        values,
+        p_values=p_values,
+        fdr_values=fdr_values,
+        **kwargs,
+    )
+    if isinstance(result, dict):
+        result.setdefault("software_version", SOFTWARE_VERSION)
+    return result
 
 
 def _dimension(profile, name: str) -> float | None:
@@ -34,7 +60,7 @@ def evaluate_gene_pair(gene_a: str, gene_b: str) -> dict:
     if a_raw.upper() == b_raw.upper():
         raise ValueError("Combination analysis requires two different genes.")
 
-    # Deliberately sequential on the public Streamlit deployment: each V7 profile
+    # Deliberately sequential on the public Streamlit deployment: each profile
     # already performs bounded source-level concurrency, so parallel full profiles
     # would amplify upstream/API and memory pressure.
     a = build_research_profile(a_raw)
@@ -89,9 +115,9 @@ def evaluate_gene_pair(gene_a: str, gene_b: str) -> dict:
     conf_b = v7._num((b.live.get("overall_evidence_confidence") or {}).get("score"))
     pair_confidence = None if conf_a is None or conf_b is None else (conf_a + conf_b) / 2.0
 
-    # Preserve the established V6 rationale score so V7 cell-state/confidence
-    # context does not silently redefine a pre-existing heuristic. New V7
-    # components are displayed separately and directly affect rationale/risk text.
+    # Preserve the established V6 rationale score so cell-state/confidence
+    # context does not silently redefine a pre-existing heuristic. New context
+    # is displayed separately and affects rationale/risk text directly.
     scored_components = {
         "individual_target_quality": target_quality,
         "functional_support": functional,
@@ -142,6 +168,7 @@ def evaluate_gene_pair(gene_a: str, gene_b: str) -> dict:
         risks.append("At least one target is supported mainly by limited model systems; validate the pair in patient-derived/3D GBM models before interpreting combination rationale.")
 
     return {
+        "software_version": SOFTWARE_VERSION,
         "gene_a": a.gene,
         "gene_b": b.gene,
         "combination_rationale_score": None if rationale is None else round(max(0.0, min(100.0, rationale)), 1),
