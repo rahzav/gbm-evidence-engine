@@ -42,11 +42,11 @@ jobs:
           assert 'gbm_evidence_engine/research_agent.py' in ci
           print('Research Assistant integration validated')
           PY
-      - name: Commit integrated agent
+      - name: Commit integrated app and docs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app_ui.py README.md docs/RESEARCHER_DATA_HANDLING.md .github/workflows/ci.yml
+          git add app_ui.py README.md docs/RESEARCHER_DATA_HANDLING.md
           git commit -m "Integrate Research Assistant into production UI"
-          git pull --rebase origin agent-integration
+          git restore .github/workflows/ci.yml
           git push origin agent-integration
