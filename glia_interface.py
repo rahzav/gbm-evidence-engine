@@ -52,7 +52,7 @@ GLIA_CSS = """
 }
 .glia-header-row {
   display:grid;
-  grid-template-columns:40px minmax(0,1fr) 30px 30px 30px;
+  grid-template-columns:40px minmax(0,1fr) 30px 30px 30px 30px;
   align-items:center;
   column-gap:7px;
 }
@@ -156,18 +156,11 @@ GLIA_CSS = """
 #glia-send:disabled { opacity:.38; cursor:not-allowed; }
 .glia-footer-note { font-size:.66rem; opacity:.48; margin:6px 2px 0; line-height:1.35; }
 
-#glia-launcher {
-  position:fixed; z-index:1000001; right:0; top:48%;
-  transform:translateY(-50%);
-  border:0;
-  background:var(--st-primary-color, #ff4b4b); color:#fff;
-  border-radius:14px 0 0 14px;
-  box-shadow:-6px 8px 24px rgba(0,0,0,.18); padding:10px 14px 10px 10px;
-  display:none; align-items:center; gap:8px; font-weight:760; cursor:pointer;
-  letter-spacing:-.01em;
+#glia-launcher { display:none !important; }
+#glia-shell.glia-fullscreen {
+  width:100vw; max-width:none; height:100vh;
+  border-left:0; box-shadow:none;
 }
-#glia-launcher:hover { filter:brightness(.96); padding-right:17px; }
-#glia-launcher.glia-visible { display:flex; }
 .glia-launcher-mark {
   width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
   background:rgba(255,255,255,.18); color:#fff;
@@ -196,12 +189,6 @@ GLIA_CSS = """
 }
 
 @media (max-width: 980px) {
-  #glia-launcher {
-    top:auto; right:16px; bottom:76px; transform:none;
-    border-radius:999px; padding:10px 15px 10px 10px;
-    box-shadow:0 10px 28px rgba(0,0,0,.20);
-  }
-  #glia-launcher:hover { padding-right:15px; }
   #glia-shell { width:min(92vw, 390px); }
   body.glia-panel-open [data-testid="stAppViewContainer"] { width:100% !important; max-width:100% !important; }
   body.glia-panel-open [data-testid="stAppViewBlockContainer"] { max-width:100% !important; padding-right:1rem !important; }
@@ -215,7 +202,8 @@ export default function(component) {
   const STORAGE_KEY = data.storage_key || "gbm_glia_workspace_v1";
   const UI_KEY = STORAGE_KEY + ":ui";
   const runtime = window.__gbmGliaRuntime || {
-    open: true,
+    open: false,
+    expanded: false,
     memoryOpen: false,
     draftQuote: null,
     hydrationSent: false,
@@ -306,7 +294,7 @@ export default function(component) {
   const syncWorkspaceLayout = () => {
     const target = workspaceTarget();
     if (!target) return;
-    if (runtime.open && window.innerWidth > 980) {
+    if (runtime.open && !runtime.expanded && window.innerWidth > 980) {
       target.style.width = "calc(100% - 390px)";
       target.style.maxWidth = "calc(100% - 390px)";
       target.style.marginRight = "390px";
@@ -320,7 +308,13 @@ export default function(component) {
   };
   const setOpen = (open) => {
     runtime.open = Boolean(open);
+    if (!runtime.open) runtime.expanded = false;
     try { localStorage.setItem(UI_KEY, JSON.stringify({open: runtime.open})); } catch (_) {}
+    render();
+  };
+  const toggleExpanded = () => {
+    runtime.expanded = !runtime.expanded;
+    runtime.open = true;
     render();
   };
 
@@ -350,8 +344,10 @@ export default function(component) {
 
   function render() {
     shell.classList.toggle("glia-closed", !runtime.open);
-    launcher.classList.toggle("glia-visible", !runtime.open);
-    document.body.classList.toggle("glia-panel-open", runtime.open);
+    shell.classList.toggle("glia-fullscreen", runtime.open && runtime.expanded);
+    launcher.classList.remove("glia-visible");
+    document.body.classList.toggle("glia-panel-open", runtime.open && !runtime.expanded);
+    document.body.classList.toggle("glia-panel-fullscreen", runtime.open && runtime.expanded);
     syncWorkspaceLayout();
 
     const geneCount = Number(memory.gene_count || 0);
@@ -368,6 +364,7 @@ export default function(component) {
             <div class="glia-context">${escapeHtml(data.active_workflow || "GBM workspace")}</div>
           </div>
           <button class="glia-icon-btn" id="glia-new-thread" title="New thread" aria-label="New thread">＋</button>
+          <button class="glia-icon-btn" id="glia-expand" title="${runtime.expanded ? "Exit full screen" : "Full screen"}" aria-label="${runtime.expanded ? "Exit full screen" : "Full screen"}">${runtime.expanded ? "↙" : "⛶"}</button>
           <button class="glia-icon-btn" id="glia-memory-toggle" title="Research memory" aria-label="Research memory">◉</button>
           <button class="glia-icon-btn" id="glia-close" title="Close Glia" aria-label="Close Glia">×</button>
         </div>
@@ -409,6 +406,7 @@ export default function(component) {
     if (messagesBox) messagesBox.scrollTop = messagesBox.scrollHeight;
 
     shell.querySelector("#glia-close").onclick = () => setOpen(false);
+    shell.querySelector("#glia-expand").onclick = toggleExpanded;
     shell.querySelector("#glia-memory-toggle").onclick = () => { runtime.memoryOpen = !runtime.memoryOpen; render(); };
     shell.querySelector("#glia-new-thread").onclick = () => {
       setTriggerValue("new_thread", {id: `${Date.now()}-${Math.random()}`});
@@ -544,6 +542,7 @@ export default function(component) {
       target.style.removeProperty("transition");
     }
     document.body.classList.remove("glia-panel-open");
+    document.body.classList.remove("glia-panel-fullscreen");
     document.getElementById("glia-shell")?.remove();
     document.getElementById("glia-launcher")?.remove();
     document.getElementById("glia-selection-action")?.remove();
@@ -689,14 +688,14 @@ def _memory_for_model(memory: dict[str, Any]) -> dict[str, Any]:
 def _quick_actions(active_workflow: str) -> list[str]:
     mapping = {
         "Gene Analysis": [
-            "Explain the strongest finding",
-            "Where does the evidence conflict?",
-            "What experiment would reduce uncertainty most?",
+            "What single finding matters most?",
+            "What is the most important contradiction?",
+            "What is the single best next experiment?",
         ],
         "Target Pair Analysis": [
-            "Challenge this target pair",
-            "What evidence supports testing this combination?",
-            "Design the cleanest validation sequence",
+            "What could invalidate this target pair?",
+            "What is the strongest reason to test this combination?",
+            "What is the cleanest validation sequence?",
         ],
         "Researcher Data": [
             "Interpret the highest-priority signals",

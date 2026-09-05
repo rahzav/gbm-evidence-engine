@@ -49,8 +49,12 @@ def _note(text: str) -> None:
     )
 
 
-def _open_glia_from_tour() -> None:
+def _open_glia() -> None:
     st.session_state["glia_force_open_nonce"] = int(st.session_state.get("glia_force_open_nonce", 0)) + 1
+
+
+def _open_glia_from_tour() -> None:
+    _open_glia()
     st.session_state["tool_tour_seen"] = True
     st.rerun()
 
@@ -66,9 +70,9 @@ def _nav(step: int) -> None:
     pref, back, nxt = st.columns([4.6, 1.25, 1.25], vertical_alignment="center")
     with pref:
         st.checkbox(
-            "Don't show this tour again",
+            "Don't show this walkthrough again",
             key="tool_tour_do_not_show",
-            help="You can reopen the tour anytime from Tool tour.",
+            help="This walkthrough remains available at any time through the information button.",
             on_change=_sync_suppression,
         )
     with back:
@@ -181,21 +185,42 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
 
 
 def render_tool_tour_launcher() -> None:
-    left, right = st.columns([8.6, 1.4], vertical_alignment="center")
-    with right:
-        if st.button("Tool tour", key="open_tool_tour", type="tertiary", width="stretch"):
-            _launch_tool_tour(manual=True)
+    """Compatibility no-op: the unified tour now opens from the Gene Analysis info button."""
+    return None
 
 
 def render_feature_header(title: str, feature: str, caption: str | None = None) -> None:
-    """Render a workflow header without per-tab walkthrough controls."""
-    st.markdown(
-        f"<div style='font-size:1.5rem;font-weight:650;line-height:1.25;letter-spacing:-.01em;"
-        f"margin:0;padding:0;'>{title}</div>",
-        unsafe_allow_html=True,
-    )
-    if caption:
-        st.caption(caption)
+    """Render a cohesive workflow header with in-layout Glia access and one tour info control."""
+    content_col, glia_col = st.columns([8.8, 1.2], vertical_alignment="center")
+    with content_col:
+        if feature == "gene":
+            title_col, info_col, spacer_col = st.columns([1.75, 0.28, 8.0], vertical_alignment="center")
+            with title_col:
+                st.markdown(
+                    f"<div style='font-size:1.5rem;font-weight:650;line-height:1.25;letter-spacing:-.01em;"
+                    f"margin:0;padding:0;'>{title}</div>",
+                    unsafe_allow_html=True,
+                )
+            with info_col:
+                if st.button(
+                    "",
+                    icon=":material/info:",
+                    key="open_tool_tour_info",
+                    help="Open tool walkthrough",
+                    type="tertiary",
+                ):
+                    _launch_tool_tour(manual=True)
+        else:
+            st.markdown(
+                f"<div style='font-size:1.5rem;font-weight:650;line-height:1.25;letter-spacing:-.01em;"
+                f"margin:0;padding:0;'>{title}</div>",
+                unsafe_allow_html=True,
+            )
+        if caption:
+            st.caption(caption)
+    with glia_col:
+        if st.button("Ask Glia", key=f"open_glia_{feature}", type="primary", width="stretch"):
+            _open_glia()
 
 
 def maybe_show_initial_tool_walkthrough() -> None:
