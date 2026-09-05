@@ -80,10 +80,44 @@ jobs:
           manifest = load_manifest()
           classes = {case['case_class'] for case in manifest['cases']}
           assert {'known_positive', 'known_negative', 'context_specific'} <= classes, classes
+          counts = {name: sum(c['case_class'] == name for c in manifest['cases']) for name in classes}
+          assert counts.get('known_positive', 0) >= 1, counts
+          assert counts.get('known_negative', 0) >= 1, counts
+          assert counts.get('context_specific', 0) >= 1, counts
           assert all(case['mode'] == 'current_behavior_regression' for case in manifest['cases'])
           registry = json.loads(Path('data/prospective_registry.json').read_text())
           assert registry['registrations'] == [], registry
-          print('BENCHMARK FRAMEWORK OK')
+          print('BENCHMARK FRAMEWORK OK', counts)
+          PY
+      - name: Validate single production presentation path
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from pathlib import Path
+
+          versioned_ui = sorted(str(p) for p in Path('.').glob('streamlit_app_v*.py'))
+          assert versioned_ui == [], versioned_ui
+          entry = Path('streamlit_app.py').read_text(encoding='utf-8')
+          assert 'app_ui.py' in entry, entry
+          ui = Path('app_ui.py').read_text(encoding='utf-8')
+          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
+              assert required in ui, required
+          assert 'research_intelligence_v7_prod' in ui
+          print('SINGLE PRODUCTION UI PATH OK')
+          PY
+      - name: Validate release metadata and documentation
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from pathlib import Path
+          import gbm_evidence_engine.research_intelligence_v7_prod as prod
+
+          assert prod.SOFTWARE_VERSION == '7.0.0'
+          for path in ['LICENSE', 'CITATION.cff', 'docs/METHODS.md', 'docs/RESEARCHER_DATA_HANDLING.md', 'docs/RELEASE_VALIDATION.md']:
+              assert Path(path).exists(), path
+          citation = Path('CITATION.cff').read_text(encoding='utf-8')
+          assert 'version: "7.0.0"' in citation
+          readme = Path('README.md').read_text(encoding='utf-8')
+          assert 'Software release: 7.0.0' in readme
+          print('RELEASE METADATA OK')
           PY
       - name: Streamlit product smoke test
         run: |
@@ -102,12 +136,22 @@ jobs:
           assert at.session_state['walkthrough_open'] is True
           print('STREAMLIT PRODUCT OK')
           PY
-      - name: API contract
+      - name: API and invalid-input contracts
         run: |
           PYTHONPATH=. python - <<'PY'
-          from api.app import health
+          from fastapi.testclient import TestClient
+          from api.app import app, health
+
           result = health()
           assert result['status'] == 'ok', result
           assert result['version'] == '7.0.0', result
-          print('API V7 OK')
+
+          client = TestClient(app)
+          same = client.post('/combination', json={'gene_a': 'EGFR', 'gene_b': 'EGFR'})
+          assert same.status_code == 400, same.text
+          mismatch = client.post('/signature', json={'genes': ['A','B','C','D','E','F'], 'values': [1,2,3,4,5,6], 'p_values': [0.1]})
+          assert mismatch.status_code == 400, mismatch.text
+          too_empty = client.post('/profile', json={'gene': ''})
+          assert too_empty.status_code == 422, too_empty.text
+          print('API 7.0.0 + INVALID INPUT CONTRACTS OK')
           PY
