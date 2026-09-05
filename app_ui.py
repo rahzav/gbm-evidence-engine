@@ -24,6 +24,18 @@ from gbm_evidence_engine.research_intelligence_v7_prod import (
 
 st.set_page_config(page_title="GBM Gene Analysis", page_icon="🧬", layout="wide")
 
+# Keep Enter-to-submit behavior while removing Streamlit's redundant form hint.
+st.markdown(
+    """
+    <style>
+    div[data-testid="stForm"] div[data-testid="InputInstructions"] {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 HELP = {
     "target_priority_score": "A 0–100 research-prioritization score integrating supported GBM evidence across multiple sources. It is not a measure of clinical benefit or causality.",
@@ -433,8 +445,6 @@ def render_literature(profile, lit):
 
     with st.container(border=True):
         st.markdown("#### Find publications")
-        st.caption("Choose a disease context, then optionally narrow the result set with title/abstract keywords.")
-
         st.markdown(
             "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.15rem 0 .12rem;'>Disease context</div>",
             unsafe_allow_html=True,
@@ -593,33 +603,35 @@ def render_confidence_summary(profile):
     by_dim = live.get("confidence_by_dimension", {})
 
     c1, c2 = st.columns(2)
-    with c1:
-        with st.container(border=True):
-            st.markdown("#### Evidence Confidence")
-            st.metric("Overall", confidence_text(overall))
-            for reason in (overall.get("reasons") or [])[:2]:
-                st.caption(reason)
-    with c2:
-        with st.container(border=True):
-            st.markdown("#### Functional Model Relevance")
-            score = model.get("score")
-            score_text = "N/A" if score is None else f"{score}/100"
-            st.metric("Model Relevance", f"{str(model.get('level', 'unknown')).title()} · {score_text}")
-            for reason in (model.get("reasons") or [])[:2]:
-                st.caption(reason)
+    c1.metric("Overall Evidence Confidence", confidence_text(overall))
+    model_score = model.get("score")
+    model_score_text = "N/A" if model_score is None else f"{model_score}/100"
+    c2.metric(
+        "Functional Model Relevance",
+        f"{str(model.get('level', 'unknown')).title()} · {model_score_text}",
+    )
 
-    with st.expander("Confidence by Evidence Dimension", expanded=False):
-        rows = []
-        for name, dimension in profile.score.dimensions.items():
-            conf = by_dim.get(name, {})
-            rows.append({
-                "Evidence Dimension": name,
-                "Evidence Score": None if dimension.score is None else round(dimension.score, 1),
-                "Confidence": str(conf.get("level") or "insufficient").title(),
-                "Confidence Score": conf.get("score"),
-                "Primary Source": dimension.source,
-            })
-        st.dataframe(rows, width="stretch", hide_index=True)
+    reason_col, model_reason_col = st.columns(2)
+    with reason_col:
+        for reason in (overall.get("reasons") or [])[:2]:
+            st.caption(reason)
+    with model_reason_col:
+        for reason in (model.get("reasons") or [])[:2]:
+            st.caption(reason)
+
+    section_space(0.35)
+    st.markdown("#### Confidence by Evidence Dimension")
+    rows = []
+    for name, dimension in profile.score.dimensions.items():
+        conf = by_dim.get(name, {})
+        rows.append({
+            "Evidence Dimension": name,
+            "Evidence Score": None if dimension.score is None else round(dimension.score, 1),
+            "Confidence": str(conf.get("level") or "insufficient").title(),
+            "Confidence Score": conf.get("score"),
+            "Primary Source": dimension.source,
+        })
+    st.dataframe(rows, width="stretch", hide_index=True)
 
 
 def render_cell_state(cell: dict):
@@ -757,31 +769,38 @@ def render_profile(profile):
     ])
 
     with overview_tab:
-        summary_col, consistency_col = st.columns(2)
-        with summary_col:
-            with st.container(border=True):
-                st.markdown("### Evidence Summary")
-                st.caption("Integrated summary of the strongest findings across available evidence.")
-                findings = live.get("key_findings", [])
-                if findings:
-                    for finding in findings:
-                        st.markdown(f"- {finding}")
-                else:
-                    st.write("No concise findings were generated from the available sources.")
-        with consistency_col:
-            with st.container(border=True):
-                st.subheader("Evidence Consistency", anchor=False)
-                st.write(consistency.get("status", "Not assessed"))
-                for flag in consistency.get("flags", []):
+        st.caption("Integrated summary of the strongest findings, evidence consistency, confidence, and score composition.")
+        findings_tab, confidence_tab, composition_tab = st.tabs([
+            "Key Findings",
+            "Evidence Confidence",
+            "Priority Score Composition",
+        ])
+
+        with findings_tab:
+            st.markdown("#### Key Findings")
+            findings = live.get("key_findings", [])
+            if findings:
+                for finding in findings:
+                    st.markdown(f"- {finding}")
+            else:
+                st.write("No concise findings were generated from the available sources.")
+
+            section_space(0.45)
+            st.markdown("#### Evidence Consistency")
+            st.write(consistency.get("status", "Not assessed"))
+            flags = consistency.get("flags", [])
+            if flags:
+                for flag in flags:
                     st.markdown(f"- {flag}")
-                if not consistency.get("flags"):
-                    st.caption(consistency.get("note", ""))
+            elif consistency.get("note"):
+                st.caption(consistency.get("note", ""))
 
-        section_space(0.5)
-        render_confidence_summary(profile)
+        with confidence_tab:
+            render_confidence_summary(profile)
 
-        section_space(0.5)
-        with st.expander("Priority Score Composition", expanded=False):
+        with composition_tab:
+            st.markdown("#### Priority Score Composition")
+            st.caption("Dimension-level scores, model weights, primary sources, and interpretation used in the research-prioritization score.")
             score_rows = [{
                 "Evidence Dimension": name,
                 "Score": None if d.score is None else round(d.score, 1),
