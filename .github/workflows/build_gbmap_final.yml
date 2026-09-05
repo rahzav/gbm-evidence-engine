@@ -88,8 +88,12 @@ jobs:
           assert len(malignant_states) >= 3, malignant_states
           assert row_count == meta['rows_written'], (row_count, meta['rows_written'])
           for symbol, feature_ids in (meta.get('duplicate_gene_features') or {}).items():
-              assert len(feature_ids) > 1, (symbol, feature_ids)
-              assert features_by_gene[symbol] == set(feature_ids), (symbol, features_by_gene[symbol], feature_ids)
+              declared = set(feature_ids)
+              expressed = features_by_gene[symbol]
+              assert len(declared) > 1, (symbol, feature_ids)
+              assert expressed <= declared, (symbol, expressed, declared)
+              # A feature with zero expression can be absent from the compact table.
+              # Identity ambiguity is preserved in metadata regardless of expression.
           print('GBMAP_REFERENCE_VALID', meta)
           PY
       - name: Validate runtime connector behavior
@@ -105,6 +109,9 @@ jobs:
               assert result.get('states'), (gene, result)
               assert all(0 <= float(x['patient_prevalence']) <= 1 for x in result['states'])
               print(gene, result.get('top_malignant_state'), result.get('malignant_patient_prevalence'))
+          ambiguous = summarize_gene('PINX1')
+          assert ambiguous.get('status') == 'ambiguous_gene_symbol', ambiguous
+          assert len(ambiguous.get('feature_ids') or []) == 2, ambiguous
           print('GBMAP_RUNTIME_VALID')
           PY
       - name: Commit validated compact reference
