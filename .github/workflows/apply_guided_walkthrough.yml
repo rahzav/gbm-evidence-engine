@@ -1,0 +1,71 @@
+name: Apply guided walkthrough
+
+on:
+  push:
+    branches: [ux-guided-carousel]
+    paths:
+      - scripts/replace_walkthrough.py
+      - .github/workflows/apply_guided_walkthrough.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-guided-carousel
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply walkthrough patch
+        run: python scripts/replace_walkthrough.py
+      - name: Validate syntax and UX contract
+        run: |
+          python -m py_compile streamlit_app_v5.py
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('streamlit_app_v5.py').read_text()
+          required = [
+              'GBM Gene Analysis Walkthrough',
+              'Step {step + 1} of {len(steps)}',
+              'How to read this section',
+              'How to use it',
+              'Overview: decide what deserves attention',
+              'Functional & Spatial: test biological dependence and location',
+              'Human Validation: look for patient-level support',
+              'Translation: assess tractability and clinical maturity',
+              'Interpretation & Next Steps: convert evidence into a research plan',
+              'with st.container(horizontal=True, vertical_alignment="center", gap="xxsmall")',
+              'on_dismiss=_close_walkthrough',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit(f'Missing walkthrough requirements: {missing}')
+          if 'title_col, info_col, spacer_col' in text:
+              raise SystemExit('Old spaced title layout still present')
+          PY
+      - name: Install app dependencies
+        run: pip install -r requirements.txt
+      - name: Streamlit first-load smoke test
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('streamlit_app.py')
+          at.run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          titles = [x.value for x in at.title]
+          if 'GBM Gene Analysis' not in titles:
+              raise SystemExit(f'Product title missing: {titles}')
+          print('walkthrough first-load smoke passed')
+          PY
+      - name: Commit app change
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add streamlit_app_v5.py
+          git commit -m "Replace basic walkthrough with guided research tutorial"
+          git push origin HEAD:ux-guided-carousel
