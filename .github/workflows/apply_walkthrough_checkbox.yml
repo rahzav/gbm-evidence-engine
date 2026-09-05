@@ -60,3 +60,5 @@ jobs:
           git add ui_walkthroughs.py
           git commit -m "Improve walkthrough do-not-show-again control"
           git push origin walkthrough-checkbox-placement
+
+# trigger
