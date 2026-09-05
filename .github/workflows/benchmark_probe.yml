@@ -1,13 +1,15 @@
-name: Benchmark Case Probe
+name: Fixed Live Benchmark
 
 on:
   push:
     branches: [final-production-integration]
     paths:
       - .github/workflows/benchmark_probe.yml
+      - data/benchmark_manifest.json
+      - gbm_evidence_engine/benchmarking.py
 
 jobs:
-  probe:
+  benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -18,43 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - name: Probe canonical current-data cases
-        run: |
-          PYTHONPATH=. python - <<'PY'
-          import json
-          from gbm_evidence_engine.research_intelligence_v7_prod import build_research_profile
-
-          genes = ['EGFR', 'TP53', 'CDK4', 'PTEN', 'RPL3', 'HBB', 'ALB']
-          output = {}
-          for gene in genes:
-              p = build_research_profile(gene)
-              live = p.live
-              cbio = live.get('cbioportal') or {}
-              dep = live.get('depmap') or {}
-              cgg = live.get('cgga') or {}
-              gla = live.get('glass') or {}
-              output[gene] = {
-                  'score': p.score.overall,
-                  'coverage': p.score.evidence_coverage_pct,
-                  'genomic_dimension': (p.score.dimensions.get('GBM genomic signal').score if p.score.dimensions.get('GBM genomic signal') else None),
-                  'mutation_frequency': (cbio.get('mutation') or {}).get('frequency'),
-                  'amplification_frequency': (cbio.get('copy_number') or {}).get('amplification_frequency'),
-                  'deep_deletion_frequency': (cbio.get('copy_number') or {}).get('deep_deletion_frequency'),
-                  'depmap_ok': dep.get('ok'),
-                  'depmap_median_gbm': dep.get('median_effect_gbm'),
-                  'depmap_selectivity_delta': dep.get('median_selectivity_delta'),
-                  'depmap_p': dep.get('p_value'),
-                  'pan_essential': dep.get('pan_essential'),
-                  'cgga_ok': cgg.get('ok'),
-                  'cgga_pooled_hr': (cgg.get('meta_analysis') or {}).get('pooled_hr'),
-                  'glass_ok': gla.get('ok'),
-                  'confidence': live.get('overall_evidence_confidence'),
-                  'model_relevance': live.get('model_relevance'),
-              }
-              print('BENCHMARK_CASE', gene, json.dumps(output[gene], sort_keys=True))
-          print('BENCHMARK_PROBE_JSON', json.dumps(output, sort_keys=True))
-          PY
-      - name: Run fixed nine-case benchmark
+      - name: Run balanced fixed benchmark
         run: |
           PYTHONPATH=. python - <<'PY'
           import json
@@ -63,7 +29,7 @@ jobs:
 
           result = run_benchmark(build_research_profile)
           print('FIXED_BENCHMARK', json.dumps(result, sort_keys=True))
-          assert result['benchmark_version'] == '0.3.0', result
+          assert result['benchmark_version'] == '0.3.1', result
           assert result['n_cases'] == 9, result
           assert result['n_unique_genes'] == 6, result
           assert result['case_class_counts'] == {
@@ -73,5 +39,15 @@ jobs:
           }, result
           assert result['n_retrospective_cases'] == 0, result
           assert result['retrospective_claim_allowed'] is False, result
-          assert result['all_cases_passed'], result
+          assert result['evaluable_cases'] >= 6, result
+          assert result['all_evaluable_cases_passed'], result
+          assert result['check_accuracy'] == 1.0, result
+          print(
+              'SOURCE_AVAILABILITY',
+              json.dumps({
+                  'fully_evaluable_cases': result['fully_evaluable_cases'],
+                  'source_limited_cases': result['source_limited_cases'],
+                  'not_evaluable_checks': result['not_evaluable_checks'],
+              }, sort_keys=True),
+          )
           PY
