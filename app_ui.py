@@ -364,8 +364,6 @@ def _publication_metadata(paper: dict) -> str:
     parts = []
     if paper.get("journal"):
         parts.append(str(paper["journal"]))
-    if paper.get("year"):
-        parts.append(str(paper["year"]))
     if paper.get("pmid"):
         parts.append(f"PMID {paper['pmid']}")
     if paper.get("pmcid"):
@@ -376,31 +374,49 @@ def _publication_metadata(paper: dict) -> str:
         source = str(paper.get("source") or "Europe PMC")
         identifier = paper.get("id")
         parts.append(f"{source} {identifier}".strip())
-    return " | ".join(parts)
+    return " · ".join(parts)
 
 
-def _render_publication(paper: dict) -> None:
+def _render_publication(paper: dict, index: int) -> None:
     paper_title = str(paper.get("title") or "Untitled publication")
     safe_title = paper_title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
-    if paper.get("url"):
-        st.markdown(f"**[{safe_title}]({paper['url']})**")
-    else:
-        st.markdown(f"**{paper_title}**")
     authors = str(paper.get("authors") or "").strip()
-    st.caption(authors if authors else "Authors not indexed in Europe PMC.")
-    st.caption(_publication_metadata(paper))
+    year = str(paper.get("year") or "").strip()
+    metadata = _publication_metadata(paper)
+
+    with st.container(border=True):
+        title_col, year_col = st.columns([8.5, 1.2], vertical_alignment="top")
+        with title_col:
+            if paper.get("url"):
+                st.markdown(f"**[{safe_title}]({paper['url']})**")
+            else:
+                st.markdown(f"**{paper_title}**")
+        with year_col:
+            if year:
+                st.markdown(
+                    f"<div style='text-align:right;font-size:.82rem;font-weight:600;opacity:.62;white-space:nowrap;'>{year}</div>",
+                    unsafe_allow_html=True,
+                )
+        st.caption(authors if authors else "Authors not indexed in Europe PMC.")
+        st.caption(metadata)
 
 
 def render_literature(profile, lit):
     gene = profile.gene
-    st.metric(
-        "GBM Literature Co-Mentions",
-        lit.get("hit_count", 0) if lit.get("ok") else "N/A",
-        help=HELP["literature_count"],
-    )
-    st.caption(
-        "Browse the live Europe PMC literature index for this gene. Disease-context filters and keyword search query the underlying database rather than only the initially ranked papers."
-    )
+    total_records = lit.get("hit_count") if lit.get("ok") else None
+
+    heading_col, source_col = st.columns([5, 2], vertical_alignment="bottom")
+    with heading_col:
+        st.markdown("### Literature Explorer")
+        st.caption(
+            "Search the live Europe PMC index for this gene and narrow results by GBM disease context."
+        )
+    with source_col:
+        indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live Europe PMC"
+        st.markdown(
+            f"<div style='text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>Europe PMC · {indexed_text}</div>",
+            unsafe_allow_html=True,
+        )
 
     context_keys = [key for key in europepmc.CONTEXT_QUERIES if key in profile.context_map]
     label_to_key = {"All GBM literature": None}
@@ -415,40 +431,44 @@ def render_literature(profile, lit):
     st.session_state.setdefault(applied_key, "")
     st.session_state.setdefault(search_input_key, st.session_state[applied_key])
 
-    def clear_literature_search() -> None:
-        st.session_state[applied_key] = ""
-        st.session_state[search_input_key] = ""
+    with st.container(border=True):
+        st.markdown("#### Find publications")
+        st.caption("Choose a disease context, then optionally narrow the result set with title/abstract keywords.")
 
-    selected_label = st.pills(
-        "Disease context",
-        context_options,
-        default="All GBM literature",
-        selection_mode="single",
-        key=f"literature_context_{gene}",
-        on_change=clear_literature_search,
-    ) or "All GBM literature"
-    context_key = label_to_key.get(selected_label)
-
-    with st.form(f"literature_search_form_{gene}", clear_on_submit=False):
-        search_text = st.text_input(
-            "Search publications",
-            key=search_input_key,
-            placeholder="e.g. osimertinib, CAR T, resistance, extracellular vesicles",
-            help="Searches within this gene's GBM literature in Europe PMC.",
+        st.markdown(
+            "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.15rem 0 .12rem;'>Disease context</div>",
+            unsafe_allow_html=True,
         )
-        search_col, clear_col = st.columns([1, 1])
-        with search_col:
-            search_submitted = st.form_submit_button("Search", type="primary", width="stretch")
-        with clear_col:
-            st.form_submit_button(
-                "Clear search",
-                width="stretch",
-                on_click=clear_literature_search,
-            )
-    if search_submitted:
-        st.session_state[applied_key] = search_text.strip()
-    applied_terms = st.session_state.get(applied_key, "")
+        selected_label = st.pills(
+            "Disease context",
+            context_options,
+            default="All GBM literature",
+            selection_mode="single",
+            key=f"literature_context_{gene}",
+            label_visibility="collapsed",
+        ) or "All GBM literature"
+        context_key = label_to_key.get(selected_label)
 
+        st.markdown(
+            "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.7rem 0 .12rem;'>Search publications</div>",
+            unsafe_allow_html=True,
+        )
+        with st.form(f"literature_search_form_{gene}", clear_on_submit=False, border=False):
+            search_col, button_col = st.columns([7, 1.25], vertical_alignment="bottom")
+            with search_col:
+                search_text = st.text_input(
+                    "Search publications",
+                    key=search_input_key,
+                    placeholder="Search title/abstract — e.g. osimertinib, CAR T, resistance",
+                    help="Searches within this gene's GBM literature in Europe PMC. Empty the field and search again to reset.",
+                    label_visibility="collapsed",
+                )
+            with button_col:
+                search_submitted = st.form_submit_button("Search", type="primary", width="stretch")
+        if search_submitted:
+            st.session_state[applied_key] = search_text.strip()
+
+    applied_terms = st.session_state.get(applied_key, "")
     signature = (gene, context_key or "", applied_terms)
     sig_key = f"literature_signature_{gene}"
     papers_key = f"literature_papers_{gene}"
@@ -471,48 +491,56 @@ def render_literature(profile, lit):
         st.info(error)
         return
 
+    section_space(0.35)
+    results_col, count_col = st.columns([5, 2], vertical_alignment="bottom")
     query_description = selected_label
     if applied_terms:
-        query_description += f' · keywords: "{applied_terms}"'
-    if isinstance(hit_count, int):
-        st.markdown(f"#### Relevant Publications · {hit_count:,} matches")
-    else:
-        st.markdown("#### Relevant Publications")
-    st.caption(query_description)
+        query_description += f' · "{applied_terms}"'
+    with results_col:
+        st.markdown("### Relevant Publications")
+        st.caption(query_description)
+    with count_col:
+        if isinstance(hit_count, int):
+            count_text = f"{hit_count:,} matches · {len(papers):,} shown"
+        else:
+            count_text = f"{len(papers):,} shown"
+        st.markdown(
+            f"<div style='text-align:right;font-size:.86rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>{count_text}</div>",
+            unsafe_allow_html=True,
+        )
 
     if not papers:
         st.info("No matching publications were returned for this filter/search.")
         return
 
-    for index, paper in enumerate(papers):
-        _render_publication(paper)
-        if index < len(papers) - 1:
-            st.divider()
+    for index, paper in enumerate(papers, start=1):
+        _render_publication(paper, index)
 
     next_cursor = st.session_state.get(cursor_key)
     if next_cursor and (not isinstance(hit_count, int) or len(papers) < hit_count):
         remaining = None if not isinstance(hit_count, int) else max(0, hit_count - len(papers))
-        button_label = "Load 25 more publications" if remaining is None else f"Load 25 more · {remaining:,} remaining"
-        if st.button(button_label, key=f"literature_load_more_{gene}", width="stretch"):
-            more = cached_publication_search(gene, context_key, applied_terms, next_cursor)
-            if more.get("ok"):
-                existing = {
-                    str(p.get("doi") or p.get("pmid") or p.get("pmcid") or p.get("id") or p.get("title"))
-                    for p in papers
-                }
-                additions = []
-                for paper in more.get("papers") or []:
-                    identity = str(paper.get("doi") or paper.get("pmid") or paper.get("pmcid") or paper.get("id") or paper.get("title"))
-                    if identity not in existing:
-                        additions.append(paper)
-                        existing.add(identity)
-                st.session_state[papers_key] = papers + additions
-                st.session_state[cursor_key] = more.get("next_cursor")
-                st.rerun()
-            else:
-                st.info(more.get("error", "Europe PMC is temporarily unavailable."))
-
-
+        button_label = "Load 25 more" if remaining is None else f"Load 25 more · {remaining:,} remaining"
+        section_space(0.25)
+        _, load_col, _ = st.columns([2, 3, 2])
+        with load_col:
+            if st.button(button_label, key=f"literature_load_more_{gene}", width="stretch"):
+                more = cached_publication_search(gene, context_key, applied_terms, next_cursor)
+                if more.get("ok"):
+                    existing = {
+                        str(p.get("doi") or p.get("pmid") or p.get("pmcid") or p.get("id") or p.get("title"))
+                        for p in papers
+                    }
+                    additions = []
+                    for paper in more.get("papers") or []:
+                        identity = str(paper.get("doi") or paper.get("pmid") or paper.get("pmcid") or paper.get("id") or paper.get("title"))
+                        if identity not in existing:
+                            additions.append(paper)
+                            existing.add(identity)
+                    st.session_state[papers_key] = papers + additions
+                    st.session_state[cursor_key] = more.get("next_cursor")
+                    st.rerun()
+                else:
+                    st.info(more.get("error", "Europe PMC is temporarily unavailable."))
 
 
 def render_translation(ot, trials, bbb):
