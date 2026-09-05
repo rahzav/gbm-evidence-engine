@@ -1,0 +1,30 @@
+name: Upgrade Glia UX Tour Context
+
+on:
+  push:
+    branches:
+      - upgrade-glia-ux-tour-context
+    paths:
+      - scripts/upgrade_glia_ux_tour_context.py
+      - .github/workflows/upgrade_glia_ux_tour_context.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: upgrade-glia-ux-tour-context
+      - name: Apply migration
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python scripts/upgrade_glia_ux_tour_context.py
+          python -m py_compile app_ui.py glia_interface.py ui_walkthroughs.py gbm_evidence_engine/research_agent.py tests/test_research_agent.py tests/test_glia_interface.py
+          git add app_ui.py glia_interface.py ui_walkthroughs.py gbm_evidence_engine/research_agent.py tests/test_research_agent.py tests/test_glia_interface.py .github/workflows/ci.yml
+          git commit -m "Upgrade Glia UX, tour, and request context"
+          git push origin upgrade-glia-ux-tour-context
