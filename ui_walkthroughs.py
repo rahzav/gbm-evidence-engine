@@ -1,4 +1,4 @@
-"""Single condensed product walkthrough for GBM Gene Analysis."""
+"""Unified product walkthrough and shell for Glia."""
 from __future__ import annotations
 
 import streamlit as st
@@ -25,46 +25,31 @@ PRODUCT_SHELL_CSS = """
 }
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stToolbar"] { right: 1rem !important; }
-.gbm-product-bar {
+.glia-product-bar {
   display:flex; align-items:center; gap:.85rem; min-height:3.25rem;
   padding-bottom:1.15rem; border-bottom:1px solid rgba(148,163,184,.16);
 }
-.gbm-product-mark {
-  width:2.35rem; height:2.35rem; flex:0 0 auto; display:grid; place-items:center;
-  border-radius:.58rem; background:#e4554f; color:#fff; font-weight:800;
-  font-size:.9rem; letter-spacing:-.04em;
+.glia-wordmark {
+  font-size:1.75rem; font-weight:760; letter-spacing:-.055em; line-height:1;
+  color:#f8fafc;
 }
-.gbm-product-copy { min-width:0; }
-.gbm-product-title {
-  font-size:1.2rem; font-weight:720; letter-spacing:-.02em; line-height:1.15;
+.glia-product-copy { min-width:0; padding-left:.1rem; }
+.glia-product-subtitle {
+  color:rgba(226,232,240,.64); font-size:.82rem; line-height:1.3;
 }
-.gbm-product-subtitle {
-  margin-top:.16rem; color:rgba(226,232,240,.58); font-size:.82rem; line-height:1.3;
-}
-.gbm-research-pill {
+.glia-research-note {
   margin-left:auto; white-space:nowrap; border:1px solid rgba(148,163,184,.2);
   border-radius:999px; padding:.34rem .65rem; color:rgba(226,232,240,.62);
   font-size:.7rem; font-weight:650; letter-spacing:.025em;
+}
+.st-key-open_glia_header button {
+  min-height:2.25rem !important; border-radius:.52rem !important; padding:0 .85rem !important;
+  font-weight:680 !important; box-shadow:none !important;
 }
 .st-key-open_tool_tour_info { width:2.2rem; flex:0 0 auto; }
 .st-key-open_tool_tour_info button {
   min-height:2.1rem !important; width:2.1rem !important; border-radius:.5rem !important;
   padding:0 !important; border:1px solid rgba(148,163,184,.16) !important;
-}
-.st-key-glia_command_center {
-  border:1px solid rgba(148,163,184,.16) !important;
-  border-radius:.8rem !important;
-  background:rgba(20,25,34,.72) !important;
-  box-shadow:none !important;
-  padding:.25rem .45rem !important;
-  margin:.95rem 0 1.15rem !important;
-}
-.st-key-glia_launch_center button {
-  min-height:2.45rem !important; border-radius:.55rem !important;
-  font-weight:680 !important; letter-spacing:-.01em !important; box-shadow:none !important;
-}
-.st-key-glia_launch_center button:hover {
-  transform:none; box-shadow:none !important;
 }
 /* Make the workflow selector read as product navigation, not another content block. */
 [data-testid="stTabs"] > [data-baseweb="tab-list"] {
@@ -85,25 +70,25 @@ PRODUCT_SHELL_CSS = """
 [data-testid="stForm"] [data-testid="stTextInput"] input {
   min-height:3rem; border-radius:.55rem;
 }
-.gbm-workflow-heading { margin:.05rem 0 1rem; }
-.gbm-workflow-kicker {
+.glia-workflow-heading { margin:.05rem 0 1rem; }
+.glia-workflow-kicker {
   color:#e76b64; font-size:.68rem; font-weight:760; letter-spacing:.12em;
   text-transform:uppercase; margin-bottom:.35rem;
 }
-.gbm-workflow-title {
+.glia-workflow-title {
   font-size:1.6rem; font-weight:720; letter-spacing:-.025em; line-height:1.15;
 }
-.gbm-workflow-caption {
+.glia-workflow-caption {
   margin-top:.35rem; max-width:53rem; color:rgba(226,232,240,.6);
   font-size:.88rem; line-height:1.5;
 }
 @media (prefers-reduced-motion: reduce) {
-  .st-key-glia_launch_center button { transition:none !important; }
+  .st-key-open_glia_header button { transition:none !important; }
 }
 @media (max-width: 760px) {
   [data-testid="stAppViewBlockContainer"] { padding-top:1.25rem !important; }
-  .gbm-product-subtitle { display:none; }
-  .gbm-research-pill { display:none; }
+  .glia-product-subtitle { display:none; }
+  .glia-research-note { display:none; }
   [data-testid="stTabs"] > [data-baseweb="tab-list"] { gap:1.1rem !important; overflow-x:auto; }
 }
 </style>
@@ -180,7 +165,7 @@ def _nav(step: int) -> None:
 
 
 @st.dialog(
-    "GBM Gene Analysis Tour",
+    "Glia Product Tour",
     width="large",
     dismissible=True,
     icon=":material/slideshow:",
@@ -279,23 +264,32 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
 
 
 def render_product_header() -> None:
-    """Render a compact product bar with the walkthrough control in context."""
+    """Render Glia's primary identity and single persistent copilot entry point."""
     st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
-    title_col, info_col = st.columns([9.7, 0.3], vertical_alignment="center")
+    title_col, glia_col, info_col = st.columns([8.55, 1.15, 0.3], vertical_alignment="center")
     with title_col:
         st.markdown(
             """
-            <div class="gbm-product-bar" data-glia-ignore-selection="true">
-              <div class="gbm-product-mark">GBM</div>
-              <div class="gbm-product-copy">
-                <div class="gbm-product-title">GBM Evidence Engine</div>
-                <div class="gbm-product-subtitle">Integrated evidence workspace for glioblastoma research</div>
+            <div class="glia-product-bar" data-glia-ignore-selection="true">
+              <div class="glia-wordmark">Glia</div>
+              <div class="glia-product-copy">
+                <div class="glia-product-subtitle">Evidence-grounded research intelligence for glioblastoma.</div>
               </div>
-              <div class="gbm-research-pill">Research use only</div>
+              <div class="glia-research-note">Research use only</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    with glia_col:
+        if st.button(
+            "Open Glia",
+            icon=":material/forum:",
+            key="open_glia_header",
+            type="primary",
+            width="stretch",
+            help="Open the context-aware research interface",
+        ):
+            _open_glia()
     with info_col:
         if st.button(
             "",
@@ -307,49 +301,6 @@ def render_product_header() -> None:
             _launch_tool_tour(manual=True)
 
 
-def _current_glia_context() -> str:
-    active = str(st.session_state.get("research_workflow_tabs") or "Gene Analysis")
-    if active == "Gene Analysis":
-        profile = st.session_state.get("profile")
-        gene = getattr(profile, "gene", None) if profile is not None else None
-        return f"Current context: {gene} gene dossier" if gene else "No dossier loaded yet — start with a gene or ask Glia to investigate one."
-    if active == "Target Pair Analysis":
-        pair = st.session_state.get("pair") or {}
-        if isinstance(pair, dict) and pair:
-            return f"Current context: {pair.get('gene_a', '')} + {pair.get('gene_b', '')} target pair"
-        return "No target pair loaded yet — Glia can help frame which combination is worth testing."
-    if active == "Researcher Data":
-        return "Current context: processed researcher results" if st.session_state.get("signature") else "No researcher result loaded yet — Glia can help interpret one after analysis."
-    if active == "Gene Set Comparison":
-        profiles = st.session_state.get("comparison_profiles") or []
-        return f"Current context: {len(profiles)}-gene comparison" if profiles else "No gene set comparison loaded yet — Glia can help prioritize a focused set."
-    return "Current context: methods, evidence sources, and interpretation boundaries."
-
-
-def render_glia_command_center() -> None:
-    """Render Glia as a compact secondary action within the workspace."""
-    with st.container(border=True, key="glia_command_center"):
-        copy_col, action_col = st.columns([7.8, 2.2], vertical_alignment="center")
-        with copy_col:
-            st.markdown(
-                f"<div style='padding:.35rem .45rem;'>"
-                f"<div style='font-size:.86rem;font-weight:700;letter-spacing:-.01em;'>Glia research copilot</div>"
-                f"<div style='font-size:.76rem;line-height:1.4;opacity:.56;margin-top:.12rem;'>{_current_glia_context()}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-        with action_col:
-            if st.button(
-                "Ask Glia",
-                icon=":material/chat_bubble_outline:",
-                key="glia_launch_center",
-                type="primary",
-                width="stretch",
-                help="Interrogate the current evidence with Glia",
-            ):
-                _open_glia()
-
-
 def render_tool_tour_launcher() -> None:
     """Compatibility no-op retained for release-contract checks."""
     return None
@@ -358,9 +309,9 @@ def render_tool_tour_launcher() -> None:
 def render_feature_header(title: str, feature: str, caption: str | None = None) -> None:
     """Render a focused workflow header without competing global controls."""
     st.markdown(
-        f"<div class='gbm-workflow-heading'><div class='gbm-workflow-kicker'>Workspace</div>"
-        f"<div class='gbm-workflow-title'>{title}</div>"
-        + (f"<div class='gbm-workflow-caption'>{caption}</div>" if caption else "")
+        f"<div class='glia-workflow-heading'><div class='glia-workflow-kicker'>Research workspace</div>"
+        f"<div class='glia-workflow-title'>{title}</div>"
+        + (f"<div class='glia-workflow-caption'>{caption}</div>" if caption else "")
         + "</div>", unsafe_allow_html=True,
     )
 

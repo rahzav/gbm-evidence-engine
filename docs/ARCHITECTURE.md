@@ -1,4 +1,4 @@
-# GBM Evidence Engine — Architecture & Product Specification
+# Glia — Architecture & Product Specification
 
 *Built for Rutgers Gray for Glioblastoma (rutgersg4g.org). This document is
 Phase 4 of the product brief; see the top-level chat response for Phases

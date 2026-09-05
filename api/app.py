@@ -1,4 +1,4 @@
-"""FastAPI interface for GBM Gene Analysis."""
+"""FastAPI interface for the Glia evidence engine."""
 from __future__ import annotations
 
 try:
@@ -14,7 +14,7 @@ from gbm_evidence_engine.research_intelligence_v7_prod import (
     rank_gene_list,
 )
 
-app = FastAPI(title="GBM Gene Analysis", version="7.0.0")
+app = FastAPI(title="Glia Evidence Engine", version="7.0.0")
 
 
 class GeneQuery(BaseModel):

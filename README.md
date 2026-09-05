@@ -1,10 +1,12 @@
-# GBM Gene Analysis
+# Glia
 
-A provenance-tracked molecular research decision-support system for glioblastoma, developed for **Rutgers Gray for Glioblastoma**.
+*Evidence-grounded research intelligence for glioblastoma.*
+
+Glia is a provenance-tracked molecular research environment developed for **Rutgers Gray for Glioblastoma**.
 
 **Software release: 7.0.0**
 
-GBM Gene Analysis is designed to help researchers move from fragmented evidence to a defensible next experiment. It accepts a gene, a two-target combination, a gene set, or a processed researcher-generated signature and integrates GBM-specific genomic, functional, spatial, human-cohort, longitudinal, translational, literature, tissue, network, blood-brain-barrier, perturbational, and cell-state context.
+Glia helps researchers move from fragmented evidence to a defensible next experiment. Its validated V7 evidence engine accepts a gene, a two-target combination, a gene set, or a processed researcher-generated signature and integrates GBM-specific genomic, functional, spatial, human-cohort, longitudinal, translational, literature, tissue, network, blood-brain-barrier, perturbational, and cell-state context.
 
 The system is for **research prioritization and hypothesis development only**. It does not provide clinical recommendations, predict patient benefit, or replace experimental validation.
 
@@ -77,9 +79,9 @@ Researcher uploads are processed for the requested analysis and are not written 
 
 Compares a bounded set of genes through the same production profile architecture while keeping public-source and deployment resource pressure controlled.
 
-### Glia
+### Glia conversational interface
 
-Glia is the evidence-grounded copilot integrated across every production workflow rather than a standalone destination. It follows the active analysis, can build gene dossiers, run target-pair and gene-set analyses, inspect derived Researcher Data results, retrieve live biomedical publications, and reason across the evidence already present in the workspace. Researchers can highlight text in the interface and choose **Ask Glia** to bring that exact context into the composer before adding a question.
+Glia's conversational interface is integrated across every production workflow. It follows the active analysis, can build gene dossiers, run target-pair and gene-set analyses, inspect derived Researcher Data results, retrieve live biomedical publications, and reason across the evidence already present in the workspace. Researchers can highlight text in the interface and choose **Ask Glia** to bring that exact context into the composer before adding a question.
 
 Glia keeps a bounded research trail in browser-local storage so investigated genes, recent questions, and workflow context can carry across visits on the same browser. This continuity memory does not train the underlying model and is not treated as scientific evidence. Important factual claims remain tied to retrieved evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools.
 

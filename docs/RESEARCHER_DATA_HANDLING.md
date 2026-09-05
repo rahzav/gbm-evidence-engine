@@ -1,6 +1,6 @@
 # Researcher Data Handling
 
-GBM Gene Analysis accepts **processed gene-level research results** for the Researcher Data workflow. It is not designed to ingest raw sequencing files, imaging data, clinical records, or identifiable patient data.
+Glia accepts **processed gene-level research results** through its Researcher Data workflow. It is not designed to ingest raw sequencing files, imaging data, clinical records, or identifiable patient data.
 
 ## What the application accepts
 

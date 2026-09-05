@@ -1,10 +1,10 @@
-# GBM Gene Analysis: Final Research Scope
+# Glia: Final Research Scope
 
 This document freezes the scientific/product scope required before the tool can credibly be described as a differentiated GBM molecular-research decision-support system.
 
 ## Product identity
 
-GBM Gene Analysis remains focused on one workflow:
+Glia remains focused on one research sequence:
 
 **gene or processed researcher result -> GBM evidence -> biological context -> contradictions -> testable hypothesis -> highest-value experiment**
 

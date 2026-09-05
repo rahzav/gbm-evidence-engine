@@ -1,4 +1,4 @@
-"""Evidence-grounded conversational research agent for GBM Gene Analysis.
+"""Evidence-grounded conversational research layer for Glia.
 
 The agent is deliberately a coordination layer over the validated V7 production
 workflows. It may retrieve or summarize existing evidence, run existing
@@ -41,9 +41,10 @@ MAX_OUTPUT_TOKENS = 260
 
 
 SYSTEM_INSTRUCTIONS = """\
-You are Glia, the integrated research copilot inside GBM Gene Analysis, a
-glioblastoma research evidence-synthesis system. Your job is to help a researcher interrogate the
-software's evidence, compare targets, inspect processed researcher-result
+You are Glia, an evidence-grounded research intelligence platform for
+glioblastoma. The validated V7 evidence engine and its structured workflows are
+your scientific backbone. Your job is to help a researcher interrogate the
+platform's evidence, compare targets, inspect processed researcher-result
 analyses, retrieve relevant GBM publications, identify contradictions, and turn
 remaining uncertainty into defensible next experiments.
 
@@ -203,7 +204,7 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "name": "inspect_current_analysis",
-        "description": "Inspect analysis results already present in the user's current GBM Gene Analysis session instead of asking the user to paste them again.",
+        "description": "Inspect analysis results already present in the user's current Glia session instead of asking the user to paste them again.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -379,8 +380,8 @@ def _profile_payload(
     analysis_citation = _register_reference(
         registry,
         f"AN:GENE:{profile.gene.upper()}",
-        f"Production GBM Gene Analysis dossier for {profile.gene}",
-        f"GBM Gene Analysis {SOFTWARE_VERSION}",
+        f"Production Glia V7 gene dossier for {profile.gene}",
+        f"Glia evidence engine {SOFTWARE_VERSION}",
         kind="analysis",
     )
     evidence = []
@@ -421,7 +422,7 @@ def _pair_payload(pair: dict[str, Any], registry: dict[str, AgentReference]) -> 
         registry,
         f"AN:PAIR:{gene_a}-{gene_b}",
         f"Production target-pair analysis for {gene_a} + {gene_b}",
-        f"GBM Gene Analysis {pair.get('software_version') or SOFTWARE_VERSION}",
+        f"Glia evidence engine {pair.get('software_version') or SOFTWARE_VERSION}",
         kind="analysis",
     )
     compacted = _compact_for_model(pair)
@@ -433,7 +434,7 @@ def _signature_payload(signature: dict[str, Any], registry: dict[str, AgentRefer
         registry,
         "CTX:RESEARCHER_DATA",
         "Processed Researcher Data result dossier in the current session",
-        f"GBM Gene Analysis {signature.get('software_version') or SOFTWARE_VERSION}",
+        f"Glia evidence engine {signature.get('software_version') or SOFTWARE_VERSION}",
         kind="session_context",
     )
     # Send derived analysis context only. The raw uploaded/pasted table is never
@@ -459,7 +460,7 @@ def _comparison_payload(profiles: list[Any], registry: dict[str, AgentReference]
         registry,
         token,
         "Gene Set Comparison result in the current session",
-        f"GBM Gene Analysis {SOFTWARE_VERSION}",
+        f"Glia evidence engine {SOFTWARE_VERSION}",
         kind="session_context",
     )
     rows = []

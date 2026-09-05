@@ -1,8 +1,8 @@
-# Methods — GBM Gene Analysis 7.0.0
+# Methods — Glia V7 Evidence Engine
 
 ## Purpose
 
-GBM Gene Analysis is a glioblastoma molecular research decision-support system for evidence synthesis, target prioritization, processed-result interpretation, target-pair evaluation, and experimental planning. It is not a clinical decision-support system.
+Glia is a glioblastoma molecular research environment for evidence synthesis, target prioritization, processed-result interpretation, target-pair evaluation, and experimental planning. It is not a clinical decision-support system.
 
 ## Production workflows
 

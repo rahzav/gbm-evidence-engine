@@ -1,4 +1,4 @@
-"""Streamlit interface for GBM Gene Analysis."""
+"""Glia research intelligence platform interface."""
 from __future__ import annotations
 
 import io
@@ -10,7 +10,6 @@ import streamlit as st
 from ui_walkthroughs import (
     maybe_show_initial_tool_walkthrough,
     render_feature_header,
-    render_glia_command_center,
     render_product_header,
     render_tool_tour_launcher,
 )
@@ -24,7 +23,11 @@ from gbm_evidence_engine.research_intelligence_v7_prod import (
     rank_gene_list,
 )
 
-st.set_page_config(page_title="GBM Gene Analysis", page_icon="🧬", layout="wide")
+st.set_page_config(
+    page_title="Glia · GBM Research Intelligence",
+    page_icon="🧬",
+    layout="wide",
+)
 
 # Keep Enter-to-submit behavior while removing Streamlit's redundant form hint.
 st.markdown(
@@ -171,7 +174,7 @@ def markdown_brief(profile) -> str:
     s = profile.score
     live = profile.live
     lines = [
-        f"# GBM Gene Analysis: {profile.gene}", "",
+        f"# Glia Gene Dossier: {profile.gene}", "",
         f"**Target Priority Score:** {s.overall if s.overall is not None else 'N/A'}/100 ({s.label})",
         f"**Evidence Coverage:** {s.evidence_coverage_pct}%",
         f"**Evidence Confidence:** {confidence_text(live.get('overall_evidence_confidence', {}))}",
@@ -892,14 +895,13 @@ def render_profile(profile):
 
 
 
-# Product subtitle retained here as a release-contract marker:
-# Real-time integrated gene-level evidence synthesis for glioblastoma research.
+# Product identity retained here as a release-contract marker:
+# Evidence-grounded research intelligence for glioblastoma.
 
 st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
 render_product_header()
 render_tool_tour_launcher()
 maybe_show_initial_tool_walkthrough()
-render_glia_command_center()
 
 analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
     [
@@ -1145,7 +1147,7 @@ with methods_tab:
         "Audit the evidence model, provenance, interpretation boundaries, and source availability.",
     )
     st.markdown("### Research Scope")
-    st.write("GBM Gene Analysis integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, Glia-assisted evidence interrogation, and experimental planning. The system is focused on glioblastoma molecular research rather than clinical treatment selection.")
+    st.write("Glia integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, evidence interrogation, and experimental planning. Its scientific backbone is focused on glioblastoma molecular research rather than clinical treatment selection.")
 
     section_space(0.7)
     st.markdown("### Scored Evidence Model")

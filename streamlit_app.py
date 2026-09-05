@@ -1,4 +1,4 @@
-"""Streamlit entrypoint for GBM Gene Analysis."""
+"""Streamlit entrypoint for Glia."""
 from pathlib import Path
 import runpy
 

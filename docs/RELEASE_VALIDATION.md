@@ -1,6 +1,6 @@
 # Production Release Validation
 
-This document separates software validation from scientific validation for GBM Gene Analysis 7.0.0.
+This document separates software validation from scientific validation for the Glia V7 evidence engine.
 
 ## Release gate
 
