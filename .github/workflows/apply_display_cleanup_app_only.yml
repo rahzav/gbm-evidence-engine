@@ -1,0 +1,124 @@
+name: Apply Display Cleanup App Only
+
+on:
+  push:
+    branches: [overview-header-researcher-display-cleanup]
+    paths:
+      - .github/workflows/apply_display_cleanup_app_only.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: overview-header-researcher-display-cleanup
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch app presentation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('app_ui.py')
+          text = path.read_text(encoding='utf-8')
+
+          text = text.replace(
+              'Real-time synthesis of live and curated gene-level evidence for glioblastoma research.',
+              'Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.',
+              1,
+          )
+          text = text.replace(
+              'Analyze processed gene-level signed effects with optional p-values/FDR, then add GBM evidence, pathway, and perturbational context. Uploaded tables are read for analysis and are not written to the project repository.',
+              'Analyze processed gene-level signed effects with optional p-values/FDR, then add GBM evidence, pathway, and perturbational context.',
+              1,
+          )
+
+          old = '''        with findings_tab:\n            st.markdown("#### Key Findings")\n            findings = live.get("key_findings", [])\n            if findings:\n                for finding in findings:\n                    st.markdown(f"- {finding}")\n            else:\n                st.write("No concise findings were generated from the available sources.")\n\n            section_space(0.45)\n            st.markdown("#### Evidence Consistency")\n            st.write(consistency.get("status", "Not assessed"))\n            flags = consistency.get("flags", [])\n            if flags:\n                for flag in flags:\n                    st.markdown(f"- {flag}")\n            elif consistency.get("note"):\n                st.caption(consistency.get("note", ""))\n'''
+          new = '''        with findings_tab:\n            findings_col, consistency_col = st.columns(2)\n            with findings_col:\n                st.markdown("#### Key Findings")\n                findings = live.get("key_findings", [])\n                if findings:\n                    for finding in findings:\n                        st.markdown(f"- {humanize_text(finding)}")\n                else:\n                    st.write("No concise findings were generated from the available sources.")\n\n            with consistency_col:\n                st.markdown("#### Evidence Consistency")\n                st.write(humanize_text(consistency.get("status", "Not assessed")))\n                flags = consistency.get("flags", [])\n                if flags:\n                    for flag in flags:\n                        st.markdown(f"- {humanize_text(flag)}")\n                elif consistency.get("note"):\n                    st.caption(humanize_text(consistency.get("note", "")))\n'''
+          if old not in text:
+              raise SystemExit('overview block not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace('st.dataframe(', 'display_dataframe(')
+          anchor = '''def section_space(size: float = 1.0):\n    st.markdown(f"<div style='height:{size}rem'></div>", unsafe_allow_html=True)\n\n\n'''
+          helper = '''def section_space(size: float = 1.0):\n    st.markdown(f"<div style='height:{size}rem'></div>", unsafe_allow_html=True)\n\n\ndef humanize_text(value):\n    if value is None:\n        return value\n    return str(value).replace("_", " ")\n\n\ndef display_dataframe(data, *args, **kwargs):\n    \"\"\"Render a display-only copy with human-readable labels and values.\"\"\"\n    try:\n        frame = data.copy() if isinstance(data, pd.DataFrame) else pd.DataFrame(data)\n        frame.columns = [humanize_text(column) for column in frame.columns]\n        for column in frame.columns:\n            if pd.api.types.is_object_dtype(frame[column]) or pd.api.types.is_string_dtype(frame[column]):\n                frame[column] = frame[column].map(\n                    lambda value: humanize_text(value) if isinstance(value, str) else value\n                )\n        return st.dataframe(frame, *args, **kwargs)\n    except Exception:\n        return st.dataframe(data, *args, **kwargs)\n\n\n'''
+          if anchor not in text:
+              raise SystemExit('helper anchor not found')
+          text = text.replace(anchor, helper, 1)
+
+          text = text.replace(
+              'return f"{str(item.get(\'level\', \'unknown\')).title()} · {item.get(\'score\')}/100"',
+              'return f"{humanize_text(item.get(\'level\', \'unknown\')).title()} · {item.get(\'score\')}/100"',
+              1,
+          )
+          text = text.replace(
+              'f"{str(model.get(\'level\', \'unknown\')).title()} · {model_score_text}",',
+              'f"{humanize_text(model.get(\'level\', \'unknown\')).title()} · {model_score_text}",',
+              1,
+          )
+          text = text.replace(
+              'f"Source: {record.provenance.source_dataset} | Confidence: {record.confidence.value.title()}"',
+              'f"Source: {humanize_text(record.provenance.source_dataset)} | Confidence: {humanize_text(record.confidence.value).title()}"',
+              1,
+          )
+          text = text.replace(
+              'f"GBM definition: {dep.get(\'gbm_definition\')}. Pan-essential classification:',
+              'f"GBM definition: {humanize_text(dep.get(\'gbm_definition\'))}. Pan-essential classification:',
+              1,
+          )
+          text = text.replace(
+              'st.caption(f"{score.label}. Intended for comparative research prioritization.")',
+              'st.caption(f"{humanize_text(score.label)}. Intended for comparative research prioritization.")',
+              1,
+          )
+          text = text.replace('default_text = "gene,effect,p_value,fdr\\n', 'default_text = "gene,effect,p value,fdr\\n', 1)
+          text = text.replace(
+              'gene_col = st.selectbox("Gene column", columns, index=0)',
+              'gene_col = st.selectbox("Gene column", columns, index=0, format_func=humanize_text)',
+              1,
+          )
+          text = text.replace(
+              'value_col = st.selectbox("Signed effect column", columns, index=1 if len(columns) > 1 else 0)',
+              'value_col = st.selectbox("Signed effect column", columns, index=1 if len(columns) > 1 else 0, format_func=humanize_text)',
+              1,
+          )
+          text = text.replace(
+              'p_col = st.selectbox("p-value column", optional, index=(columns.index("p_value") + 1 if "p_value" in columns else 0))',
+              'p_default = "p value" if "p value" in columns else ("p_value" if "p_value" in columns else None)\n            p_col = st.selectbox("p-value column", optional, index=(columns.index(p_default) + 1 if p_default else 0), format_func=humanize_text)',
+              1,
+          )
+          text = text.replace(
+              'fdr_col = st.selectbox("FDR/q-value column", optional, index=(columns.index("fdr") + 1 if "fdr" in columns else 0))',
+              'fdr_col = st.selectbox("FDR/q-value column", optional, index=(columns.index("fdr") + 1 if "fdr" in columns else 0), format_func=humanize_text)',
+              1,
+          )
+          text = text.replace('st.caption(signature["interpretation"])', 'st.caption(humanize_text(signature["interpretation"]))')
+          text = text.replace('st.caption(l1000["interpretation"])', 'st.caption(humanize_text(l1000["interpretation"]))')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate app presentation
+        run: |
+          python -m py_compile app_ui.py ui_walkthroughs.py
+          python - <<'PY'
+          from pathlib import Path
+          app = Path('app_ui.py').read_text(encoding='utf-8')
+          assert 'Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.' in app
+          assert 'project repository' not in app.lower()
+          assert 'findings_col, consistency_col = st.columns(2)' in app
+          assert 'def humanize_text(value):' in app
+          assert 'def display_dataframe(data, *args, **kwargs):' in app
+          assert 'gene,effect,p value,fdr' in app
+          print('App presentation validated')
+          PY
+      - name: Commit app patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_ui.py
+          git commit -m "Polish overview header and researcher display"
+          git push origin overview-header-researcher-display-cleanup
