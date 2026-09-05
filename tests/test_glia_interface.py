@@ -38,7 +38,7 @@ def test_messages_keep_only_conversation_fields():
 
 
 def test_quick_actions_are_workflow_specific():
-    assert "Challenge this target pair" in _quick_actions("Target Pair Analysis")
+    assert "What could invalidate this target pair?" in _quick_actions("Target Pair Analysis")
     assert "Interpret the highest-priority signals" in _quick_actions("Researcher Data")
 
 
