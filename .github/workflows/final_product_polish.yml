@@ -1,0 +1,42 @@
+name: Final Product Polish
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - scripts/final_product_polish.py
+      - .github/workflows/final_product_polish.yml
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/final_product_polish.py
+      - run: python -m py_compile gbm_evidence_engine/research_intelligence.py gbm_evidence_engine/research_intelligence_v7.py app_ui.py
+      - name: Validate profile release metadata
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.research_intelligence import ResearchProfile, TargetPriorityScore
+          from gbm_evidence_engine.evidence_model import Dossier
+          p = ResearchProfile('X', Dossier(query='X', target='X'), TargetPriorityScore(None, 0, {}, 'Insufficient'), {}, {}, [], [], {})
+          assert p.to_dict()['software_version'] == '7.0.0'
+          print('PROFILE RELEASE METADATA OK')
+          PY
+      - name: Commit product polish
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add gbm_evidence_engine/research_intelligence.py gbm_evidence_engine/research_intelligence_v7.py requirements.txt
+          git commit -m "Polish production metadata and researcher-facing provenance"
+          git fetch origin final-production-integration
+          git rebase origin/final-production-integration
+          git push origin HEAD:final-production-integration
