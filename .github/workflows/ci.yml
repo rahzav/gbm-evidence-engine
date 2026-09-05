@@ -104,7 +104,7 @@ jobs:
           for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
-          assert 'Real-time synthesis of live and curated gene-level evidence' in ui
+          assert 'Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.' in ui
           assert 'Search publications' in ui
           assert 'Load 25 more' in ui
           assert 'on_change=on_workflow_tab_change' in ui
