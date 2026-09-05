@@ -929,7 +929,7 @@ def _render_agent_message(message):
 
 def render_research_assistant():
     st.markdown("### Research Assistant")
-    st.caption("Evidence-grounded GBM research copilot that can interrogate dossiers, compare targets, inspect current analyses, and retrieve live Europe PMC publications.")
+    st.caption("Interrogate GBM evidence, compare targets, surface conflicts, connect current analyses to the literature, and identify defensible next experiments.")
 
     context = {
         "profile": st.session_state.get("profile"),
@@ -948,8 +948,6 @@ def render_research_assistant():
         context_labels.append("Gene Set Comparison")
     if context_labels:
         st.caption("Current context available · " + " · ".join(context_labels))
-
-    st.caption("Messages and only the derived analysis context the assistant explicitly retrieves are processed by Groq. Raw Researcher Data tables are not passed to the assistant.")
 
     api_key = _agent_secret("GROQ_API_KEY")
     model = _agent_secret("GROQ_MODEL") or configured_model()
