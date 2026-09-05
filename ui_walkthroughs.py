@@ -187,7 +187,7 @@ def show_gene_walkthrough() -> None:
             b1.metric("B3DB Matches", "5")
             b2.metric("BBB+ Records", "3")
         _note(
-            "Publication volume, target-directed candidates, GBM trials and measured BBB records describe different pieces of translational maturity. None alone establishes efficacy."
+            "Use the Literature tab's disease-context filters and keyword search to browse matching Europe PMC records beyond the initial results. Publication volume, target-directed candidates, GBM trials and measured BBB records describe different pieces of translational maturity; none alone establishes efficacy."
         )
     else:
         record_col, gap_col = st.columns(2)
@@ -410,6 +410,29 @@ def _launch(feature: str) -> None:
         show_comparison_walkthrough()
     else:  # defensive programming for future UI additions
         raise ValueError(f"Unknown walkthrough feature: {feature}")
+
+
+WORKFLOW_TAB_TO_FEATURE = {
+    "Gene Analysis": "gene",
+    "Target Pair Analysis": "pair",
+    "Researcher Data": "researcher",
+    "Gene Set Comparison": "comparison",
+}
+
+
+def on_workflow_tab_change() -> None:
+    """Queue the selected workflow's walkthrough whenever its tab is opened."""
+    label = st.session_state.get("research_workflow_tabs")
+    feature = WORKFLOW_TAB_TO_FEATURE.get(label)
+    if feature:
+        st.session_state["pending_feature_walkthrough"] = feature
+
+
+def maybe_show_active_walkthrough() -> None:
+    """Show a walkthrough queued by a top-level workflow-tab selection."""
+    feature = st.session_state.pop("pending_feature_walkthrough", None)
+    if feature:
+        _launch(feature)
 
 
 def render_feature_header(title: str, feature: str, caption: str | None = None) -> None:
