@@ -1,0 +1,37 @@
+name: Copy walkthrough release
+
+on:
+  push:
+    branches: [ux-walkthrough-final]
+    paths:
+      - .github/workflows/copy_walkthrough_release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-walkthrough-final
+          fetch-depth: 0
+      - name: Fetch source branch
+        run: git fetch origin ux-professional-copy-cleanup
+      - name: Copy validated app file
+        run: git checkout origin/ux-professional-copy-cleanup -- streamlit_app_v5.py
+      - name: Validate syntax and required UX
+        run: |
+          python -m py_compile streamlit_app_v5.py
+          grep -q 'Using GBM Gene Analysis' streamlit_app_v5.py
+          grep -q 'Evidence Summary' streamlit_app_v5.py
+          grep -q 'Intended for comparative research prioritization' streamlit_app_v5.py
+          grep -q 'Integrated interpretation of evidence gaps and proposed validation studies' streamlit_app_v5.py
+      - name: Commit release file
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app_v5.py
+          git commit -m 'Add guided walkthrough and refine analysis copy'
+          git push origin HEAD:ux-walkthrough-final
