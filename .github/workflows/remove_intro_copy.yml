@@ -1,0 +1,39 @@
+name: Remove intro copy
+
+on:
+  push:
+    branches: [ux-remove-intro-copy]
+    paths:
+      - scripts/remove_intro_copy.py
+      - .github/workflows/remove_intro_copy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-remove-intro-copy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply copy cleanup
+        run: python scripts/remove_intro_copy.py
+      - name: Validate
+        run: |
+          python -m py_compile streamlit_app_v5.py
+          ! grep -q 'Enter a gene symbol to evaluate its relevance in GBM' streamlit_app_v5.py
+          grep -q 'Using GBM Gene Analysis' streamlit_app_v5.py
+          grep -q 'Evidence Summary' streamlit_app_v5.py
+          grep -q 'Intended for comparative research prioritization' streamlit_app_v5.py
+          grep -q 'Integrated interpretation of evidence gaps and proposed validation studies' streamlit_app_v5.py
+      - name: Commit app change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app_v5.py
+          git commit -m 'Remove introductory analysis paragraph'
+          git push origin HEAD:ux-remove-intro-copy
