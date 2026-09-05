@@ -51,8 +51,17 @@ def test_component_contains_required_integrated_interactions():
         "setTriggerValue(\"prompt\"",
         "glia-panel-open",
         "Research memory",
+        "selectionTouchesIgnoredArea",
+        "syncWorkspaceLayout",
+        "Memory on · carries across visits",
+        "background:var(--st-text-color, #111); color:var(--st-background-color, #fff)",
     ):
         assert required in source, required
+
+
+def test_main_header_is_excluded_from_ask_glia_selection():
+    source = Path("app_ui.py").read_text(encoding="utf-8")
+    assert source.count('data-glia-ignore-selection="true"') >= 2
 
 
 if __name__ == "__main__":
@@ -60,4 +69,5 @@ if __name__ == "__main__":
     test_messages_keep_only_conversation_fields()
     test_quick_actions_are_workflow_specific()
     test_component_contains_required_integrated_interactions()
+    test_main_header_is_excluded_from_ask_glia_selection()
     print("GLIA INTERFACE TESTS OK")
