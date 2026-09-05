@@ -2,6 +2,8 @@
 
 A provenance-tracked molecular research decision-support system for glioblastoma, developed for **Rutgers Gray for Glioblastoma**.
 
+**Software release: 7.0.0**
+
 GBM Gene Analysis is designed to help researchers move from fragmented evidence to a defensible next experiment. It accepts a gene, a two-target combination, a gene set, or a processed researcher-generated signature and integrates GBM-specific genomic, functional, spatial, human-cohort, longitudinal, translational, literature, tissue, network, blood-brain-barrier, perturbational, and cell-state context.
 
 The system is for **research prioritization and hypothesis development only**. It does not provide clinical recommendations, predict patient benefit, or replace experimental validation.
@@ -23,7 +25,7 @@ For a gene such as `EGFR`, `PTEN`, `TERT`, or `CDK4`, the system asks:
 9. What falsifiable hypothesis follows from that gap?
 10. Which experiment would most efficiently reduce the remaining uncertainty?
 
-## V7 capabilities
+## Production capabilities
 
 ### Gene Analysis
 
@@ -36,7 +38,7 @@ A full gene profile integrates the scored evidence model with contextual and dis
 - **Guarded Mechanistic Hypotheses** — hypotheses shown only when their premises are supported
 - **Experiment Prioritization** — follow-up studies ranked by unresolved uncertainty
 - **Model Relevance** — distinguishes conventional dependency models from available 3D/next-generation context
-- **Cell-State Context** — native compact GBmap reference derived from the published Core GBmap atlas when the reference asset is present
+- **Cell-State Context** — native compact GBmap reference derived from the published Core GBmap atlas
 
 ### Target Pair Analysis
 
@@ -69,13 +71,15 @@ The workflow:
 
 LINCS/L1000 results are historical cell-line perturbational hypotheses. They do not establish GBM efficacy, CNS exposure, synergy, safety, or patient benefit.
 
+Researcher uploads are processed for the requested analysis and are not written to the repository or an application database by this codebase. Do not upload PHI, PII, controlled raw genomic data, secrets, or restricted material without an approved deployment environment. See `docs/RESEARCHER_DATA_HANDLING.md` for the full boundary.
+
 ### Gene Set Comparison
 
-Compares a bounded set of genes through the same V7 profile architecture while keeping public-source and Community Cloud resource pressure controlled.
+Compares a bounded set of genes through the same production profile architecture while keeping public-source and deployment resource pressure controlled.
 
 ## Scored evidence model
 
-V7 preserves the validated nine-dimension score. Contextual and discovery additions do not silently alter the scalar Target Priority Score.
+The production release preserves the validated nine-dimension score. Contextual and discovery additions do not silently alter the scalar Target Priority Score.
 
 | Dimension | Weight |
 |---|---:|
@@ -130,7 +134,9 @@ The published Core GBmap H5AD contains hundreds of thousands of cells and is sev
 - mean published expression;
 - across-state expression enrichment.
 
-The runtime connector reads only this compact derived reference. Cell-state expression does not establish dependency, causality, drug response, or clinical utility.
+The production asset includes 338,564 cells from 110 patients across 20 annotated states and 27,625 unique gene labels. Duplicate gene labels are preserved as explicit ambiguity rather than silently collapsed. The runtime connector reads only this compact derived reference.
+
+Cell-state expression does not establish dependency, causality, drug response, or clinical utility.
 
 ## Scientific guardrails
 
@@ -150,7 +156,7 @@ The runtime connector reads only this compact derived reference. Cell-state expr
 
 External sources can be unavailable or change independently of this repository. Network calls use bounded retry handling for transient server errors, truncated responses, rate limits, timeouts, and connection resets. Source failure is reported as an evidence gap and reduced coverage rather than substituted with synthetic evidence.
 
-The Streamlit entrypoint executes the V7 page on every rerun, preventing Python module caching from blanking the interface after widget interactions.
+The Streamlit entrypoint executes the single production UI on every rerun, preventing Python module caching from blanking the interface after widget interactions.
 
 ## Exports
 
@@ -158,6 +164,8 @@ Gene profiles can be exported as:
 
 - full structured JSON;
 - Markdown research summary with evidence gaps, source status, generation time, and linked publications.
+
+Structured production outputs carry software release identifier `7.0.0` so exported dossiers can be traced to the shipped software version.
 
 ## API
 
@@ -175,7 +183,7 @@ Endpoints:
 - `POST /signature`
 - `GET /health`
 
-The API reports version `7.0.0`.
+The API reports version `7.0.0` and imports the same production research facade used by the Streamlit application.
 
 ## Run the Streamlit app
 
@@ -201,14 +209,19 @@ The repository includes deterministic tests for:
 - score coverage behavior;
 - strict GBM/IDH-wildtype cohort filtering;
 - GLASS safeguards;
-- V5 contextual layers;
-- V6 discovery guardrails;
-- V7 confidence, model relevance, patient-aware cell-state semantics, publication links, and pair execution efficiency;
-- Streamlit rerun behavior.
+- contextual research layers;
+- discovery and hypothesis guardrails;
+- confidence, model relevance, patient-aware cell-state semantics, publication links, and pair execution efficiency;
+- Streamlit rerun behavior;
+- API and release contracts.
 
-Pre-release production audits additionally exercise live Europe PMC publication links, a complete Streamlit profile interaction, live target-pair analysis, live researcher-signature/L1000 analysis, and API health/import behavior.
+Pre-release production audits additionally exercise live publication links, representative target profiles, target-pair analysis, researcher-signature/L1000 analysis, benchmark controls, and production UI/API contracts.
 
-A successful software test does not establish biological validity. Retrospective and prospective scientific benchmarking remain distinct from code-level validation.
+A successful software test does not establish biological validity. The bundled benchmark is a current-data regression benchmark, not retrospective prediction evidence. See `docs/RELEASE_VALIDATION.md` for the release gate and the external researcher-validation protocol.
+
+## License and citation
+
+The repository is released under the **MIT License**. Citation metadata are provided in `CITATION.cff` for research use.
 
 ## Scope
 
