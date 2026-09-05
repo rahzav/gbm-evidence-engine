@@ -1,24 +1,24 @@
 """Benchmark framework for GBM Gene Analysis.
 
-The framework distinguishes three modes:
+The framework distinguishes three temporal modes:
 
 - ``current_behavior_regression``: confirms known present-day scientific/output behavior.
 - ``frozen_snapshot``: valid retrospective evaluation using evidence frozen at a declared date.
-- ``prospective``: predictions/hypotheses registered before later experimental evaluation.
+- ``prospective``: predictions or hypotheses registered before later experimental evaluation.
 
-A live 2026 API query is never labeled retrospective simply because the target
-was discovered earlier. True retrospective claims require frozen/date-bounded
+A live API query is never labeled retrospective simply because the target was
+discovered earlier. True retrospective claims require frozen or date-bounded
 evidence inputs.
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parents[1] / "data" / "benchmark_manifest.json"
 VALID_MODES = {"current_behavior_regression", "frozen_snapshot", "prospective"}
+VALID_CASE_CLASSES = {"known_positive", "known_negative", "context_specific"}
 
 
 def _path(obj: Any, dotted: str):
@@ -63,13 +63,25 @@ def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict:
         data = json.load(handle)
     if not isinstance(data, dict) or not isinstance(data.get("cases"), list):
         raise ValueError("Benchmark manifest must contain a cases list.")
+    for case in data["cases"]:
+        mode = case.get("mode")
+        case_class = case.get("case_class")
+        if mode not in VALID_MODES:
+            raise ValueError(f"Invalid benchmark mode: {mode}")
+        if case_class not in VALID_CASE_CLASSES:
+            raise ValueError(f"Invalid benchmark case_class: {case_class}")
+        if mode == "frozen_snapshot" and not case.get("evidence_freeze_date"):
+            raise ValueError("frozen_snapshot benchmark cases require evidence_freeze_date.")
     return data
 
 
 def evaluate_case(profile, case: dict) -> dict:
     mode = case.get("mode")
+    case_class = case.get("case_class")
     if mode not in VALID_MODES:
         raise ValueError(f"Invalid benchmark mode: {mode}")
+    if case_class not in VALID_CASE_CLASSES:
+        raise ValueError(f"Invalid benchmark case_class: {case_class}")
     if mode == "frozen_snapshot" and not case.get("evidence_freeze_date"):
         raise ValueError("frozen_snapshot benchmark cases require evidence_freeze_date.")
     payload = profile.to_dict() if hasattr(profile, "to_dict") else profile
@@ -90,6 +102,7 @@ def evaluate_case(profile, case: dict) -> dict:
     return {
         "id": case.get("id"),
         "gene": case.get("gene"),
+        "case_class": case_class,
         "mode": mode,
         "temporal_validity": (
             "retrospective_valid" if mode == "frozen_snapshot"
@@ -112,10 +125,15 @@ def run_benchmark(profile_builder: Callable[[str], Any], manifest_path: Path = D
     total = sum(r["total_checks"] for r in results)
     passed = sum(r["passed_checks"] for r in results)
     retrospective = [r for r in results if r["mode"] == "frozen_snapshot"]
+    class_counts = {
+        case_class: sum(r["case_class"] == case_class for r in results)
+        for case_class in sorted(VALID_CASE_CLASSES)
+    }
     return {
         "benchmark_version": manifest.get("benchmark_version"),
         "cases": results,
         "n_cases": len(results),
+        "case_class_counts": class_counts,
         "check_accuracy": None if total == 0 else round(passed / total, 4),
         "n_retrospective_cases": len(retrospective),
         "retrospective_claim_allowed": bool(retrospective) and all(r["passed"] for r in retrospective),
