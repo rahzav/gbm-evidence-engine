@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from collections import Counter
 import gzip
 import json
 import shutil
@@ -199,13 +200,24 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
         n_states = len(state_names)
         n_patients = len(patient_values)
         gene_names = _read_var_names(var)
-        n_genes = len(gene_names)
-        if len(set(gene_names)) != len(gene_names):
-            duplicates = len(gene_names) - len(set(gene_names))
+        n_genes = len(gene_names)  # published feature columns, not unique symbols
+        feature_id_column = _decode_scalar(var.attrs.get("_index", "_index"))
+        if feature_id_column not in var:
             raise RuntimeError(
-                f"Core GBmap feature names contain {duplicates} duplicate gene label(s). "
-                "Refusing to create ambiguous gene-level summaries."
+                f"Could not resolve Core GBmap feature IDs from var index {feature_id_column!r}. "
+                f"var keys={sorted(var.keys())}"
             )
+        feature_ids = [str(x).strip() for x in _read_dataframe_column(var, feature_id_column)]
+        if len(feature_ids) != n_genes or len(set(feature_ids)) != len(feature_ids):
+            raise RuntimeError("Core GBmap feature IDs are missing or non-unique; refusing ambiguous feature-level aggregation.")
+        label_counts = Counter(gene_names)
+        duplicate_labels = sorted(label for label, count in label_counts.items() if count > 1)
+        duplicate_gene_features = {
+            label: [feature_ids[idx] for idx, value in enumerate(gene_names) if value == label]
+            for label in duplicate_labels
+        }
+        if duplicate_gene_features:
+            print("Preserving duplicate gene labels as distinct Ensembl features:", duplicate_gene_features, flush=True)
 
         n_cells = len(states)
         x_node = handle["X"]
@@ -273,7 +285,7 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
     with gzip.open(output, "wt", newline="", encoding="utf-8", compresslevel=9) as out_handle:
         writer = csv.writer(out_handle)
         writer.writerow([
-            "gene", "state", "state_class", "n_cells", "n_state_patients",
+            "gene", "feature_id", "state", "state_class", "n_cells", "n_state_patients",
             "n_expressing_patients", "patient_prevalence", "fraction_expressing",
             "mean_expression", "expression_z_across_states",
         ])
@@ -292,6 +304,7 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
                 n_expressing_patients = int(patient_counts[g_idx])
                 writer.writerow([
                     gene,
+                    feature_ids[g_idx],
                     state,
                     class_by_state[state],
                     int(state_cell_counts[s_idx]),
@@ -305,7 +318,7 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
                 rows_written += 1
 
     result = {
-        "reference_schema_version": "1.1.0",
+        "reference_schema_version": "1.2.0",
         "source_collection_id": source.COLLECTION_ID,
         "state_column": STATE_COLUMN,
         "class_column": CLASS_COLUMN,
@@ -313,7 +326,11 @@ def build(h5ad_path: Path, output: Path, metadata_output: Path, chunk_size: int 
         "n_cells": n_cells,
         "n_patients": n_patients,
         "n_states": n_states,
-        "n_genes": n_genes,
+        "n_features": n_genes,
+        "n_genes": len(label_counts),
+        "n_unique_gene_labels": len(label_counts),
+        "n_duplicate_gene_labels": len(duplicate_gene_features),
+        "duplicate_gene_features": duplicate_gene_features,
         "rows_written": rows_written,
         "output": str(output),
         "builder": "direct_hdf5_memory_safe",
