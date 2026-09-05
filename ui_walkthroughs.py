@@ -8,12 +8,41 @@ from __future__ import annotations
 import streamlit as st
 
 
+PERSISTED_SUPPRESSION_PARAM = "hide_walkthroughs"
+WALKTHROUGH_FEATURES = ("gene", "pair", "researcher", "comparison")
+
+
 def _suppressed_key(feature: str) -> str:
     return f"{feature}_walkthrough_suppressed"
 
 
+def _persisted_suppressions() -> set[str]:
+    """Read refresh-safe walkthrough preferences from the app URL."""
+    raw = st.query_params.get(PERSISTED_SUPPRESSION_PARAM, "")
+    values = raw if isinstance(raw, list) else [raw]
+    suppressed: set[str] = set()
+    for value in values:
+        for feature in str(value).split(","):
+            feature = feature.strip()
+            if feature in WALKTHROUGH_FEATURES:
+                suppressed.add(feature)
+    return suppressed
+
+
+def _write_persisted_suppressions(suppressed: set[str]) -> None:
+    """Persist automatic-walkthrough preferences so a browser refresh keeps them."""
+    ordered = [feature for feature in WALKTHROUGH_FEATURES if feature in suppressed]
+    if ordered:
+        st.query_params[PERSISTED_SUPPRESSION_PARAM] = ",".join(ordered)
+    elif PERSISTED_SUPPRESSION_PARAM in st.query_params:
+        del st.query_params[PERSISTED_SUPPRESSION_PARAM]
+
+
 def _is_suppressed(feature: str) -> bool:
-    return bool(st.session_state.get(_suppressed_key(feature), False))
+    key = _suppressed_key(feature)
+    if key in st.session_state:
+        return bool(st.session_state[key])
+    return feature in _persisted_suppressions()
 
 
 def _preference_key(feature: str) -> str:
@@ -21,11 +50,16 @@ def _preference_key(feature: str) -> str:
 
 
 def _sync_suppression(feature: str) -> None:
-    """Sync the visible checkbox with automatic walkthrough behavior."""
+    """Sync the visible checkbox and refresh-safe automatic walkthrough behavior."""
     suppressed = bool(st.session_state.get(_preference_key(feature), False))
     st.session_state[_suppressed_key(feature)] = suppressed
+    persisted = _persisted_suppressions()
     if suppressed:
+        persisted.add(feature)
         st.session_state.pop("pending_feature_walkthrough", None)
+    else:
+        persisted.discard(feature)
+    _write_persisted_suppressions(persisted)
 
 
 def _step_key(feature: str) -> str:
@@ -330,9 +364,9 @@ def show_researcher_walkthrough() -> None:
     if step == 0:
         st.dataframe(
             [
-                {"gene": "EGFR", "effect": 2.4, "p_value": 0.0001, "fdr": 0.002},
-                {"gene": "SOX2", "effect": 1.8, "p_value": 0.001, "fdr": 0.01},
-                {"gene": "BAX", "effect": -2.0, "p_value": 0.0001, "fdr": 0.002},
+                {"gene": "EGFR", "effect": 2.4, "p value": 0.0001, "fdr": 0.002},
+                {"gene": "SOX2", "effect": 1.8, "p value": 0.001, "fdr": 0.01},
+                {"gene": "BAX", "effect": -2.0, "p value": 0.0001, "fdr": 0.002},
             ],
             width="stretch",
             hide_index=True,

@@ -894,7 +894,7 @@ st.markdown(
     """
     <div style="margin:0 0 .9rem 0;padding:0;">
       <div style="font-size:2.75rem;font-weight:700;line-height:1.08;letter-spacing:-0.02em;margin:0;padding:0;">GBM Gene Analysis</div>
-      <div style="font-size:1.04rem;line-height:1.42;opacity:.68;margin:.38rem 0 0 0;padding:0;">Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.</div>
+      <div style="font-size:1.04rem;line-height:1.42;opacity:.68;margin:.38rem 0 0 0;padding:0;">Real-time integrated gene-level evidence synthesis for glioblastoma research.</div>
       <div style="font-size:.91rem;line-height:1.42;opacity:.68;margin:.42rem 0 0 0;padding:0;"><b style="opacity:.94;">Research use only:</b> Results are intended for research prioritization and hypothesis development, not clinical decision-making.</div>
     </div>
     """,
