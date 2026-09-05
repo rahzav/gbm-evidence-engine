@@ -118,7 +118,6 @@ def test_gbmap_compact_reference_is_patient_aware_and_state_aware():
         assert abs(sum(state_vector(x).values()) - 1.0) < 1e-9
 
 
-
 def test_publication_urls_are_clickable_and_stable():
     assert publication_url({"doi": "10.1000/example"}) == "https://doi.org/10.1000/example"
     assert publication_url({"pmid": "12345"}) == "https://pubmed.ncbi.nlm.nih.gov/12345/"
@@ -152,16 +151,19 @@ def test_pair_analysis_builds_each_target_once():
     assert result["gene_a"] == "GENEA" and result["gene_b"] == "GENEB"
     assert "pair_evidence_confidence" in result
 
+
 def test_benchmark_framework_refuses_to_call_live_case_retrospective():
     p = _profile()
     case = {
         "id": "synthetic",
         "gene": "GENEX",
+        "case_class": "context_specific",
         "mode": "current_behavior_regression",
         "expectations": [{"path": "score.overall", "operator": "gte", "value": 60}],
     }
     result = evaluate_case(p, case)
     assert result["passed"]
+    assert result["case_class"] == "context_specific"
     assert result["temporal_validity"] == "current_data_only_not_retrospective"
 
 
