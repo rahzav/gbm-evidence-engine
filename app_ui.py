@@ -202,7 +202,7 @@ def render_genomics_and_identity(identity, cbio, ot):
             "Entrez": identity.get("entrez_gene_id"),
             "Matched By": identity.get("matched_by"),
         }]
-        st.dataframe(identity_rows, use_container_width=True, hide_index=True)
+        st.dataframe(identity_rows, width="stretch", hide_index=True)
         if identity.get("aliases"):
             st.caption("Known aliases: " + ", ".join(identity["aliases"][:15]))
     else:
@@ -221,7 +221,7 @@ def render_functional_and_spatial(dep, ivy):
             f"GBM definition: {dep.get('gbm_definition')}. Pan-essential classification: {'Yes' if dep.get('pan_essential') else 'No'}.",
         )
         if dep.get("most_dependent_gbm_models"):
-            st.dataframe(dep["most_dependent_gbm_models"], use_container_width=True, hide_index=True)
+            st.dataframe(dep["most_dependent_gbm_models"], width="stretch", hide_index=True)
         nextgen = dep.get("nextgen_model_context") or {}
         if nextgen.get("metadata_available"):
             with st.expander("Model Format Context", expanded=False):
@@ -248,7 +248,7 @@ def render_functional_and_spatial(dep, ivy):
             "Median log2(FPKM+1)": round(value, 3),
             "n": ivy.get("zone_counts", {}).get(zone),
         } for zone, value in ivy.get("zone_medians", {}).items()]
-        st.dataframe(zone_rows, use_container_width=True, hide_index=True)
+        st.dataframe(zone_rows, width="stretch", hide_index=True)
     else:
         st.info(ivy.get("error", "Ivy GAP evidence is unavailable."))
 
@@ -270,7 +270,7 @@ def render_human_validation(cgg, gla):
             "p Value": row.get("p_value"),
             "Status": row.get("error"),
         } for row in cgg.get("cohorts", [])]
-        st.dataframe(cohort_rows, use_container_width=True, hide_index=True)
+        st.dataframe(cohort_rows, width="stretch", hide_index=True)
         if meta:
             direction = "consistent" if cgg.get("direction_consistent") else "discordant"
             st.caption(
@@ -309,7 +309,7 @@ def render_tissue_and_network(identity, hpa, network, gbmap, cell):
                 {"Brain Region": region, "Expression": value}
                 for region, value in hpa["brain_region_expression"].items()
             ]
-            st.dataframe(brain_rows, use_container_width=True, hide_index=True)
+            st.dataframe(brain_rows, width="stretch", hide_index=True)
         st.caption(hpa.get("interpretation", ""))
         if hpa.get("source_url"):
             st.link_button("Open Human Protein Atlas", hpa["source_url"])
@@ -320,10 +320,10 @@ def render_tissue_and_network(identity, hpa, network, gbmap, cell):
     st.subheader("Interaction Network and Pathways", help=HELP["network"], anchor=False)
     if network.get("ok"):
         if network.get("partners"):
-            st.dataframe(network["partners"], use_container_width=True, hide_index=True)
+            st.dataframe(network["partners"], width="stretch", hide_index=True)
         if network.get("enrichment"):
             st.markdown("##### Network Enrichment")
-            st.dataframe(network["enrichment"], use_container_width=True, hide_index=True)
+            st.dataframe(network["enrichment"], width="stretch", hide_index=True)
         st.caption(network.get("interpretation", ""))
         if network.get("source_url"):
             st.link_button("Open STRING Network", network["source_url"])
@@ -345,7 +345,7 @@ def render_literature(profile, lit):
             {"Disease Context": key.replace("_", " ").title(), "Indexed Publications": value}
             for key, value in profile.context_map.items()
         ]
-        st.dataframe(context_rows, use_container_width=True, hide_index=True)
+        st.dataframe(context_rows, width="stretch", hide_index=True)
     with l2:
         papers = lit.get("top_papers") or []
         if papers:
@@ -382,14 +382,14 @@ def render_translation(ot, trials, bbb):
     with candidate_tab:
         st.markdown("#### Target-Directed Candidates")
         if ot.get("drugs"):
-            st.dataframe(ot["drugs"], use_container_width=True, hide_index=True)
+            st.dataframe(ot["drugs"], width="stretch", hide_index=True)
         else:
             st.info("No target-directed candidates were returned from the current Open Targets result.")
 
     with trial_tab:
         st.markdown("#### Clinical Trial Matches")
         if trials.get("studies"):
-            st.dataframe(trials["studies"], use_container_width=True, hide_index=True)
+            st.dataframe(trials["studies"], width="stretch", hide_index=True)
         else:
             st.info("No matching GBM clinical trial records were returned.")
 
@@ -401,7 +401,7 @@ def render_translation(ot, trials, bbb):
             b2.metric("B3DB Matches", bbb.get("matched_count", 0), help=HELP["b3db_matches"])
             b3.metric("BBB+ Records", bbb.get("bbb_positive_count", 0), help=HELP["bbb_positive"])
             if bbb.get("matches"):
-                st.dataframe(bbb["matches"], use_container_width=True, hide_index=True)
+                st.dataframe(bbb["matches"], width="stretch", hide_index=True)
             st.caption(bbb.get("interpretation", ""))
         else:
             st.info(bbb.get("error", "B3DB evidence is unavailable."))
@@ -447,7 +447,7 @@ def render_confidence_summary(profile):
                 "Confidence Score": conf.get("score"),
                 "Primary Source": dimension.source,
             })
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
 
 
 def render_cell_state(cell: dict):
@@ -482,7 +482,7 @@ def render_cell_state(cell: dict):
             "Across-State Z": row.get("expression_z_across_states"),
         })
     if rows:
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
     if cell.get("interpretation"):
         st.caption(cell["interpretation"])
 
@@ -524,7 +524,7 @@ def render_discovery_workspace(profile):
 
     with experiment_tab:
         if experiments:
-            st.dataframe(experiments, use_container_width=True, hide_index=True)
+            st.dataframe(experiments, width="stretch", hide_index=True)
         else:
             st.info("No experiment portfolio was generated from the current evidence profile.")
         if profile.next_experiments:
@@ -617,7 +617,7 @@ def render_profile(profile):
                 "Primary Source": d.source,
                 "Interpretation": d.rationale,
             } for name, d in score.dimensions.items()]
-            st.dataframe(score_rows, use_container_width=True, hide_index=True)
+            st.dataframe(score_rows, width="stretch", hide_index=True)
 
     with evidence_tab:
         st.caption("Source-derived molecular and human evidence.")
@@ -657,7 +657,7 @@ def render_profile(profile):
                 {"Data Source": str(name).replace("_", " ").title(), "Status": display_status(status)}
                 for name, status in profile.source_status.items()
             ]
-            st.dataframe(source_rows, use_container_width=True, hide_index=True)
+            st.dataframe(source_rows, width="stretch", hide_index=True)
         with export_tab:
             profile_json = json.dumps(profile.to_dict(), indent=2, default=str)
             st.download_button(
@@ -729,7 +729,7 @@ def show_walkthrough():
                 {"Evidence Dimension": "Human Validation", "Score": 66, "Weight": "7.5%"},
                 {"Evidence Dimension": "Recurrence", "Score": 41, "Weight": "6.0%"},
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=176,
         )
@@ -749,7 +749,7 @@ def show_walkthrough():
             st.markdown("**Gene Identity**")
             st.dataframe(
                 [{"Canonical Symbol": "GENE", "Ensembl": "ENSG…", "Entrez": "####", "Matched By": "symbol"}],
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         _walkthrough_note(
@@ -770,7 +770,7 @@ def show_walkthrough():
                 {"Anatomic Zone": "Leading Edge", "Median Expression": 3.1, "n": 31},
                 {"Anatomic Zone": "Microvascular Proliferation", "Median Expression": 6.4, "n": 27},
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=143,
         )
@@ -790,7 +790,7 @@ def show_walkthrough():
                 {"CGGA Cohort": "Cohort A", "n": 188, "HR per 1 SD": 1.27, "p Value": 0.04},
                 {"CGGA Cohort": "Cohort B", "n": 224, "HR per 1 SD": 1.35, "p Value": 0.02},
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=108,
         )
@@ -876,7 +876,7 @@ def show_walkthrough():
             st.button(
                 "← Previous",
                 key=f"walkthrough_prev_{step}",
-                use_container_width=True,
+                width="stretch",
                 on_click=_move_walkthrough,
                 args=(-1,),
             )
@@ -886,11 +886,11 @@ def show_walkthrough():
                 "Next →",
                 key=f"walkthrough_next_{step}",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
                 on_click=_move_walkthrough,
                 args=(1,),
             )
-        elif st.button("Close", type="primary", use_container_width=True):
+        elif st.button("Close", type="primary", width="stretch"):
             _close_walkthrough()
             st.rerun()
 
@@ -941,7 +941,7 @@ with analysis_tab:
             run = st.form_submit_button(
                 "Build dossier",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             )
 
     if run:
@@ -969,7 +969,7 @@ with pair_tab:
         with b_col:
             gene_b = st.text_input("Target B", value="CDK4", key="pair_b").strip()
         with run_col:
-            pair_run = st.form_submit_button("Build pair dossier", type="primary", use_container_width=True)
+            pair_run = st.form_submit_button("Build pair dossier", type="primary", width="stretch")
     if pair_run:
         try:
             with st.spinner(f"Building the evidence comparison for {gene_a.upper()} + {gene_b.upper()}..."):
@@ -991,7 +991,7 @@ with pair_tab:
             st.dataframe([
                 {"Component": key.replace("_", " ").title(), "Score": value}
                 for key, value in pair.get("components", {}).items()
-            ], use_container_width=True, hide_index=True)
+            ], width="stretch", hide_index=True)
         with rationale_tab:
             left, right = st.columns(2)
             with left:
@@ -1007,7 +1007,7 @@ with pair_tab:
         with model_tab:
             rows = [{"Gene": gene_name, **model} for gene_name, model in pair.get("model_relevance", {}).items()]
             if rows:
-                st.dataframe(rows, use_container_width=True, hide_index=True)
+                st.dataframe(rows, width="stretch", hide_index=True)
         with validation_tab:
             for index, item in enumerate(pair.get("validation_sequence", []), start=1):
                 st.markdown(f"{index}. {item}")
@@ -1040,7 +1040,7 @@ with researcher_tab:
         with c4:
             fdr_col = st.selectbox("FDR/q-value column", optional, index=(columns.index("fdr") + 1 if "fdr" in columns else 0))
         preview_cols = [gene_col, value_col] + ([p_col] if p_col != "None" else []) + ([fdr_col] if fdr_col != "None" else [])
-        st.dataframe(signature_df[preview_cols].head(20), use_container_width=True, hide_index=True)
+        st.dataframe(signature_df[preview_cols].head(20), width="stretch", hide_index=True)
         if st.button("Build result dossier", type="primary"):
             try:
                 gene_values = signature_df[gene_col].astype(str).tolist()
@@ -1067,7 +1067,7 @@ with researcher_tab:
             "GBM-Prioritized Signals", "Pathway Enrichment", "Perturbational Reversal", "Export"
         ])
         with signal_tab:
-            st.dataframe(signature.get("top_genes_profiled", []), use_container_width=True, hide_index=True)
+            st.dataframe(signature.get("top_genes_profiled", []), width="stretch", hide_index=True)
             if signature.get("interpretation"):
                 st.caption(signature["interpretation"])
         with pathway_tab:
@@ -1076,23 +1076,23 @@ with researcher_tab:
                 st.markdown("#### Upregulated Program")
                 up = signature.get("up_pathway_enrichment", {})
                 if up.get("ok"):
-                    st.dataframe(up.get("results", []), use_container_width=True, hide_index=True)
+                    st.dataframe(up.get("results", []), width="stretch", hide_index=True)
                 else:
                     st.info(up.get("error", "No enrichment available."))
             with e2:
                 st.markdown("#### Downregulated Program")
                 down = signature.get("down_pathway_enrichment", {})
                 if down.get("ok"):
-                    st.dataframe(down.get("results", []), use_container_width=True, hide_index=True)
+                    st.dataframe(down.get("results", []), width="stretch", hide_index=True)
                 else:
                     st.info(down.get("error", "No enrichment available."))
         with perturbation_tab:
             l1000 = signature.get("l1000_reversal", {})
             if l1000.get("ok"):
-                st.dataframe(l1000.get("top_drugs", []), use_container_width=True, hide_index=True)
+                st.dataframe(l1000.get("top_drugs", []), width="stretch", hide_index=True)
                 if l1000.get("combinations"):
                     st.markdown("#### Combination Hypotheses")
-                    st.dataframe(l1000["combinations"], use_container_width=True, hide_index=True)
+                    st.dataframe(l1000["combinations"], width="stretch", hide_index=True)
                 if l1000.get("interpretation"):
                     st.caption(l1000["interpretation"])
             else:
@@ -1135,7 +1135,7 @@ with batch_tab:
                     "Active GBM Trials": item_live.get("clinical_trials", {}).get("active", 0),
                     "B3DB Matches": item_live.get("bbb_candidates", {}).get("matched_count", 0),
                 })
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width="stretch", hide_index=True)
         except Exception as exc:
             st.error(f"Gene set comparison failed: {exc}")
 
