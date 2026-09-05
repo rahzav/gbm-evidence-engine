@@ -77,6 +77,12 @@ Researcher uploads are processed for the requested analysis and are not written 
 
 Compares a bounded set of genes through the same production profile architecture while keeping public-source and deployment resource pressure controlled.
 
+### Research Assistant
+
+Provides an evidence-grounded conversational layer over the production workflows. The assistant can build gene dossiers, run target-pair and gene-set analyses, inspect analysis already present in the current session, and retrieve live Europe PMC publications. Important factual claims are tied to evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools. The assistant does not redefine production scores or convert hypotheses into evidence.
+
+The assistant uses the OpenAI Responses API with function calling. Configure `OPENAI_API_KEY`; `OPENAI_MODEL` is optional and defaults to `gpt-5.4`.
+
 ## Scored evidence model
 
 The production release preserves the validated nine-dimension score. Contextual and discovery additions do not silently alter the scalar Target Priority Score.
