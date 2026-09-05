@@ -1,0 +1,56 @@
+name: Benchmark Case Probe
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - .github/workflows/benchmark_probe.yml
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Probe canonical current-data cases
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          from gbm_evidence_engine.research_intelligence_v7_prod import build_research_profile
+
+          genes = ['EGFR', 'TP53', 'CDK4', 'PTEN', 'RPL3']
+          output = {}
+          for gene in genes:
+              p = build_research_profile(gene)
+              live = p.live
+              cbio = live.get('cbioportal') or {}
+              dep = live.get('depmap') or {}
+              cgg = live.get('cgga') or {}
+              gla = live.get('glass') or {}
+              output[gene] = {
+                  'score': p.score.overall,
+                  'coverage': p.score.evidence_coverage_pct,
+                  'genomic_dimension': (p.score.dimensions.get('GBM genomic signal').score if p.score.dimensions.get('GBM genomic signal') else None),
+                  'mutation_frequency': (cbio.get('mutation') or {}).get('frequency'),
+                  'amplification_frequency': (cbio.get('copy_number') or {}).get('amplification_frequency'),
+                  'deep_deletion_frequency': (cbio.get('copy_number') or {}).get('deep_deletion_frequency'),
+                  'depmap_ok': dep.get('ok'),
+                  'depmap_median_gbm': dep.get('median_effect_gbm'),
+                  'depmap_selectivity_delta': dep.get('median_selectivity_delta'),
+                  'depmap_p': dep.get('p_value'),
+                  'pan_essential': dep.get('pan_essential'),
+                  'cgga_ok': cgg.get('ok'),
+                  'cgga_pooled_hr': (cgg.get('meta_analysis') or {}).get('pooled_hr'),
+                  'glass_ok': gla.get('ok'),
+                  'confidence': live.get('overall_evidence_confidence'),
+                  'model_relevance': live.get('model_relevance'),
+              }
+              print('BENCHMARK_CASE', gene, json.dumps(output[gene], sort_keys=True))
+          print('BENCHMARK_PROBE_JSON', json.dumps(output, sort_keys=True))
+          PY
