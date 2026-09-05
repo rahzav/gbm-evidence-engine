@@ -690,7 +690,7 @@ def show_walkthrough():
 
 
 with st.container(horizontal=True, vertical_alignment="center", gap="xxsmall"):
-    st.title("GBM Gene Analysis")
+    st.title("GBM Gene Analysis", width="content")
     st.button(
         ":material/info:",
         help="Open walkthrough",
