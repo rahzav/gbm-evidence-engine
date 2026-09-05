@@ -1,0 +1,155 @@
+name: Feature Walkthrough and V7 QA
+
+on:
+  push:
+    branches: [feature-walkthroughs-and-header-polish]
+    paths:
+      - ui_walkthroughs.py
+      - scripts/apply_walkthrough_ui_patch.py
+      - .github/workflows/feature_walkthrough_qa.yml
+
+permissions:
+  contents: write
+
+jobs:
+  walkthrough-and-v7-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature-walkthroughs-and-header-polish
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply UI integration patch
+        run: python scripts/apply_walkthrough_ui_patch.py
+      - name: Install production requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Compile UI and walkthrough modules
+        run: python -m py_compile app_ui.py ui_walkthroughs.py streamlit_app.py
+      - name: Validate compact header and feature-local launchers
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from pathlib import Path
+          from streamlit.testing.v1 import AppTest
+
+          ui = Path('app_ui.py').read_text(encoding='utf-8')
+          assert 'Real-time synthesis of live and curated gene-level evidence for glioblastoma research.' in ui
+          assert 'key="open_walkthrough"' not in ui
+          assert 'def show_walkthrough()' not in ui
+          for feature in ('gene', 'pair', 'researcher', 'comparison'):
+              assert f'"{feature}"' in ui
+          for key in (
+              'open_gene_walkthrough',
+              'open_pair_walkthrough',
+              'open_researcher_walkthrough',
+              'open_comparison_walkthrough',
+          ):
+              assert key in Path('ui_walkthroughs.py').read_text(encoding='utf-8')
+
+          at = AppTest.from_file('streamlit_app.py', default_timeout=90).run(timeout=45)
+          assert not list(at.exception), list(at.exception)
+          assert any(button.label == 'Build dossier' for button in at.button)
+          assert at.session_state['gene_walkthrough_seen'] is True
+          print('MAIN UI + COMPACT REAL-TIME HEADER OK')
+          PY
+      - name: Exercise every walkthrough independently
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from pathlib import Path
+          import tempfile
+          from streamlit.testing.v1 import AppTest
+
+          cases = [
+              ('show_gene_walkthrough', 7),
+              ('show_pair_walkthrough', 4),
+              ('show_researcher_walkthrough', 4),
+              ('show_comparison_walkthrough', 3),
+          ]
+          for function_name, steps in cases:
+              with tempfile.TemporaryDirectory() as tmp:
+                  path = Path(tmp) / 'walkthrough_app.py'
+                  path.write_text(
+                      'from ui_walkthroughs import ' + function_name + '\n' + function_name + '()\n',
+                      encoding='utf-8',
+                  )
+                  at = AppTest.from_file(str(path), default_timeout=60).run(timeout=30)
+                  assert not list(at.exception), (function_name, list(at.exception))
+                  for _ in range(steps - 1):
+                      next_buttons = [b for b in at.button if b.label == 'Next →']
+                      assert next_buttons, (function_name, 'missing Next button')
+                      next_buttons[0].click().run(timeout=30)
+                      assert not list(at.exception), (function_name, list(at.exception))
+                  assert any(b.label == 'Close' for b in at.button), function_name
+                  print(function_name, 'OK', steps, 'steps')
+          PY
+      - name: Re-run integrated V7 production workflows
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.research_intelligence_v7_prod import (
+              SOFTWARE_VERSION,
+              analyze_researcher_signature,
+              build_research_profile,
+              evaluate_gene_pair,
+              rank_gene_list,
+          )
+
+          assert SOFTWARE_VERSION == '7.0.0'
+
+          profile = build_research_profile('EGFR')
+          payload = profile.to_dict()
+          assert payload.get('software_version') == '7.0.0'
+          assert profile.score.evidence_coverage_pct > 0
+          assert profile.live.get('overall_evidence_confidence', {}).get('score') is not None
+          assert profile.live.get('gbmap_cell_state', {}).get('ok'), profile.live.get('gbmap_cell_state')
+          print('GENE ANALYSIS OK', profile.score.overall, profile.score.evidence_coverage_pct)
+
+          pair = evaluate_gene_pair('EGFR', 'CDK4')
+          assert pair.get('software_version') == '7.0.0'
+          assert pair.get('combination_rationale_score') is not None
+          assert 'malignant_cell_state_complementarity' in pair.get('components', {})
+          assert pair.get('pair_evidence_confidence', {}).get('score') is not None
+          print('TARGET PAIR OK', pair['combination_rationale_score'])
+
+          genes = ['EGFR','STAT3','SOX2','CDK6','OLIG2','GFAP','CDKN1A','BAX']
+          effects = [2.4,1.6,1.4,1.2,-1.0,-1.3,-1.7,-2.0]
+          p_values = [1e-4,1e-3,2e-3,0.01,0.02,0.003,0.001,1e-4]
+          fdr_values = [0.002,0.01,0.02,0.04,0.05,0.02,0.01,0.002]
+          signature = analyze_researcher_signature(
+              genes, effects, p_values=p_values, fdr_values=fdr_values,
+              profile_limit=1, l1000_results=5,
+          )
+          assert signature.get('ok')
+          assert signature.get('software_version') == '7.0.0'
+          assert signature.get('top_genes_profiled')
+          assert 'l1000_reversal' in signature
+          l1000 = signature['l1000_reversal']
+          assert l1000.get('ok') or l1000.get('error'), l1000
+          print('RESEARCHER DATA OK', signature['n_input_genes'])
+
+          batch = rank_gene_list(['EGFR', 'PTEN', 'CDK4'], max_workers=1)
+          assert len(batch) == 3
+          assert all(item.to_dict().get('software_version') == '7.0.0' for item in batch)
+          print('GENE SET COMPARISON OK', [(item.gene, item.score.overall) for item in batch])
+
+          try:
+              build_research_profile('NOTAREALGENEZZZ')
+          except ValueError:
+              print('INVALID GENE HANDLING OK')
+          else:
+              raise AssertionError('Definitively invalid gene should fail clearly')
+          PY
+      - name: Commit integrated UI
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_ui.py
+          if git diff --cached --quiet; then
+            echo 'app_ui.py already integrated.'
+          else
+            git commit -m 'Add feature-specific walkthroughs and compact real-time header'
+            git push origin HEAD:feature-walkthroughs-and-header-polish
+          fi
