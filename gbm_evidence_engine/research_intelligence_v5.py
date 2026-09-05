@@ -83,6 +83,14 @@ def build_research_profile(gene: str) -> ResearchProfile:
         raise ValueError("Enter a gene symbol.")
 
     identity = mygene.resolve_gene(raw)
+    identity_status = str(identity.get("status") or "").lower()
+    if not identity.get("ok") and identity_status in {"not_found", "ambiguous"}:
+        detail = identity.get("error") or "No unambiguous human gene match was found."
+        raise ValueError(f"Invalid or ambiguous human gene symbol '{raw}': {detail}")
+
+    # A resolver outage is different from a definitively invalid symbol. In that
+    # case downstream sources may still resolve the submitted symbol, so preserve
+    # the existing partial-evidence behavior rather than blocking the dossier.
     canonical = identity.get("symbol") if identity.get("ok") else raw.upper()
     profile = build_v4_profile(canonical)
 
