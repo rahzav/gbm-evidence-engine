@@ -112,11 +112,14 @@ jobs:
           assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in ui
           assert 'Search publications' in ui
           assert 'Load 25 more' in ui
-          assert 'on_change=on_workflow_tab_change' in ui
+          assert 'on_change=on_workflow_tab_change' not in ui
           assert 'PERSISTED_SUPPRESSION_PARAM = "hide_walkthroughs"' in walkthroughs
           assert 'st.query_params[PERSISTED_SUPPRESSION_PARAM]' in walkthroughs
-          assert 'def show_walkthrough()' not in ui
-          for function_name in (
+          assert 'def show_tool_walkthrough' in walkthroughs
+          assert 'maybe_show_initial_tool_walkthrough' in ui
+          assert 'render_tool_tour_launcher()' in ui
+          assert 'glia_force_open_nonce' in walkthroughs
+          for obsolete in (
               'show_gene_walkthrough',
               'show_pair_walkthrough',
               'show_researcher_walkthrough',
@@ -124,7 +127,7 @@ jobs:
               'on_workflow_tab_change',
               'maybe_show_active_walkthrough',
           ):
-              assert f'def {function_name}' in walkthroughs, function_name
+              assert f'def {obsolete}' not in walkthroughs, obsolete
           for agent_tool in (
               'build_gene_dossier',
               'compare_target_pair',
@@ -135,14 +138,14 @@ jobs:
               assert agent_tool in agent, agent_tool
           assert 'render_glia_layer()' in ui
           assert '"Research Assistant",' not in ui
-          for required in ('Ask Glia', 'localStorage', 'st.components.v2.component', 'glia-panel-open', 'Research memory'):
+          for required in ('Ask Glia', 'gliaGlyph', 'force_open_nonce', 'localStorage', 'st.components.v2.component', 'glia-panel-open', 'Research memory'):
               assert required in glia, required
           assert 'persistent_memory' in agent
           assert 'store": False' in agent
           assert 'https://api.groq.com/openai/v1' in agent
           assert 'GROQ_API_KEY' in glia
           assert 'OPENAI_API_KEY' not in ui
-          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + INTEGRATED GLIA COPILOT OK')
+          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + PRODUCT TOUR + INTEGRATED GLIA COPILOT OK')
           PY
       - name: Validate release metadata and documentation
         run: |
@@ -178,7 +181,7 @@ jobs:
           if at.exception:
               raise SystemExit(at.exception)
           assert any(button.label == 'Build dossier' for button in at.button)
-          assert bool(at.session_state['gene_walkthrough_seen'])
+          assert bool(at.session_state['tool_tour_seen'])
           assert at.session_state['research_workflow_tabs'] == 'Gene Analysis'
           print('STREAMLIT PRODUCT OK')
           PY
