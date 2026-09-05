@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use GBM Gene Analysis in research, please cite the software using this metadata."
+title: "GBM Gene Analysis"
+type: software
+version: "7.0.0"
+date-released: 2026-09-04
+authors:
+  - family-names: "Zaveri"
+    given-names: "Rahul"
+repository-code: "https://github.com/rahzav/gbm-evidence-engine"
+url: "https://github.com/rahzav/gbm-evidence-engine"
+license: MIT
+keywords:
+  - glioblastoma
+  - GBM
+  - molecular research
+  - evidence synthesis
+  - research prioritization
