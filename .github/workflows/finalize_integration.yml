@@ -1,0 +1,91 @@
+name: Final Production Integration
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - scripts/finalize_product_integration.py
+      - .github/workflows/finalize_integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply final UI and workflow integration
+        run: python scripts/finalize_product_integration.py
+      - name: Install production requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Compile production paths
+        run: |
+          python -m py_compile \
+            gbm_evidence_engine/connectors/*.py \
+            gbm_evidence_engine/research_intelligence.py \
+            gbm_evidence_engine/research_intelligence_v3.py \
+            gbm_evidence_engine/research_intelligence_v4.py \
+            gbm_evidence_engine/research_intelligence_v5.py \
+            gbm_evidence_engine/research_intelligence_v6.py \
+            gbm_evidence_engine/research_discovery.py \
+            gbm_evidence_engine/research_intelligence_v7.py \
+            gbm_evidence_engine/research_intelligence_v7_prod.py \
+            gbm_evidence_engine/benchmarking.py \
+            app_ui.py streamlit_app.py api/app.py
+      - name: Full deterministic scientific and grounding suite
+        run: |
+          PYTHONPATH=. python tests/test_survival.py
+          PYTHONPATH=. python tests/test_dependency.py
+          PYTHONPATH=. python tests/test_evidence_model.py
+          PYTHONPATH=. python tests/test_grounding_validator.py
+          PYTHONPATH=. python tests/test_research_intelligence.py
+          PYTHONPATH=. python tests/test_research_intelligence_v3.py
+          PYTHONPATH=. python tests/test_glass_gbm_specific.py
+          PYTHONPATH=. python tests/test_research_intelligence_v5.py
+          PYTHONPATH=. python tests/test_research_intelligence_v6.py
+          PYTHONPATH=. python tests/test_research_discovery.py
+          PYTHONPATH=. python tests/test_research_intelligence_v7.py
+      - name: Streamlit workflow smoke test
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          labels = [b.label for b in at.button]
+          assert 'Build dossier' in labels, labels
+          assert any(t.value == 'Gene Analysis' for t in at.tabs), [t.value for t in at.tabs]
+          assert any(t.value == 'Target Pair Analysis' for t in at.tabs), [t.value for t in at.tabs]
+          assert any(t.value == 'Researcher Data' for t in at.tabs), [t.value for t in at.tabs]
+          assert at.session_state['walkthrough_open'] is True
+          print('FINAL STREAMLIT WORKFLOW OK')
+          PY
+      - name: API V7 audit
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from api.app import health
+          result = health()
+          assert result['status'] == 'ok', result
+          assert result['version'] == '7.0.0', result
+          print(result)
+          PY
+      - name: Commit integrated production UI
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A app_ui.py streamlit_app.py streamlit_app_v5.py
+          if git diff --cached --quiet; then
+            echo 'No UI integration changes to commit.'
+          else
+            git commit -m "Unify V7 research workflows with production UX"
+            git push origin HEAD:final-production-integration
+          fi
