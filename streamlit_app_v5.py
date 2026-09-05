@@ -792,14 +792,12 @@ def show_walkthrough():
             st.rerun()
 
 
-title_col, info_col, spacer_col = st.columns(
-    [3.45, 0.28, 8.27],
-    gap="small",
-    vertical_alignment="center",
-)
-with title_col:
-    st.title("GBM Gene Analysis")
-with info_col:
+with st.container(horizontal=True, vertical_alignment="center", gap="xxsmall"):
+    st.markdown(
+        "<div style='font-size:2.75rem;font-weight:700;line-height:1.2;letter-spacing:-0.02em;margin:0;padding:0;'>GBM Gene Analysis</div>",
+        unsafe_allow_html=True,
+        width="content",
+    )
     st.button(
         ":material/info:",
         help="Open walkthrough",
