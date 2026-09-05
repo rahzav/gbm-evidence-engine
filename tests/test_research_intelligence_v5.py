@@ -1,6 +1,9 @@
 """Deterministic tests for V5 researcher-context layers."""
+from unittest.mock import patch
+
 from gbm_evidence_engine.evidence_model import Dossier
 from gbm_evidence_engine.research_intelligence import ResearchProfile, ScoreDimension, TargetPriorityScore
+import gbm_evidence_engine.research_intelligence_v5 as v5
 from gbm_evidence_engine.research_intelligence_v5 import _consistency_review, _key_findings
 from gbm_evidence_engine.connectors.mygene import _aliases
 from gbm_evidence_engine.connectors.b3db_live import _norm
@@ -82,9 +85,31 @@ def test_recurrent_mutations_count_unique_samples():
     assert result["mutation_types"][0]["sample_count"] == 3
 
 
+def test_definitively_invalid_gene_is_rejected_before_downstream_queries():
+    with patch.object(
+        v5.mygene,
+        "resolve_gene",
+        return_value={
+            "ok": False,
+            "query": "NOTAREALGENEZZZ",
+            "status": "not_found",
+            "error": "No human gene match was found.",
+        },
+    ):
+        try:
+            v5.build_research_profile("NOTAREALGENEZZZ")
+        except ValueError as exc:
+            message = str(exc).lower()
+            assert "invalid" in message
+            assert "no human gene match" in message
+        else:
+            raise AssertionError("Definitively invalid gene should fail before downstream evidence queries.")
+
+
 if __name__ == "__main__":
     test_consistency_review_flags_only_real_interpretation_issues()
     test_key_findings_include_context_without_rescoring()
     test_identity_and_compound_normalizers_are_deterministic()
     test_recurrent_mutations_count_unique_samples()
+    test_definitively_invalid_gene_is_rejected_before_downstream_queries()
     print("ALL V5 RESEARCH-CONTEXT TESTS PASSED")
