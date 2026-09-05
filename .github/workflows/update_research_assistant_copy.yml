@@ -1,0 +1,47 @@
+name: Update Research Assistant Copy
+
+on:
+  push:
+    branches: [remove-assistant-privacy-caption]
+    paths:
+      - '.github/workflows/update_research_assistant_copy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: remove-assistant-privacy-caption
+      - name: Update Research Assistant copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('app_ui.py')
+          s = p.read_text(encoding='utf-8')
+
+          old_caption = '    st.caption("Evidence-grounded GBM research copilot that can interrogate dossiers, compare targets, inspect current analyses, and retrieve live Europe PMC publications.")\n'
+          new_caption = '    st.caption("Interrogate GBM evidence, compare targets, surface conflicts, connect current analyses to the literature, and identify defensible next experiments.")\n'
+          if old_caption not in s:
+              raise SystemExit('Research Assistant caption not found')
+          s = s.replace(old_caption, new_caption, 1)
+
+          privacy = '    st.caption("Messages and only the derived analysis context the assistant explicitly retrieves are processed by Groq. Raw Researcher Data tables are not passed to the assistant.")\n\n'
+          if privacy not in s:
+              raise SystemExit('Research Assistant privacy caption not found')
+          s = s.replace(privacy, '', 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          python -m py_compile app_ui.py
+          git add app_ui.py
+          git commit -m "Refine Research Assistant copy"
+          git push origin remove-assistant-privacy-caption
