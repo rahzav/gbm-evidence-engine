@@ -1,0 +1,61 @@
+name: Apply Walkthrough Copy Cleanup
+
+on:
+  push:
+    branches: [walkthrough-tooltip-copy-cleanup]
+    paths:
+      - .github/workflows/apply_walkthrough_copy_cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: walkthrough-tooltip-copy-cleanup
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Update walkthrough preference copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ui_walkthroughs.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_help = 'help="Stops this walkthrough from opening automatically. You can still open it anytime with the info button.",'
+          new_help = 'help="This walkthrough remains available at any time through the information button.",'
+          if old_help not in text:
+              raise SystemExit('walkthrough checkbox help text not found')
+          text = text.replace(old_help, new_help, 1)
+
+          old_caption = '        st.caption("You can still reopen it anytime from the info button.")\n'
+          if old_caption not in text:
+              raise SystemExit('walkthrough preference caption not found')
+          text = text.replace(old_caption, '', 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate copy cleanup
+        run: |
+          python -m py_compile ui_walkthroughs.py
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('ui_walkthroughs.py').read_text()
+          assert 'You can still reopen it anytime from the info button.' not in text
+          assert 'Stops this walkthrough from opening automatically.' not in text
+          assert 'This walkthrough remains available at any time through the information button.' in text
+          assert "Don't show this walkthrough again" in text
+          print('Walkthrough copy cleanup validated')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ui_walkthroughs.py
+          git commit -m "Refine walkthrough preference copy"
+          git push origin walkthrough-tooltip-copy-cleanup
