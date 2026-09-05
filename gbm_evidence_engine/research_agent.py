@@ -37,7 +37,7 @@ MAX_HISTORY_CHARS = 900
 MAX_MEMORY_CHARS = 1400
 MAX_TOOL_OUTPUT_CHARS = 6500
 MAX_PUBLICATION_ABSTRACT_CHARS = 700
-MAX_OUTPUT_TOKENS = 500
+MAX_OUTPUT_TOKENS = 320
 
 
 SYSTEM_INSTRUCTIONS = """\
@@ -75,6 +75,20 @@ NON-NEGOTIABLE GROUNDING RULES
 11. Persistent research memory is continuity context, not scientific evidence.
     Use it to remember prior questions, investigated targets, and research
     direction, but retrieve current evidence before making substantive GBM claims.
+12. Do not give a tour of the screen or summarize every evidence layer. Select,
+    rank, challenge, or interpret the evidence needed to answer the actual question.
+13. Lead with the research decision or conclusion. Only repeat a visible metric
+    when it changes the interpretation.
+14. Default to 120 words or fewer unless the researcher explicitly asks for a
+    detailed analysis. Use at most three short paragraphs or five compact bullets.
+15. Every substantive answer should add analytical value beyond restating the
+    workspace: an implication, contradiction, prioritization, falsifiable inference,
+    or discriminating experiment. If the evidence cannot support one, say so.
+16. When asked for the strongest finding, choose exactly one primary finding,
+    explain why it dominates, state the main caveat, and stop.
+17. When asked what to test next, recommend one highest-information experiment
+    by default, including the key readout/control and what outcome would resolve
+    the uncertainty.
 
 TOOL USE
 - build_gene_dossier: full single-gene evidence synthesis.
@@ -83,6 +97,12 @@ TOOL USE
 - search_gbm_publications: live biomedical literature title/abstract retrieval.
 - inspect_current_analysis: retrieves analysis already created in the user's
   current application session, including processed Researcher Data results.
+
+For questions about the current workspace, use inspect_current_analysis first.
+Do not rebuild a dossier that already exists in session unless the current context
+is unavailable or the researcher explicitly asks about a different target. Search
+external publications when the question genuinely requires literature beyond the
+current analysis, not as a reflex.
 
 When a question can be answered from current session context, inspect that
 context instead of asking the user to paste it again. Manual publication
@@ -641,6 +661,27 @@ def _create_response(client: Any, *, model: str, input_items: list[Any], tools: 
     return client.responses.create(**kwargs)
 
 
+
+def _response_directive(question: str, active_workflow: str = "", selected_quote: str = "") -> str:
+    q = str(question or "").strip().lower()
+    base = (
+        "Answer the research decision, not the interface. Lead with the conclusion; "
+        "use only the minimum evidence needed; avoid a layer-by-layer recap."
+    )
+    if "strongest" in q or "matters most" in q or "most important finding" in q:
+        return base + " Choose exactly one strongest finding, why it matters, and its single biggest caveat. Keep it under 90 words."
+    if "conflict" in q or "contradiction" in q or "disagree" in q:
+        return base + " Identify the single most consequential evidence conflict, explain why it changes confidence, and name the one result that would resolve it."
+    if "experiment" in q or "validate" in q or "test next" in q:
+        return base + " Recommend one highest-information experiment with model/readout, critical control, and the decision-relevant outcome. Do not list alternatives unless asked."
+    if "compare" in q or "which target" in q or "target pair" in q:
+        return base + " Make a clear ranking or decision, then give the decisive evidence and the main reason the ranking could be wrong."
+    if selected_quote:
+        return base + " Interpret the selected text rather than paraphrasing it: state its significance, limitation, and what it changes about the next research decision."
+    if active_workflow == "Researcher Data":
+        return base + " Focus on the processed signal that most changes biological interpretation or validation priority; do not restate the uploaded result summary."
+    return base + " Default to a concise implication plus the most useful next research decision."
+
 def run_agent_turn(
     user_message: str,
     *,
@@ -678,6 +719,7 @@ def run_agent_turn(
     selected_quote = str(context.get("selected_quote") or "").strip()[:1800]
     memory = persistent_memory if isinstance(persistent_memory, dict) else {}
     continuity_note = json.dumps(memory, default=str, sort_keys=True)[:MAX_MEMORY_CHARS] if memory else "No saved research continuity yet."
+    response_directive = _response_directive(question, active_workflow, selected_quote)
     ui_notes = []
     if active_workflow:
         ui_notes.append(f"Active workflow: {active_workflow}.")
@@ -699,6 +741,8 @@ def run_agent_turn(
                 + ("\n" + " ".join(ui_notes) if ui_notes else "")
                 + "\nPersistent research continuity: "
                 + continuity_note
+                + "\nResponse directive: "
+                + response_directive
             ),
         }
     )

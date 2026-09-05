@@ -1146,6 +1146,10 @@ with batch_tab:
         display_dataframe(rows, width="stretch", hide_index=True)
 
 with methods_tab:
+    render_feature_header(
+        "Methods & Data Sources", "methods",
+        "Audit the evidence model, provenance, interpretation boundaries, and source availability.",
+    )
     st.markdown("### Research Scope")
     st.write("GBM Gene Analysis integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, Glia-assisted evidence interrogation, and experimental planning. The system is focused on glioblastoma molecular research rather than clinical treatment selection.")
 

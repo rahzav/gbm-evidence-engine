@@ -52,6 +52,8 @@ def test_glia_component_has_integrated_high_contrast_controls_and_force_open():
         "syncWorkspaceLayout",
         "localStorage",
         "glia-panel-open",
+        "glia-fullscreen",
+        "glia-expand",
         "Research memory",
         "background:#171717; color:#fff",
         "<span>Ask Glia</span>",
@@ -74,6 +76,8 @@ def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
     assert "Methods & Data Sources" in source
     assert "glia_force_open_nonce" in source
     assert 'st.button("Ask Glia"' in source
+    assert 'open_tool_tour_info' in source
+    assert "Don't show this walkthrough again" in source
     for obsolete in (
         "def show_gene_walkthrough",
         "def show_pair_walkthrough",
