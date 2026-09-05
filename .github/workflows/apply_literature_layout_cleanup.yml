@@ -1,0 +1,239 @@
+name: Apply Literature Layout Cleanup
+
+on:
+  push:
+    branches: [literature-layout-cleanup]
+    paths:
+      - .github/workflows/apply_literature_layout_cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: literature-layout-cleanup
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Replace literature explorer layout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app_ui.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('def _publication_metadata(paper: dict) -> str:\n')
+          end = text.index('\ndef render_translation(ot, trials, bbb):\n', start)
+          replacement = r'''def _publication_metadata(paper: dict) -> str:
+    parts = []
+    if paper.get("journal"):
+        parts.append(str(paper["journal"]))
+    if paper.get("pmid"):
+        parts.append(f"PMID {paper['pmid']}")
+    if paper.get("pmcid"):
+        parts.append(f"PMCID {paper['pmcid']}")
+    if paper.get("doi"):
+        parts.append(f"DOI {paper['doi']}")
+    if not parts:
+        source = str(paper.get("source") or "Europe PMC")
+        identifier = paper.get("id")
+        parts.append(f"{source} {identifier}".strip())
+    return " · ".join(parts)
+
+
+def _render_publication(paper: dict, index: int) -> None:
+    paper_title = str(paper.get("title") or "Untitled publication")
+    safe_title = paper_title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+    authors = str(paper.get("authors") or "").strip()
+    year = str(paper.get("year") or "").strip()
+    metadata = _publication_metadata(paper)
+
+    with st.container(border=True):
+        title_col, year_col = st.columns([8.5, 1.2], vertical_alignment="top")
+        with title_col:
+            if paper.get("url"):
+                st.markdown(f"**[{safe_title}]({paper['url']})**")
+            else:
+                st.markdown(f"**{paper_title}**")
+        with year_col:
+            if year:
+                st.markdown(
+                    f"<div style='text-align:right;font-size:.82rem;font-weight:600;opacity:.62;white-space:nowrap;'>{year}</div>",
+                    unsafe_allow_html=True,
+                )
+        st.caption(authors if authors else "Authors not indexed in Europe PMC.")
+        st.caption(metadata)
+
+
+def render_literature(profile, lit):
+    gene = profile.gene
+    total_records = lit.get("hit_count") if lit.get("ok") else None
+
+    heading_col, source_col = st.columns([5, 2], vertical_alignment="bottom")
+    with heading_col:
+        st.markdown("### Literature Explorer")
+        st.caption(
+            "Search the live Europe PMC index for this gene and narrow results by GBM disease context."
+        )
+    with source_col:
+        indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live Europe PMC"
+        st.markdown(
+            f"<div style='text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>Europe PMC · {indexed_text}</div>",
+            unsafe_allow_html=True,
+        )
+
+    context_keys = [key for key in europepmc.CONTEXT_QUERIES if key in profile.context_map]
+    label_to_key = {"All GBM literature": None}
+    context_options = ["All GBM literature"]
+    for key in context_keys:
+        label = europepmc.CONTEXT_LABELS.get(key, key.replace("_", " ").title())
+        context_options.append(label)
+        label_to_key[label] = key
+
+    applied_key = f"literature_applied_terms_{gene}"
+    search_input_key = f"literature_search_input_{gene}"
+    st.session_state.setdefault(applied_key, "")
+    st.session_state.setdefault(search_input_key, st.session_state[applied_key])
+
+    with st.container(border=True):
+        st.markdown("#### Find publications")
+        st.caption("Choose a disease context, then optionally narrow the result set with title/abstract keywords.")
+
+        st.markdown(
+            "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.15rem 0 .12rem;'>Disease context</div>",
+            unsafe_allow_html=True,
+        )
+        selected_label = st.pills(
+            "Disease context",
+            context_options,
+            default="All GBM literature",
+            selection_mode="single",
+            key=f"literature_context_{gene}",
+            label_visibility="collapsed",
+        ) or "All GBM literature"
+        context_key = label_to_key.get(selected_label)
+
+        st.markdown(
+            "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.7rem 0 .12rem;'>Search publications</div>",
+            unsafe_allow_html=True,
+        )
+        with st.form(f"literature_search_form_{gene}", clear_on_submit=False, border=False):
+            search_col, button_col = st.columns([7, 1.25], vertical_alignment="bottom")
+            with search_col:
+                search_text = st.text_input(
+                    "Search publications",
+                    key=search_input_key,
+                    placeholder="Search title/abstract — e.g. osimertinib, CAR T, resistance",
+                    help="Searches within this gene's GBM literature in Europe PMC. Empty the field and search again to reset.",
+                    label_visibility="collapsed",
+                )
+            with button_col:
+                search_submitted = st.form_submit_button("Search", type="primary", width="stretch")
+        if search_submitted:
+            st.session_state[applied_key] = search_text.strip()
+
+    applied_terms = st.session_state.get(applied_key, "")
+    signature = (gene, context_key or "", applied_terms)
+    sig_key = f"literature_signature_{gene}"
+    papers_key = f"literature_papers_{gene}"
+    cursor_key = f"literature_cursor_{gene}"
+    hits_key = f"literature_hits_{gene}"
+    error_key = f"literature_error_{gene}"
+
+    if st.session_state.get(sig_key) != signature:
+        result = cached_publication_search(gene, context_key, applied_terms, None)
+        st.session_state[sig_key] = signature
+        st.session_state[papers_key] = result.get("papers") or []
+        st.session_state[cursor_key] = result.get("next_cursor")
+        st.session_state[hits_key] = result.get("hit_count")
+        st.session_state[error_key] = result.get("error")
+
+    papers = st.session_state.get(papers_key, [])
+    hit_count = st.session_state.get(hits_key)
+    error = st.session_state.get(error_key)
+    if error:
+        st.info(error)
+        return
+
+    section_space(0.35)
+    results_col, count_col = st.columns([5, 2], vertical_alignment="bottom")
+    query_description = selected_label
+    if applied_terms:
+        query_description += f' · "{applied_terms}"'
+    with results_col:
+        st.markdown("### Relevant Publications")
+        st.caption(query_description)
+    with count_col:
+        if isinstance(hit_count, int):
+            count_text = f"{hit_count:,} matches · {len(papers):,} shown"
+        else:
+            count_text = f"{len(papers):,} shown"
+        st.markdown(
+            f"<div style='text-align:right;font-size:.86rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>{count_text}</div>",
+            unsafe_allow_html=True,
+        )
+
+    if not papers:
+        st.info("No matching publications were returned for this filter/search.")
+        return
+
+    for index, paper in enumerate(papers, start=1):
+        _render_publication(paper, index)
+
+    next_cursor = st.session_state.get(cursor_key)
+    if next_cursor and (not isinstance(hit_count, int) or len(papers) < hit_count):
+        remaining = None if not isinstance(hit_count, int) else max(0, hit_count - len(papers))
+        button_label = "Load 25 more" if remaining is None else f"Load 25 more · {remaining:,} remaining"
+        section_space(0.25)
+        _, load_col, _ = st.columns([2, 3, 2])
+        with load_col:
+            if st.button(button_label, key=f"literature_load_more_{gene}", width="stretch"):
+                more = cached_publication_search(gene, context_key, applied_terms, next_cursor)
+                if more.get("ok"):
+                    existing = {
+                        str(p.get("doi") or p.get("pmid") or p.get("pmcid") or p.get("id") or p.get("title"))
+                        for p in papers
+                    }
+                    additions = []
+                    for paper in more.get("papers") or []:
+                        identity = str(paper.get("doi") or paper.get("pmid") or paper.get("pmcid") or paper.get("id") or paper.get("title"))
+                        if identity not in existing:
+                            additions.append(paper)
+                            existing.add(identity)
+                    st.session_state[papers_key] = papers + additions
+                    st.session_state[cursor_key] = more.get("next_cursor")
+                    st.rerun()
+                else:
+                    st.info(more.get("error", "Europe PMC is temporarily unavailable."))
+
+
+'''
+          text = text[:start] + replacement + text[end+1:]
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate literature layout
+        run: |
+          python -m py_compile app_ui.py
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('app_ui.py').read_text(encoding='utf-8')
+          assert '### Literature Explorer' in text
+          assert '#### Find publications' in text
+          assert 'label_visibility="collapsed"' in text
+          assert 'Clear search' not in text
+          assert 'on_change=clear_literature_search' not in text
+          assert 'Load 25 more' in text
+          assert 'matches · {len(papers):,} shown' in text
+          print('LITERATURE LAYOUT VALIDATED')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "rahzav"
+          git config user.email "rzaveri1770@gmail.com"
+          git add app_ui.py
+          git commit -m "Clean up literature explorer layout"
+          git push origin HEAD:literature-layout-cleanup
