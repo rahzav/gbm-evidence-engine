@@ -30,9 +30,14 @@ except Exception:  # pragma: no cover - exercised only in reduced environments.
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 AGENT_VERSION = "1.0.0"
-MAX_TOOL_ROUNDS = 4
-MAX_EVIDENCE_RECORDS = 12
-MAX_HISTORY_MESSAGES = 6
+MAX_TOOL_ROUNDS = 3
+MAX_EVIDENCE_RECORDS = 6
+MAX_HISTORY_MESSAGES = 3
+MAX_HISTORY_CHARS = 900
+MAX_MEMORY_CHARS = 1400
+MAX_TOOL_OUTPUT_CHARS = 6500
+MAX_PUBLICATION_ABSTRACT_CHARS = 700
+MAX_OUTPUT_TOKENS = 500
 
 
 SYSTEM_INSTRUCTIONS = """\
@@ -242,6 +247,31 @@ def _safe_text(value: Any, limit: int = 2200) -> str | None:
     return text[:limit] if text else None
 
 
+def _compact_for_model(value: Any, *, depth: int = 0) -> Any:
+    """Bound nested tool context before it is sent to the language model."""
+    if depth >= 4:
+        return _safe_text(value, 320)
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, item in list(value.items())[:28]:
+            out[str(key)] = _compact_for_model(item, depth=depth + 1)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [_compact_for_model(item, depth=depth + 1) for item in list(value)[:8]]
+    if isinstance(value, str):
+        return value[:900]
+    return value
+
+
+def _bounded_json(value: Any, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
+    compacted = _compact_for_model(value)
+    encoded = json.dumps(compacted, default=str, separators=(",", ":"))
+    if len(encoded) <= limit:
+        return encoded
+    summary = encoded[: max(400, limit - 120)]
+    return json.dumps({"truncated_for_model": True, "summary": summary}, separators=(",", ":"))
+
+
 def _record_payload(record: Any, registry: dict[str, AgentReference]) -> dict[str, Any]:
     provenance = record.provenance
     citation = _register_reference(
@@ -252,9 +282,14 @@ def _record_payload(record: Any, registry: dict[str, AgentReference]) -> dict[st
         url=provenance.citation_url,
         kind="evidence_record",
     )
+    caveats = record.caveats
+    if isinstance(caveats, (list, tuple)):
+        caveats = [_safe_text(item, 280) for item in caveats[:3]]
+    else:
+        caveats = _safe_text(caveats, 500)
     return {
         "citation": citation,
-        "claim": record.claim_text,
+        "claim": _safe_text(record.claim_text, 700),
         "tier": record.tier.value,
         "statistic_name": record.statistic_name,
         "statistic_value": record.statistic_value,
@@ -263,15 +298,9 @@ def _record_payload(record: Any, registry: dict[str, AgentReference]) -> dict[st
         "effect_size": record.effect_size,
         "confidence_interval": record.confidence_interval,
         "confidence": record.confidence.value,
-        "additional_stats": record.additional_stats,
         "source_dataset": provenance.source_dataset,
-        "dataset_version": provenance.dataset_version,
-        "method": provenance.method,
         "sample_size": provenance.sample_size,
-        "citation_label": provenance.citation,
-        "citation_url": provenance.citation_url,
-        "retrieved_at": provenance.retrieved_at,
-        "caveats": record.caveats,
+        "caveats": caveats,
     }
 
 
@@ -291,24 +320,24 @@ def _publication_payload(paper: dict[str, Any], registry: dict[str, AgentReferen
     citation = _register_reference(
         registry,
         token,
-        _safe_text(paper.get("title"), 500) or "Europe PMC publication",
-        "Europe PMC",
+        _safe_text(paper.get("title"), 400) or "Biomedical publication",
+        "Biomedical literature",
         url=paper.get("url"),
         kind="publication",
     )
     return {
         "citation": citation,
-        "title": paper.get("title"),
-        "authors": paper.get("authors"),
-        "journal": paper.get("journal"),
+        "title": _safe_text(paper.get("title"), 400),
+        "authors": _safe_text(paper.get("authors"), 320),
+        "journal": _safe_text(paper.get("journal"), 180),
         "year": paper.get("year"),
         "pmid": paper.get("pmid"),
         "pmcid": paper.get("pmcid"),
         "doi": paper.get("doi"),
         "cited_by": paper.get("cited_by"),
         "url": paper.get("url"),
-        "abstract": _safe_text(paper.get("abstract"), 2200),
-        "publication_types": paper.get("publication_types") or [],
+        "abstract": _safe_text(paper.get("abstract"), MAX_PUBLICATION_ABSTRACT_CHARS),
+        "publication_types": (paper.get("publication_types") or [])[:4],
     }
 
 
@@ -333,7 +362,7 @@ def _profile_payload(
 
     papers = [
         _publication_payload(paper, registry)
-        for paper in (live.get("literature", {}).get("top_papers") or [])[:10]
+        for paper in (live.get("literature", {}).get("top_papers") or [])[:4]
     ]
     return {
         "analysis_citation": analysis_citation,
@@ -343,15 +372,15 @@ def _profile_payload(
         "evidence_coverage_pct": profile.score.evidence_coverage_pct,
         "overall_evidence_confidence": live.get("overall_evidence_confidence"),
         "functional_model_relevance": live.get("model_relevance"),
-        "key_findings": live.get("key_findings") or [],
+        "key_findings": (live.get("key_findings") or [])[:6],
         "evidence_consistency": live.get("evidence_consistency") or {},
-        "research_opportunities": live.get("research_opportunities") or [],
-        "mechanistic_hypotheses": live.get("mechanistic_hypotheses") or [],
-        "evidence_gaps": profile.evidence_gaps,
-        "next_experiments": profile.next_experiments,
+        "research_opportunities": (live.get("research_opportunities") or [])[:4],
+        "mechanistic_hypotheses": (live.get("mechanistic_hypotheses") or [])[:3],
+        "evidence_gaps": list(profile.evidence_gaps)[:6],
+        "next_experiments": list(profile.next_experiments)[:5],
         "evidence_records": evidence,
         "relevant_publications": papers,
-        "source_status": profile.source_status,
+        "source_status": _compact_for_model(profile.source_status),
         "score_caveat": profile.score.caveat,
         "software_version": SOFTWARE_VERSION,
     }
@@ -367,7 +396,8 @@ def _pair_payload(pair: dict[str, Any], registry: dict[str, AgentReference]) -> 
         f"GBM Gene Analysis {pair.get('software_version') or SOFTWARE_VERSION}",
         kind="analysis",
     )
-    return {"analysis_citation": citation, **pair}
+    compacted = _compact_for_model(pair)
+    return {"analysis_citation": citation, **(compacted if isinstance(compacted, dict) else {})}
 
 
 def _signature_payload(signature: dict[str, Any], registry: dict[str, AgentReference]) -> dict[str, Any]:
@@ -385,11 +415,11 @@ def _signature_payload(signature: dict[str, Any], registry: dict[str, AgentRefer
         "n_input_genes": signature.get("n_input_genes"),
         "n_statistically_supported": signature.get("n_statistically_supported"),
         "statistics_provided": signature.get("statistics_provided"),
-        "top_genes_profiled": (signature.get("top_genes_profiled") or [])[:25],
-        "up_pathway_enrichment": signature.get("up_pathway_enrichment"),
-        "down_pathway_enrichment": signature.get("down_pathway_enrichment"),
-        "l1000_reversal": signature.get("l1000_reversal"),
-        "interpretation": signature.get("interpretation"),
+        "top_genes_profiled": (signature.get("top_genes_profiled") or [])[:10],
+        "up_pathway_enrichment": _compact_for_model(signature.get("up_pathway_enrichment")),
+        "down_pathway_enrichment": _compact_for_model(signature.get("down_pathway_enrichment")),
+        "l1000_reversal": _compact_for_model(signature.get("l1000_reversal")),
+        "interpretation": _safe_text(signature.get("interpretation"), 900),
         "software_version": signature.get("software_version") or SOFTWARE_VERSION,
     }
 
@@ -415,7 +445,7 @@ def _comparison_payload(profiles: list[Any], registry: dict[str, AgentReference]
                 "priority_classification": profile.score.label,
                 "evidence_confidence": live.get("overall_evidence_confidence"),
                 "model_relevance": live.get("model_relevance"),
-                "key_findings": (live.get("key_findings") or [])[:5],
+                "key_findings": (live.get("key_findings") or [])[:3],
             }
         )
     return {"analysis_citation": citation, "genes": genes, "results": rows}
@@ -442,7 +472,9 @@ def _inspect_session(
 ) -> dict[str, Any]:
     selected: dict[str, Any] = {}
     if scope in {"all", "gene"} and session_context.get("profile") is not None:
-        selected["gene"] = _profile_payload(session_context["profile"], registry, include_evidence=True)
+        selected["gene"] = _profile_payload(
+            session_context["profile"], registry, include_evidence=(scope == "gene")
+        )
     if scope in {"all", "pair"} and session_context.get("pair") is not None:
         selected["pair"] = _pair_payload(session_context["pair"], registry)
     if scope in {"all", "researcher_data"} and session_context.get("signature") is not None:
@@ -490,10 +522,10 @@ def _dispatch_tool(
             str(arguments.get("gene") or "").strip(),
             context_key=None if context == "none" else context,
             terms=str(arguments.get("terms") or ""),
-            page_size=12,
+            page_size=8,
             cursor_mark=None,
         )
-        papers = [_publication_payload(paper, registry) for paper in (result.get("papers") or [])[:12]]
+        papers = [_publication_payload(paper, registry) for paper in (result.get("papers") or [])[:6]]
         return {
             "ok": result.get("ok"),
             "query": result.get("query"),
@@ -520,7 +552,7 @@ def _history_input(history: list[dict[str, Any]] | None) -> list[dict[str, str]]
         content = str(item.get("content") or "").strip()
         if role not in {"user", "assistant"} or not content:
             continue
-        out.append({"role": role, "content": content[:5000]})
+        out.append({"role": role, "content": content[:MAX_HISTORY_CHARS]})
     return out
 
 
@@ -601,7 +633,7 @@ def _create_response(client: Any, *, model: str, input_items: list[Any], tools: 
         "tools": tools,
         "tool_choice": "auto",
         "parallel_tool_calls": False,
-        "max_output_tokens": 900,
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
         "store": False,
     }
     if model.startswith("openai/gpt-oss-"):
@@ -645,7 +677,7 @@ def run_agent_turn(
     selected_section = str(context.get("selected_section") or "").strip()
     selected_quote = str(context.get("selected_quote") or "").strip()[:1800]
     memory = persistent_memory if isinstance(persistent_memory, dict) else {}
-    continuity_note = json.dumps(memory, default=str, sort_keys=True)[:7000] if memory else "No saved research continuity yet."
+    continuity_note = json.dumps(memory, default=str, sort_keys=True)[:MAX_MEMORY_CHARS] if memory else "No saved research continuity yet."
     ui_notes = []
     if active_workflow:
         ui_notes.append(f"Active workflow: {active_workflow}.")
@@ -700,7 +732,7 @@ def run_agent_turn(
                     {
                         "type": "function_call_output",
                         "call_id": call.call_id,
-                        "output": json.dumps(payload, default=str),
+                        "output": _bounded_json(payload),
                     }
                 )
             response = _create_response(client, model=selected_model, input_items=input_items, tools=TOOL_DEFINITIONS)
@@ -712,6 +744,15 @@ def run_agent_turn(
         status_code = getattr(exc, "status_code", None)
         message = str(exc)
         lowered = message.lower()
+        if (
+            status_code == 413
+            or "request too large" in lowered
+            or "rate_limit_exceeded" in lowered and "tokens per minute" in lowered
+        ):
+            raise ResearchAgentError(
+                "Glia could not fit this request within the current free-tier context limit. "
+                "Try again; if it repeats, start a new thread or ask a narrower question."
+            ) from exc
         if status_code == 429 or "rate limit" in lowered or "too many requests" in lowered:
             raise ResearchAgentError(
                 "Glia is temporarily at capacity on the shared Groq free tier. Please try again later."

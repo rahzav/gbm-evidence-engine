@@ -46,27 +46,36 @@ GLIA_CSS = """
 #glia-shell.glia-closed { transform: translateX(100%); pointer-events: none; opacity: 0; }
 
 #glia-header {
-  padding: 14px 14px 10px 16px;
+  padding: 14px 14px 11px;
   border-bottom: 1px solid color-mix(in srgb, var(--st-text-color, #111) 10%, transparent);
   background: var(--st-background-color, #fff);
 }
-.glia-header-row { display:flex; align-items:center; gap:10px; }
-.glia-mark {
-  width: 30px; height: 30px; border-radius: 9px;
-  display:flex; align-items:center; justify-content:center;
-  font-weight:800; font-size:14px;
-  border:1px solid color-mix(in srgb, var(--st-primary-color, #ff4b4b) 45%, transparent);
-  background: color-mix(in srgb, var(--st-primary-color, #ff4b4b) 10%, transparent);
+.glia-header-row {
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) 30px 30px 30px;
+  align-items:center;
+  column-gap:7px;
 }
-.glia-title-wrap { min-width:0; flex:1; }
-.glia-title { font-weight: 760; font-size: 1.02rem; letter-spacing:-.01em; line-height:1.1; }
-.glia-context { font-size:.75rem; opacity:.60; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.glia-mark {
+  width:40px; height:40px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid color-mix(in srgb, var(--st-primary-color, #ff4b4b) 48%, transparent);
+  background:color-mix(in srgb, var(--st-primary-color, #ff4b4b) 9%, var(--st-background-color, #fff));
+  color:var(--st-primary-color, #ff4b4b);
+}
+.glia-mark svg { width:25px; height:25px; display:block; }
+.glia-title-wrap {
+  min-width:0; display:flex; flex-direction:column; justify-content:center;
+  padding-left:2px;
+}
+.glia-title { font-weight:780; font-size:1.08rem; letter-spacing:-.015em; line-height:1.08; }
+.glia-context { font-size:.78rem; opacity:.60; margin-top:3px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .glia-icon-btn {
   border:0; background:transparent; color:inherit; opacity:.62; cursor:pointer;
   width:30px; height:30px; border-radius:8px; font-size:17px;
 }
 .glia-icon-btn:hover { background: color-mix(in srgb, var(--st-text-color, #111) 7%, transparent); opacity:.9; }
-.glia-memory-line { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:.74rem; opacity:.68; }
+.glia-memory-line { display:flex; align-items:center; gap:7px; margin:8px 0 0 49px; font-size:.73rem; opacity:.66; }
 .glia-memory-dot { width:6px; height:6px; border-radius:50%; background: var(--st-primary-color, #ff4b4b); }
 
 #glia-memory-panel {
@@ -148,21 +157,27 @@ GLIA_CSS = """
 .glia-footer-note { font-size:.66rem; opacity:.48; margin:6px 2px 0; line-height:1.35; }
 
 #glia-launcher {
-  position:fixed; z-index:1000001; right:18px; bottom:18px;
-  border:1px solid color-mix(in srgb, var(--st-text-color, #111) 16%, transparent);
-  background:var(--st-background-color, #fff); color:inherit; border-radius:999px;
-  box-shadow:0 8px 26px rgba(0,0,0,.13); padding:9px 13px 9px 10px;
-  display:none; align-items:center; gap:7px; font-weight:720; cursor:pointer;
+  position:fixed; z-index:1000001; right:20px; bottom:72px;
+  border:0;
+  background:var(--st-primary-color, #ff4b4b); color:#fff; border-radius:999px;
+  box-shadow:0 10px 28px rgba(0,0,0,.20); padding:10px 16px 10px 11px;
+  display:none; align-items:center; gap:8px; font-weight:760; cursor:pointer;
+  letter-spacing:-.01em;
 }
+#glia-launcher:hover { filter:brightness(.96); transform:translateY(-1px); }
 #glia-launcher.glia-visible { display:flex; }
-.glia-launcher-mark { width:23px;height:23px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--st-primary-color,#ff4b4b) 11%,transparent);font-size:11px;font-weight:800; }
+.glia-launcher-mark {
+  width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.18); color:#fff;
+}
+.glia-launcher-mark svg { width:18px; height:18px; display:block; }
 
 #glia-selection-action {
   position:fixed; z-index:1000002; display:none;
-  border:1px solid color-mix(in srgb, var(--st-text-color, #111) 24%, transparent);
-  background:var(--st-text-color, #111); color:var(--st-background-color, #fff); border-radius:8px;
-  box-shadow:0 6px 20px rgba(0,0,0,.18); padding:6px 9px; font-size:.76rem;
-  font-weight:720; cursor:pointer;
+  border:1px solid #171717;
+  background:#171717; color:#fff; border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.20); padding:7px 10px; font-size:.76rem;
+  font-weight:740; cursor:pointer;
 }
 #glia-selection-action.glia-visible { display:block; }
 
@@ -197,6 +212,7 @@ export default function(component) {
     draftQuote: null,
     hydrationSent: false,
     lastPayloadRevision: null,
+    lastForceOpenNonce: null,
   };
   window.__gbmGliaRuntime = runtime;
 
@@ -206,6 +222,13 @@ export default function(component) {
   const uiStored = safeParse(localStorage.getItem(UI_KEY), {});
   if (typeof uiStored.open === "boolean" && runtime.uiLoaded !== true) runtime.open = uiStored.open;
   runtime.uiLoaded = true;
+
+  const forceOpenNonce = Number(data.force_open_nonce || 0);
+  if (forceOpenNonce && forceOpenNonce !== runtime.lastForceOpenNonce) {
+    runtime.open = true;
+    runtime.lastForceOpenNonce = forceOpenNonce;
+    try { localStorage.setItem(UI_KEY, JSON.stringify({open: true})); } catch (_) {}
+  }
 
   if (!data.hydrated && !runtime.hydrationSent) {
     const stored = safeParse(localStorage.getItem(STORAGE_KEY), {messages: [], memory: {}});
@@ -232,10 +255,23 @@ export default function(component) {
   shell.setAttribute("aria-label", "Glia research copilot");
   document.body.appendChild(shell);
 
+  const gliaGlyph = `<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <g fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 10.2 10.4 6.4M16 10.2l5.8-4M16 20.9l-6 4.2M16 20.9l6.3 3.7M11.2 15.5H5.8M20.8 15.5h5.4"/>
+      <circle cx="16" cy="15.5" r="5.4" fill="currentColor" fill-opacity=".16"/>
+      <circle cx="10.1" cy="6.2" r="1.8" fill="currentColor"/>
+      <circle cx="22.1" cy="6" r="1.8" fill="currentColor"/>
+      <circle cx="9.7" cy="25.3" r="1.8" fill="currentColor"/>
+      <circle cx="22.6" cy="24.8" r="1.8" fill="currentColor"/>
+      <circle cx="5.3" cy="15.5" r="1.7" fill="currentColor"/>
+      <circle cx="26.7" cy="15.5" r="1.7" fill="currentColor"/>
+    </g>
+  </svg>`;
+
   const launcher = document.createElement("button");
   launcher.id = "glia-launcher";
   launcher.type = "button";
-  launcher.innerHTML = '<span class="glia-launcher-mark">G</span><span>Glia</span>';
+  launcher.innerHTML = `<span class="glia-launcher-mark">${gliaGlyph}</span><span>Ask Glia</span>`;
   document.body.appendChild(launcher);
 
   const selectionAction = document.createElement("button");
@@ -318,7 +354,7 @@ export default function(component) {
     shell.innerHTML = `
       <div id="glia-header">
         <div class="glia-header-row">
-          <div class="glia-mark">G</div>
+          <div class="glia-mark">${gliaGlyph}</div>
           <div class="glia-title-wrap">
             <div class="glia-title">Glia</div>
             <div class="glia-context">${escapeHtml(data.active_workflow || "GBM workspace")}</div>
@@ -704,6 +740,7 @@ def render_glia_layer() -> None:
     st.session_state.setdefault("glia_revision", 0)
     st.session_state.setdefault("glia_last_event_id", None)
     st.session_state.setdefault("glia_processing", False)
+    st.session_state.setdefault("glia_force_open_nonce", 0)
 
     memory = _normalize_memory(st.session_state.get("glia_memory"))
     _update_memory_from_context(memory, context, active_workflow)
@@ -721,6 +758,7 @@ def render_glia_layer() -> None:
             "configured": bool(api_key),
             "active_workflow": active_workflow,
             "context_summary": _context_summary(context),
+            "force_open_nonce": int(st.session_state.get("glia_force_open_nonce") or 0),
             "messages": messages,
             "processing": bool(st.session_state.get("glia_processing")),
             "quick_actions": _quick_actions(active_workflow),
