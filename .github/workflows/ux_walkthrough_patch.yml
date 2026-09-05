@@ -1,0 +1,39 @@
+name: Apply walkthrough UX patch
+
+on:
+  push:
+    branches: [ux-professional-copy-cleanup]
+    paths:
+      - scripts/ux_walkthrough_patch.py
+      - .github/workflows/ux_walkthrough_patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-professional-copy-cleanup
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply UX patch
+        run: python scripts/ux_walkthrough_patch.py
+      - name: Validate syntax and copy
+        run: |
+          python -m py_compile streamlit_app_v5.py
+          grep -q 'Using GBM Gene Analysis' streamlit_app_v5.py
+          grep -q 'Evidence Summary' streamlit_app_v5.py
+          grep -q 'Intended for comparative research prioritization' streamlit_app_v5.py
+          ! grep -q 'brings together tumor genomics' streamlit_app_v5.py
+          ! grep -q 'tool-generated research interpretation' streamlit_app_v5.py
+      - name: Commit app change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add streamlit_app_v5.py
+          git commit -m 'Add first-use walkthrough and refine profile copy'
+          git push origin HEAD:ux-professional-copy-cleanup
