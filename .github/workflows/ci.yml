@@ -45,6 +45,7 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v6.py
           PYTHONPATH=. python tests/test_research_discovery.py
           PYTHONPATH=. python tests/test_research_intelligence_v7.py
+          PYTHONPATH=. python tests/test_europepmc_publications.py
       - name: Validate native GBmap reference
         run: |
           PYTHONPATH=. python - <<'PY'
@@ -104,15 +105,20 @@ jobs:
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
           assert 'Real-time synthesis of live and curated gene-level evidence' in ui
+          assert 'Search publications' in ui
+          assert 'Load 25 more' in ui
+          assert 'on_change=on_workflow_tab_change' in ui
           assert 'def show_walkthrough()' not in ui
           for function_name in (
               'show_gene_walkthrough',
               'show_pair_walkthrough',
               'show_researcher_walkthrough',
               'show_comparison_walkthrough',
+              'on_workflow_tab_change',
+              'maybe_show_active_walkthrough',
           ):
               assert f'def {function_name}' in walkthroughs, function_name
-          print('SINGLE PRODUCTION UI + FEATURE WALKTHROUGHS OK')
+          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS OK')
           PY
       - name: Validate release metadata and documentation
         run: |
@@ -144,6 +150,7 @@ jobs:
               raise SystemExit(at.exception)
           assert any(button.label == 'Build dossier' for button in at.button)
           assert bool(at.session_state['gene_walkthrough_seen'])
+          assert at.session_state['research_workflow_tabs'] == 'Gene Analysis'
           print('STREAMLIT PRODUCT OK')
           PY
       - name: API and invalid-input contracts
