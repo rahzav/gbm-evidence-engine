@@ -1,0 +1,31 @@
+name: Walkthrough runtime smoke
+
+on:
+  push:
+    branches: [ux-walkthrough-final]
+    paths:
+      - .github/workflows/walkthrough_smoke.yml
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux-walkthrough-final
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install app dependencies
+        run: pip install -r requirements.txt
+      - name: Run Streamlit AppTest
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('streamlit_app.py').run(timeout=60)
+          if at.exception:
+              raise AssertionError(at.exception)
+          assert any('GBM Gene Analysis' in str(x.value) for x in at.title), 'Title missing'
+          assert any(getattr(b, 'label', '') == 'Analyze' for b in at.button), 'Analyze button missing'
+          print('Walkthrough initial render passed')
+          PY
