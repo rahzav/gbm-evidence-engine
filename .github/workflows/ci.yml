@@ -32,7 +32,7 @@ jobs:
             gbm_evidence_engine/research_intelligence_v7.py \
             gbm_evidence_engine/research_intelligence_v7_prod.py \
             gbm_evidence_engine/benchmarking.py \
-            app_ui.py ui_walkthroughs.py streamlit_app.py api/app.py
+            app_ui.py glia_interface.py ui_walkthroughs.py streamlit_app.py api/app.py
       - name: Scientific and grounding tests
         run: |
           PYTHONPATH=. python tests/test_survival.py
@@ -48,6 +48,7 @@ jobs:
           PYTHONPATH=. python tests/test_research_intelligence_v7.py
           PYTHONPATH=. python tests/test_europepmc_publications.py
           PYTHONPATH=. python tests/test_research_agent.py
+          PYTHONPATH=. python tests/test_glia_interface.py
       - name: Validate native GBmap reference
         run: |
           PYTHONPATH=. python - <<'PY'
@@ -102,9 +103,10 @@ jobs:
           entry = Path('streamlit_app.py').read_text(encoding='utf-8')
           assert 'app_ui.py' in entry, entry
           ui = Path('app_ui.py').read_text(encoding='utf-8')
+          glia = Path('glia_interface.py').read_text(encoding='utf-8')
           walkthroughs = Path('ui_walkthroughs.py').read_text(encoding='utf-8')
           agent = Path('gbm_evidence_engine/research_agent.py').read_text(encoding='utf-8')
-          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Research Assistant'):
+          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
           assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in ui
@@ -131,12 +133,16 @@ jobs:
               'inspect_current_analysis',
           ):
               assert agent_tool in agent, agent_tool
-          assert 'Raw Researcher Data tables are not passed to the assistant.' in ui
+          assert 'render_glia_layer()' in ui
+          assert '"Research Assistant",' not in ui
+          for required in ('Ask Glia', 'localStorage', 'st.components.v2.component', 'glia-panel-open', 'Research memory'):
+              assert required in glia, required
+          assert 'persistent_memory' in agent
           assert 'store": False' in agent
           assert 'https://api.groq.com/openai/v1' in agent
-          assert 'GROQ_API_KEY' in ui
+          assert 'GROQ_API_KEY' in glia
           assert 'OPENAI_API_KEY' not in ui
-          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + GROQ RESEARCH ASSISTANT OK')
+          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + INTEGRATED GLIA COPILOT OK')
           PY
       - name: Validate release metadata and documentation
         run: |
@@ -152,8 +158,8 @@ jobs:
           readme = Path('README.md').read_text(encoding='utf-8')
           handling = Path('docs/RESEARCHER_DATA_HANDLING.md').read_text(encoding='utf-8')
           assert 'Software release: 7.0.0' in readme
-          assert '### Research Assistant' in readme
-          assert '## Research Assistant boundary' in handling
+          assert '### Glia' in readme
+          assert '## Glia boundary' in handling
           assert 'GROQ_API_KEY' in readme
           print('RELEASE METADATA OK')
           PY
@@ -165,8 +171,9 @@ jobs:
 
           ui = Path('app_ui.py').read_text()
           assert 'use_container_width=' not in ui
-          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Research Assistant'):
+          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
+          assert '"Research Assistant",' not in ui
           at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
           if at.exception:
               raise SystemExit(at.exception)
