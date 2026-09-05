@@ -157,14 +157,16 @@ GLIA_CSS = """
 .glia-footer-note { font-size:.66rem; opacity:.48; margin:6px 2px 0; line-height:1.35; }
 
 #glia-launcher {
-  position:fixed; z-index:1000001; right:20px; bottom:72px;
+  position:fixed; z-index:1000001; right:0; top:48%;
+  transform:translateY(-50%);
   border:0;
-  background:var(--st-primary-color, #ff4b4b); color:#fff; border-radius:999px;
-  box-shadow:0 10px 28px rgba(0,0,0,.20); padding:10px 16px 10px 11px;
+  background:var(--st-primary-color, #ff4b4b); color:#fff;
+  border-radius:14px 0 0 14px;
+  box-shadow:-6px 8px 24px rgba(0,0,0,.18); padding:10px 14px 10px 10px;
   display:none; align-items:center; gap:8px; font-weight:760; cursor:pointer;
   letter-spacing:-.01em;
 }
-#glia-launcher:hover { filter:brightness(.96); transform:translateY(-1px); }
+#glia-launcher:hover { filter:brightness(.96); padding-right:17px; }
 #glia-launcher.glia-visible { display:flex; }
 .glia-launcher-mark {
   width:27px; height:27px; border-radius:9px; display:flex; align-items:center; justify-content:center;
@@ -194,6 +196,12 @@ GLIA_CSS = """
 }
 
 @media (max-width: 980px) {
+  #glia-launcher {
+    top:auto; right:16px; bottom:76px; transform:none;
+    border-radius:999px; padding:10px 15px 10px 10px;
+    box-shadow:0 10px 28px rgba(0,0,0,.20);
+  }
+  #glia-launcher:hover { padding-right:15px; }
   #glia-shell { width:min(92vw, 390px); }
   body.glia-panel-open [data-testid="stAppViewContainer"] { width:100% !important; max-width:100% !important; }
   body.glia-panel-open [data-testid="stAppViewBlockContainer"] { max-width:100% !important; padding-right:1rem !important; }
