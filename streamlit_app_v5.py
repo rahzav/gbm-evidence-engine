@@ -69,10 +69,19 @@ def display_status(value):
     mapping = {
         "ok": "Available",
         "available": "Available",
-        "credentials required": "Credentials required",
+        "credentials required": "Unavailable",
+        "open live api": "Available",
+        "live api": "Available",
         "unavailable": "Unavailable",
     }
-    return mapping.get(raw.lower(), raw[:1].upper() + raw[1:])
+    normalized = raw.lower()
+    if normalized in mapping:
+        return mapping[normalized]
+    if "credentials" in normalized or "token" in normalized:
+        return "Unavailable"
+    if "live api" in normalized or normalized in {"open", "public"}:
+        return "Available"
+    return raw[:1].upper() + raw[1:]
 
 
 def markdown_brief(profile) -> str:
@@ -104,7 +113,10 @@ def markdown_brief(profile) -> str:
                 lines.append(f"- [{title}]({url})" + (f" — {identifier}" if identifier else ""))
             else:
                 lines.append(f"- {title}")
-    lines += ["", "## Data Source Status"] + [f"- **{k}:** {v}" for k, v in profile.source_status.items()]
+    lines += ["", "## Data Source Status"] + [
+        f"- **{str(k).replace('_', ' ').title()}:** {display_status(v)}"
+        for k, v in profile.source_status.items()
+    ]
     lines += ["", f"> {s.caveat}"]
     return "\n".join(lines)
 
@@ -234,7 +246,7 @@ def render_human_validation(cgg, gla):
         st.caption(gla.get("scope", ""))
     elif gla.get("status") == "credentials_required":
         st.info(
-            "GLASS GBM-specific longitudinal analysis requires an authorized Synapse token. Until credentials are configured, this dimension remains unscored and evidence coverage is reduced."
+            "GLASS longitudinal evidence is unavailable for this analysis. This dimension remains unscored and evidence coverage is reduced."
         )
     else:
         st.info(gla.get("error", "GLASS longitudinal evidence is unavailable."))
@@ -446,7 +458,7 @@ def render_profile(profile):
             render_literature(profile, lit)
 
     with translation_tab:
-        st.caption("Therapeutic and clinical-development context is separated from the underlying biological evidence.")
+        st.caption("Therapeutic and clinical-development evidence.")
         render_translation(ot, trials, bbb)
 
     with interpretation_tab:
@@ -472,7 +484,7 @@ def render_profile(profile):
                     st.write("No additional validation studies were generated.")
 
     with sources_tab:
-        st.caption("Detailed provenance, raw evidence records, source availability, and exports live here so they do not interrupt the main research workflow.")
+        st.caption("Detailed provenance, source availability, and research-profile exports.")
         record_tab, status_tab, export_tab = st.tabs(["Evidence Record", "Source Status", "Export"])
         with record_tab:
             render_evidence_record(profile)
@@ -550,7 +562,7 @@ with batch_tab:
     raw = st.text_area("Gene symbols", value="EGFR, PTEN, TP53, CDK4")
     genes = list(dict.fromkeys(x.strip() for x in raw.replace(",", " ").split() if x.strip()))
     if len(genes) > 6:
-        st.warning("Gene set comparison is limited to 6 genes per run to maintain reasonable load on public research sources.")
+        st.warning("Gene set comparison is limited to 6 genes per run.")
         genes = genes[:6]
     if st.button("Compare Gene Set", type="primary") and genes:
         try:
