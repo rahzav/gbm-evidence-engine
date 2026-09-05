@@ -104,10 +104,12 @@ jobs:
           for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
-          assert 'Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.' in ui
+          assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in ui
           assert 'Search publications' in ui
           assert 'Load 25 more' in ui
           assert 'on_change=on_workflow_tab_change' in ui
+          assert 'PERSISTED_SUPPRESSION_PARAM = "hide_walkthroughs"' in walkthroughs
+          assert 'st.query_params[PERSISTED_SUPPRESSION_PARAM]' in walkthroughs
           assert 'def show_walkthrough()' not in ui
           for function_name in (
               'show_gene_walkthrough',
