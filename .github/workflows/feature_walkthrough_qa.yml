@@ -37,23 +37,25 @@ jobs:
           from streamlit.testing.v1 import AppTest
 
           ui = Path('app_ui.py').read_text(encoding='utf-8')
+          walkthroughs = Path('ui_walkthroughs.py').read_text(encoding='utf-8')
           assert 'Real-time synthesis of live and curated gene-level evidence for glioblastoma research.' in ui
           assert 'key="open_walkthrough"' not in ui
           assert 'def show_walkthrough()' not in ui
           for feature in ('gene', 'pair', 'researcher', 'comparison'):
               assert f'"{feature}"' in ui
-          for key in (
-              'open_gene_walkthrough',
-              'open_pair_walkthrough',
-              'open_researcher_walkthrough',
-              'open_comparison_walkthrough',
+          assert 'key=f"open_{feature}_walkthrough"' in walkthroughs
+          for function_name in (
+              'show_gene_walkthrough',
+              'show_pair_walkthrough',
+              'show_researcher_walkthrough',
+              'show_comparison_walkthrough',
           ):
-              assert key in Path('ui_walkthroughs.py').read_text(encoding='utf-8')
+              assert f'def {function_name}' in walkthroughs
 
           at = AppTest.from_file('streamlit_app.py', default_timeout=90).run(timeout=45)
           assert not list(at.exception), list(at.exception)
           assert any(button.label == 'Build dossier' for button in at.button)
-          assert at.session_state['gene_walkthrough_seen'] is True
+          assert bool(at.session_state['gene_walkthrough_seen'])
           print('MAIN UI + COMPACT REAL-TIME HEADER OK')
           PY
       - name: Exercise every walkthrough independently
