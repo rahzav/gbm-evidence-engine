@@ -37,7 +37,7 @@ jobs:
               'Literature & Translation',
               'Evidence Record & Research Gaps',
               'Illustrative preview',
-              'st.metric("Median GBM Chronos", "-0.42")',
+              'd1.metric("Median GBM Chronos", "-0.42")',
               'st.dataframe(',
               '_walkthrough_note',
           ]
