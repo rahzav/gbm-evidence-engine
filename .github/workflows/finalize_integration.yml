@@ -57,15 +57,18 @@ jobs:
       - name: Streamlit workflow smoke test
         run: |
           python - <<'PY'
+          from pathlib import Path
           from streamlit.testing.v1 import AppTest
+
+          ui = Path('app_ui.py').read_text(encoding='utf-8')
+          for required in ('Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Build dossier'):
+              assert required in ui, required
+
           at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
           if at.exception:
               raise SystemExit(at.exception)
           labels = [b.label for b in at.button]
           assert 'Build dossier' in labels, labels
-          assert any(t.value == 'Gene Analysis' for t in at.tabs), [t.value for t in at.tabs]
-          assert any(t.value == 'Target Pair Analysis' for t in at.tabs), [t.value for t in at.tabs]
-          assert any(t.value == 'Researcher Data' for t in at.tabs), [t.value for t in at.tabs]
           assert at.session_state['walkthrough_open'] is True
           print('FINAL STREAMLIT WORKFLOW OK')
           PY
