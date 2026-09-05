@@ -119,9 +119,12 @@ def evaluate_case(profile, case: dict) -> dict:
 def run_benchmark(profile_builder: Callable[[str], Any], manifest_path: Path = DEFAULT_MANIFEST) -> dict:
     manifest = load_manifest(manifest_path)
     results = []
+    profile_cache: dict[str, Any] = {}
     for case in manifest["cases"]:
-        profile = profile_builder(case["gene"])
-        results.append(evaluate_case(profile, case))
+        gene = str(case["gene"]).strip().upper()
+        if gene not in profile_cache:
+            profile_cache[gene] = profile_builder(gene)
+        results.append(evaluate_case(profile_cache[gene], case))
     total = sum(r["total_checks"] for r in results)
     passed = sum(r["passed_checks"] for r in results)
     retrospective = [r for r in results if r["mode"] == "frozen_snapshot"]
@@ -133,8 +136,10 @@ def run_benchmark(profile_builder: Callable[[str], Any], manifest_path: Path = D
         "benchmark_version": manifest.get("benchmark_version"),
         "cases": results,
         "n_cases": len(results),
+        "n_unique_genes": len(profile_cache),
         "case_class_counts": class_counts,
         "check_accuracy": None if total == 0 else round(passed / total, 4),
+        "all_cases_passed": all(r["passed"] for r in results),
         "n_retrospective_cases": len(retrospective),
         "retrospective_claim_allowed": bool(retrospective) and all(r["passed"] for r in retrospective),
         "warning": (
