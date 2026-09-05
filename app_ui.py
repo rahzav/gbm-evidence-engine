@@ -412,20 +412,29 @@ def render_literature(profile, lit):
         context_options.append(display)
         label_to_key[display] = key
 
+    applied_key = f"literature_applied_terms_{gene}"
+    search_input_key = f"literature_search_input_{gene}"
+    st.session_state.setdefault(applied_key, "")
+    st.session_state.setdefault(search_input_key, st.session_state[applied_key])
+
+    def clear_literature_search() -> None:
+        st.session_state[applied_key] = ""
+        st.session_state[search_input_key] = ""
+
     selected_label = st.pills(
         "Disease context",
         context_options,
         default="All GBM literature",
         selection_mode="single",
         key=f"literature_context_{gene}",
+        on_change=clear_literature_search,
     ) or "All GBM literature"
     context_key = label_to_key.get(selected_label)
 
-    applied_key = f"literature_applied_terms_{gene}"
     with st.form(f"literature_search_form_{gene}", clear_on_submit=False):
         search_text = st.text_input(
             "Search publications",
-            value=st.session_state.get(applied_key, ""),
+            key=search_input_key,
             placeholder="e.g. osimertinib, CAR T, resistance, extracellular vesicles",
             help="Searches within this gene's GBM literature in Europe PMC.",
         )
@@ -433,11 +442,13 @@ def render_literature(profile, lit):
         with search_col:
             search_submitted = st.form_submit_button("Search", type="primary", width="stretch")
         with clear_col:
-            clear_submitted = st.form_submit_button("Clear search", width="stretch")
+            st.form_submit_button(
+                "Clear search",
+                width="stretch",
+                on_click=clear_literature_search,
+            )
     if search_submitted:
         st.session_state[applied_key] = search_text.strip()
-    elif clear_submitted:
-        st.session_state[applied_key] = ""
     applied_terms = st.session_state.get(applied_key, "")
 
     signature = (gene, context_key or "", applied_terms)
