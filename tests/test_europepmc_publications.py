@@ -21,12 +21,13 @@ def test_normalize_publication_fills_author_and_journal_fallbacks():
     assert "PMC123" in paper["url"]
 
 
-def test_search_query_scopes_gene_gbm_context_and_user_terms():
+def test_search_query_scopes_gene_gbm_context_and_user_terms_to_title_or_abstract():
     query = europepmc.build_publication_query("EGFR", "recurrent", "osimertinib resistance")
-    assert '"EGFR"' in query
-    assert "glioblastoma OR GBM" in query
-    assert "recurrent OR recurrence" in query
-    assert '"osimertinib" AND "resistance"' in query
+    assert 'TITLE:"EGFR"' in query and 'ABSTRACT:"EGFR"' in query
+    assert 'TITLE:"glioblastoma"' in query and 'ABSTRACT:"GBM"' in query
+    assert 'TITLE:"recurrent"' in query and 'ABSTRACT:"recurrence"' in query
+    assert 'TITLE:"osimertinib"' in query and 'ABSTRACT:"osimertinib"' in query
+    assert 'TITLE:"resistance"' in query and 'ABSTRACT:"resistance"' in query
 
 
 def test_search_publications_returns_cursor_and_normalized_records():
@@ -55,6 +56,6 @@ def test_search_publications_returns_cursor_and_normalized_records():
 
 if __name__ == "__main__":
     test_normalize_publication_fills_author_and_journal_fallbacks()
-    test_search_query_scopes_gene_gbm_context_and_user_terms()
+    test_search_query_scopes_gene_gbm_context_and_user_terms_to_title_or_abstract()
     test_search_publications_returns_cursor_and_normalized_records()
     print("ALL EUROPE PMC PUBLICATION TESTS PASSED")
