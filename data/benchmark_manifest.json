@@ -1,30 +1,95 @@
 {
-  "benchmark_version": "0.1.0",
+  "benchmark_version": "0.2.0",
   "scope": "GBM molecular research decision-support behavior",
-  "notes": "These initial cases are current-data regression checks, not retrospective discovery claims. True retrospective cases must use frozen/date-bounded evidence snapshots.",
+  "notes": "These cases are current-data regression checks. They test whether the system preserves known GBM evidence patterns and scientific safeguards using current evidence; they are not retrospective discovery claims. True retrospective cases require frozen or date-bounded evidence snapshots.",
   "cases": [
     {
-      "id": "egfr_current_genomic_vs_dependency",
+      "id": "egfr_established_gbm_driver",
       "gene": "EGFR",
+      "case_class": "known_positive",
       "mode": "current_behavior_regression",
       "expectations": [
         {
           "path": "live.cbioportal.ok",
           "operator": "eq",
           "value": true,
-          "rationale": "The canonical EGFR GBM profile must retrieve TCGA/cBioPortal evidence."
+          "rationale": "The EGFR profile should retrieve current TCGA/cBioPortal GBM genomic evidence."
         },
         {
-          "path": "score.dimensions.GBM genomic signal.score",
+          "path": "live.cbioportal.mutation.frequency",
           "operator": "gte",
-          "value": 50,
-          "rationale": "EGFR should retain a substantial GBM genomic signal."
+          "value": 0.05,
+          "rationale": "EGFR should retain a non-trivial somatic alteration signal in the current TCGA GBM profile."
+        },
+        {
+          "path": "live.overall_evidence_confidence.score",
+          "operator": "gte",
+          "value": 55,
+          "rationale": "An established GBM driver should not be represented as globally unsupported when the current evidence stack is available."
+        }
+      ]
+    },
+    {
+      "id": "rpl3_panessential_negative_control",
+      "gene": "RPL3",
+      "case_class": "known_negative",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.ok",
+          "operator": "eq",
+          "value": true,
+          "rationale": "The negative-control case requires current DepMap evidence."
+        },
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": true,
+          "rationale": "RPL3 provides a pan-essential control for distinguishing generic cellular essentiality from GBM-specific dependency."
+        },
+        {
+          "path": "score.overall",
+          "operator": "lte",
+          "value": 30,
+          "rationale": "Strong generic dependency alone must not create a high GBM target-priority score."
+        },
+        {
+          "path": "live.model_relevance.score",
+          "operator": "lte",
+          "value": 40,
+          "rationale": "Pan-essential behavior should reduce disease-specific model relevance."
+        }
+      ]
+    },
+    {
+      "id": "egfr_genomic_dependency_discordance",
+      "gene": "EGFR",
+      "case_class": "context_specific",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.ok",
+          "operator": "eq",
+          "value": true,
+          "rationale": "The context-specific EGFR case requires current DepMap evidence."
         },
         {
           "path": "live.depmap.pan_essential",
           "operator": "eq",
           "value": false,
-          "rationale": "Current DepMap behavior should not be mislabeled pan-essential."
+          "rationale": "EGFR should not be mislabeled pan-essential in the current strict GBM panel."
+        },
+        {
+          "path": "live.depmap.median_selectivity_delta",
+          "operator": "lte",
+          "value": 0,
+          "rationale": "Current DepMap evidence does not support a GBM-selective EGFR dependency and the system must preserve that discordance."
+        },
+        {
+          "path": "live.model_relevance.level",
+          "operator": "eq",
+          "value": "limited",
+          "rationale": "The current EGFR dependency evidence is primarily conventional-cell-line evidence and must retain its limited model-relevance grade."
         }
       ]
     }
