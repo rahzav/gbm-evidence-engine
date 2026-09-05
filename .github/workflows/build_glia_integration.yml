@@ -26,7 +26,6 @@ jobs:
           from pathlib import Path
           import re
 
-          # --- app_ui.py ---
           path = Path('app_ui.py')
           text = path.read_text(encoding='utf-8')
           text = text.replace('import os\n', '', 1)
@@ -34,17 +33,11 @@ jobs:
           if old_import not in text:
               raise SystemExit('Expected research-agent UI import block not found')
           text = text.replace(old_import, 'from glia_interface import render_glia_layer\n', 1)
-
           text, count = re.subn(
-              r'\n\ndef _agent_secret\(name: str\).*?(?=\n\nst\.markdown\()',
-              '',
-              text,
-              count=1,
-              flags=re.S,
+              r'\n\ndef _agent_secret\(name: str\).*?(?=\n\nst\.markdown\()', '', text, count=1, flags=re.S
           )
           if count != 1:
               raise SystemExit(f'Expected to remove one standalone assistant block, removed {count}')
-
           old_tabs = '''analysis_tab, pair_tab, researcher_tab, batch_tab, assistant_tab, methods_tab = st.tabs(\n    [\n        "Gene Analysis",\n        "Target Pair Analysis",\n        "Researcher Data",\n        "Gene Set Comparison",\n        "Research Assistant",\n        "Methods & Data Sources",\n    ],\n    key="research_workflow_tabs",\n    on_change=on_workflow_tab_change,\n)\nmaybe_show_active_walkthrough()\n'''
           new_tabs = '''analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(\n    [\n        "Gene Analysis",\n        "Target Pair Analysis",\n        "Researcher Data",\n        "Gene Set Comparison",\n        "Methods & Data Sources",\n    ],\n    key="research_workflow_tabs",\n    on_change=on_workflow_tab_change,\n)\nmaybe_show_active_walkthrough()\nrender_glia_layer()\n'''
           if old_tabs not in text:
@@ -58,7 +51,6 @@ jobs:
           )
           path.write_text(text, encoding='utf-8')
 
-          # --- research_agent.py ---
           path = Path('gbm_evidence_engine/research_agent.py')
           text = path.read_text(encoding='utf-8')
           text = text.replace('MAX_HISTORY_MESSAGES = 3', 'MAX_HISTORY_MESSAGES = 6', 1)
@@ -68,17 +60,18 @@ jobs:
               raise SystemExit('Expected system identity not found')
           text = text.replace(old_identity, new_identity, 1)
           rule10 = '''10. Be concise and researcher-facing. Prefer a direct answer followed by the\n    evidence that drives it and, when useful, the next experiment that would\n    reduce uncertainty.\n'''
-          rule11 = rule10 + '''11. Persistent research memory is continuity context, not scientific evidence.\n    Use it to remember prior questions, investigated targets, and research\n    direction, but retrieve current evidence before making substantive GBM claims.\n'''
           if rule10 not in text:
               raise SystemExit('Expected grounding rule 10 not found')
-          text = text.replace(rule10, rule11, 1)
-
+          text = text.replace(
+              rule10,
+              rule10 + '''11. Persistent research memory is continuity context, not scientific evidence.\n    Use it to remember prior questions, investigated targets, and research\n    direction, but retrieve current evidence before making substantive GBM claims.\n''',
+              1,
+          )
           old_sig = '''    session_context: dict[str, Any] | None = None,\n    api_key: str | None = None,'''
           new_sig = '''    session_context: dict[str, Any] | None = None,\n    persistent_memory: dict[str, Any] | None = None,\n    api_key: str | None = None,'''
           if old_sig not in text:
               raise SystemExit('Expected run_agent_turn signature fragment not found')
           text = text.replace(old_sig, new_sig, 1)
-
           old_context = '''    context = session_context or {}\n    available = available_session_context(context)\n    context_note = (\n        "Current application analyses available to inspect: " + ", ".join(available)\n        if available\n        else "No prior application analysis is currently available in this session."\n    )\n    input_items: list[Any] = _history_input(history)\n    input_items.append(\n        {\n            "role": "user",\n            "content": question + "\\n\\nApplication context note: " + context_note,\n        }\n    )\n'''
           new_context = '''    context = session_context or {}\n    available = available_session_context(context)\n    context_note = (\n        "Current application analyses available to inspect: " + ", ".join(available)\n        if available\n        else "No prior application analysis is currently available in this session."\n    )\n    active_workflow = str(context.get("active_workflow") or "").strip()\n    selected_section = str(context.get("selected_section") or "").strip()\n    selected_quote = str(context.get("selected_quote") or "").strip()[:1800]\n    memory = persistent_memory if isinstance(persistent_memory, dict) else {}\n    continuity_note = json.dumps(memory, default=str, sort_keys=True)[:7000] if memory else "No saved research continuity yet."\n    ui_notes = []\n    if active_workflow:\n        ui_notes.append(f"Active workflow: {active_workflow}.")\n    if selected_section:\n        ui_notes.append(f"Selected section: {selected_section}.")\n    if selected_quote:\n        ui_notes.append(\n            "Selected on-screen context (use as question context, not as independent scientific evidence): "\n            + selected_quote\n        )\n    input_items: list[Any] = _history_input(history)\n    input_items.append(\n        {\n            "role": "user",\n            "content": (\n                question\n                + "\\n\\nApplication context note: "\n                + context_note\n                + ("\\n" + " ".join(ui_notes) if ui_notes else "")\n                + "\\nPersistent research continuity: "\n                + continuity_note\n            ),\n        }\n    )\n'''
           if old_context not in text:
@@ -90,38 +83,23 @@ jobs:
           text = text.replace('Research Assistant request failed:', 'Glia request failed:')
           path.write_text(text, encoding='utf-8')
 
-          # --- README.md ---
           path = Path('README.md')
           text = path.read_text(encoding='utf-8')
           old = '''### Research Assistant\n\nProvides an evidence-grounded conversational layer over the production workflows. The assistant can build gene dossiers, run target-pair and gene-set analyses, inspect analysis already present in the current session, and retrieve live biomedical publications. Important factual claims are tied to evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools. The assistant does not redefine production scores or convert hypotheses into evidence.\n\nThe assistant uses Groq through its OpenAI-compatible Responses API with function calling. Configure `GROQ_API_KEY`; `GROQ_MODEL` is optional and defaults to `openai/gpt-oss-120b`. The application handles Groq rate-limit responses without falling back to paid usage.\n'''
           new = '''### Glia\n\nGlia is the evidence-grounded copilot integrated across every production workflow rather than a standalone destination. It follows the active analysis, can build gene dossiers, run target-pair and gene-set analyses, inspect derived Researcher Data results, retrieve live biomedical publications, and reason across the evidence already present in the workspace. Researchers can highlight text in the interface and choose **Ask Glia** to bring that exact context into the composer before adding a question.\n\nGlia keeps a bounded research trail in browser-local storage so investigated genes, recent questions, and workflow context can carry across visits on the same browser. This continuity memory does not train the underlying model and is not treated as scientific evidence. Important factual claims remain tied to retrieved evidence, publication, analysis, or session-context references, and quantitative output is checked against values returned by the underlying tools.\n\nGlia uses Groq through its OpenAI-compatible Responses API with function calling. Configure `GROQ_API_KEY`; `GROQ_MODEL` is optional and defaults to `openai/gpt-oss-120b`. The application handles Groq rate-limit responses without falling back to paid usage.\n'''
           if old not in text:
               raise SystemExit('Expected README Research Assistant section not found')
-          text = text.replace(old, new, 1)
-          path.write_text(text, encoding='utf-8')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
 
-          # --- Researcher Data handling doc ---
           path = Path('docs/RESEARCHER_DATA_HANDLING.md')
           text = path.read_text(encoding='utf-8')
           text = text.replace('## Research Assistant boundary', '## Glia boundary', 1)
           text = text.replace('The Research Assistant does not receive the raw uploaded or pasted researcher table. If a researcher asks the assistant to inspect the current Researcher Data analysis,', 'Glia does not receive the raw uploaded or pasted researcher table. If a researcher asks Glia to inspect the current Researcher Data analysis,', 1)
           text = text.replace('Do not use the assistant with PHI,', 'Do not use Glia with PHI,', 1)
           path.write_text(text, encoding='utf-8')
-
-          # --- CI workflow ---
-          path = Path('.github/workflows/ci.yml')
-          text = path.read_text(encoding='utf-8')
-          text = text.replace('            app_ui.py ui_walkthroughs.py streamlit_app.py api/app.py', '            app_ui.py glia_interface.py ui_walkthroughs.py streamlit_app.py api/app.py', 1)
-          text = text.replace('          PYTHONPATH=. python tests/test_research_agent.py\n', '          PYTHONPATH=. python tests/test_research_agent.py\n          PYTHONPATH=. python tests/test_glia_interface.py\n', 1)
-          text = text.replace("          agent = Path('gbm_evidence_engine/research_agent.py').read_text(encoding='utf-8')\n", "          agent = Path('gbm_evidence_engine/research_agent.py').read_text(encoding='utf-8')\n          glia = Path('glia_interface.py').read_text(encoding='utf-8')\n", 1)
-          text = text.replace("          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Research Assistant'):\n", "          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):\n", 2)
-          text = text.replace("          assert 'Raw Researcher Data tables are not passed to the assistant.' in ui\n", "          assert 'render_glia_layer()' in ui\n          assert '\"Research Assistant\",' not in ui\n          for required in ('Ask Glia', 'localStorage', 'st.components.v2.component', 'glia-panel-open'):\n              assert required in glia, required\n", 1)
-          text = text.replace("          assert '### Research Assistant' in readme\n          assert '## Research Assistant boundary' in handling\n", "          assert '### Glia' in readme\n          assert '## Glia boundary' in handling\n", 1)
-          text = text.replace('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + GROQ RESEARCH ASSISTANT OK', 'SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + INTEGRATED GLIA COPILOT OK', 1)
-          path.write_text(text, encoding='utf-8')
           PY
 
           python -m py_compile app_ui.py glia_interface.py gbm_evidence_engine/research_agent.py tests/test_glia_interface.py
-          git add app_ui.py glia_interface.py gbm_evidence_engine/research_agent.py README.md docs/RESEARCHER_DATA_HANDLING.md .github/workflows/ci.yml tests/test_glia_interface.py
+          git add app_ui.py glia_interface.py gbm_evidence_engine/research_agent.py README.md docs/RESEARCHER_DATA_HANDLING.md tests/test_glia_interface.py
           git commit -m "Integrate Glia across the research workspace"
           git push origin glia-copilot-integration
