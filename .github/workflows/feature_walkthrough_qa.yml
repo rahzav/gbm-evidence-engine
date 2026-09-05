@@ -7,6 +7,7 @@ on:
       - ui_walkthroughs.py
       - scripts/apply_walkthrough_ui_patch.py
       - .github/workflows/feature_walkthrough_qa.yml
+      - .github/workflows/ci.yml
 
 permissions:
   contents: write
