@@ -1,0 +1,96 @@
+name: Apply Persistent Walkthrough Patch V2
+
+on:
+  push:
+    branches: [persistent-walkthrough-preferences]
+    paths:
+      - .github/workflows/apply_persistent_walkthrough_patch_v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: persistent-walkthrough-preferences
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Streamlit for validation
+        run: python -m pip install streamlit==1.63.0
+      - name: Patch UI copy and persistent walkthrough preference
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app_path = Path('app_ui.py')
+          app = app_path.read_text(encoding='utf-8')
+          old_header = 'Integrated gene-level evidence synthesis for glioblastoma research, updated in real time.'
+          new_header = 'Real-time integrated gene-level evidence synthesis for glioblastoma research.'
+          if old_header not in app:
+              raise SystemExit('current header copy not found')
+          app = app.replace(old_header, new_header, 1)
+          app_path.write_text(app, encoding='utf-8')
+
+          walkthrough_path = Path('ui_walkthroughs.py')
+          text = walkthrough_path.read_text(encoding='utf-8')
+          old_block = '''def _suppressed_key(feature: str) -> str:\n    return f"{feature}_walkthrough_suppressed"\n\n\ndef _is_suppressed(feature: str) -> bool:\n    return bool(st.session_state.get(_suppressed_key(feature), False))\n\n\ndef _preference_key(feature: str) -> str:\n    return f"{feature}_walkthrough_do_not_show"\n\n\ndef _sync_suppression(feature: str) -> None:\n    """Sync the visible checkbox with automatic walkthrough behavior."""\n    suppressed = bool(st.session_state.get(_preference_key(feature), False))\n    st.session_state[_suppressed_key(feature)] = suppressed\n    if suppressed:\n        st.session_state.pop("pending_feature_walkthrough", None)\n'''
+          new_block = '''PERSISTED_SUPPRESSION_PARAM = "hide_walkthroughs"\nWALKTHROUGH_FEATURES = ("gene", "pair", "researcher", "comparison")\n\n\ndef _suppressed_key(feature: str) -> str:\n    return f"{feature}_walkthrough_suppressed"\n\n\ndef _persisted_suppressions() -> set[str]:\n    """Read refresh-safe walkthrough preferences from the app URL."""\n    raw = st.query_params.get(PERSISTED_SUPPRESSION_PARAM, "")\n    values = raw if isinstance(raw, list) else [raw]\n    suppressed: set[str] = set()\n    for value in values:\n        for feature in str(value).split(","):\n            feature = feature.strip()\n            if feature in WALKTHROUGH_FEATURES:\n                suppressed.add(feature)\n    return suppressed\n\n\ndef _write_persisted_suppressions(suppressed: set[str]) -> None:\n    """Persist automatic-walkthrough preferences so a browser refresh keeps them."""\n    ordered = [feature for feature in WALKTHROUGH_FEATURES if feature in suppressed]\n    if ordered:\n        st.query_params[PERSISTED_SUPPRESSION_PARAM] = ",".join(ordered)\n    elif PERSISTED_SUPPRESSION_PARAM in st.query_params:\n        del st.query_params[PERSISTED_SUPPRESSION_PARAM]\n\n\ndef _is_suppressed(feature: str) -> bool:\n    key = _suppressed_key(feature)\n    if key in st.session_state:\n        return bool(st.session_state[key])\n    return feature in _persisted_suppressions()\n\n\ndef _preference_key(feature: str) -> str:\n    return f"{feature}_walkthrough_do_not_show"\n\n\ndef _sync_suppression(feature: str) -> None:\n    """Sync the visible checkbox and refresh-safe automatic walkthrough behavior."""\n    suppressed = bool(st.session_state.get(_preference_key(feature), False))\n    st.session_state[_suppressed_key(feature)] = suppressed\n    persisted = _persisted_suppressions()\n    if suppressed:\n        persisted.add(feature)\n        st.session_state.pop("pending_feature_walkthrough", None)\n    else:\n        persisted.discard(feature)\n    _write_persisted_suppressions(persisted)\n'''
+          if old_block not in text:
+              raise SystemExit('walkthrough preference block not found')
+          text = text.replace(old_block, new_block, 1)
+          text = text.replace('{"gene": "EGFR", "effect": 2.4, "p_value": 0.0001, "fdr": 0.002},', '{"gene": "EGFR", "effect": 2.4, "p value": 0.0001, "fdr": 0.002},', 1)
+          text = text.replace('{"gene": "SOX2", "effect": 1.8, "p_value": 0.001, "fdr": 0.01},', '{"gene": "SOX2", "effect": 1.8, "p value": 0.001, "fdr": 0.01},', 1)
+          text = text.replace('{"gene": "BAX", "effect": -2.0, "p_value": 0.0001, "fdr": 0.002},', '{"gene": "BAX", "effect": -2.0, "p value": 0.0001, "fdr": 0.002},', 1)
+          walkthrough_path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate patch
+        run: |
+          python -m py_compile app_ui.py ui_walkthroughs.py
+          python - <<'PY'
+          from pathlib import Path
+          import ui_walkthroughs as w
+
+          app = Path('app_ui.py').read_text(encoding='utf-8')
+          walkthroughs = Path('ui_walkthroughs.py').read_text(encoding='utf-8')
+          assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in app
+          assert 'updated in real time' not in app
+          assert 'PERSISTED_SUPPRESSION_PARAM = "hide_walkthroughs"' in walkthroughs
+          assert 'st.query_params[PERSISTED_SUPPRESSION_PARAM]' in walkthroughs
+          assert '"p value"' in walkthroughs
+
+          class QueryParams(dict):
+              pass
+
+          class FakeStreamlit:
+              session_state = {}
+              query_params = QueryParams()
+
+          real_st = w.st
+          w.st = FakeStreamlit()
+          try:
+              assert not w._is_suppressed('gene')
+              w.st.session_state[w._preference_key('gene')] = True
+              w._sync_suppression('gene')
+              assert w._is_suppressed('gene')
+              assert w.st.query_params[w.PERSISTED_SUPPRESSION_PARAM] == 'gene'
+              w.st.session_state = {}
+              assert w._is_suppressed('gene')
+              w.st.session_state[w._preference_key('gene')] = False
+              w._sync_suppression('gene')
+              assert not w._is_suppressed('gene')
+              assert w.PERSISTED_SUPPRESSION_PARAM not in w.st.query_params
+          finally:
+              w.st = real_st
+          print('Refresh-safe walkthrough preference validated')
+          PY
+      - name: Commit app changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_ui.py ui_walkthroughs.py
+          git commit -m "Persist walkthrough preferences across refreshes"
+          git push origin persistent-walkthrough-preferences
