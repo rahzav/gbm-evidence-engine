@@ -28,6 +28,7 @@ jobs:
             gbm_evidence_engine/research_intelligence_v5.py \
             gbm_evidence_engine/research_intelligence_v6.py \
             gbm_evidence_engine/research_discovery.py \
+            gbm_evidence_engine/research_agent.py \
             gbm_evidence_engine/research_intelligence_v7.py \
             gbm_evidence_engine/research_intelligence_v7_prod.py \
             gbm_evidence_engine/benchmarking.py \
@@ -46,6 +47,7 @@ jobs:
           PYTHONPATH=. python tests/test_research_discovery.py
           PYTHONPATH=. python tests/test_research_intelligence_v7.py
           PYTHONPATH=. python tests/test_europepmc_publications.py
+          PYTHONPATH=. python tests/test_research_agent.py
       - name: Validate native GBmap reference
         run: |
           PYTHONPATH=. python - <<'PY'
@@ -101,7 +103,8 @@ jobs:
           assert 'app_ui.py' in entry, entry
           ui = Path('app_ui.py').read_text(encoding='utf-8')
           walkthroughs = Path('ui_walkthroughs.py').read_text(encoding='utf-8')
-          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
+          agent = Path('gbm_evidence_engine/research_agent.py').read_text(encoding='utf-8')
+          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Research Assistant'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
           assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in ui
@@ -120,7 +123,20 @@ jobs:
               'maybe_show_active_walkthrough',
           ):
               assert f'def {function_name}' in walkthroughs, function_name
-          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS OK')
+          for agent_tool in (
+              'build_gene_dossier',
+              'compare_target_pair',
+              'compare_gene_set',
+              'search_gbm_publications',
+              'inspect_current_analysis',
+          ):
+              assert agent_tool in agent, agent_tool
+          assert 'Raw Researcher Data tables are not passed to the assistant.' in ui
+          assert 'store": False' in agent
+          assert 'https://api.groq.com/openai/v1' in agent
+          assert 'GROQ_API_KEY' in ui
+          assert 'OPENAI_API_KEY' not in ui
+          print('SINGLE PRODUCTION UI + PUBLICATION BROWSER + FEATURE WALKTHROUGHS + GROQ RESEARCH ASSISTANT OK')
           PY
       - name: Validate release metadata and documentation
         run: |
@@ -134,7 +150,11 @@ jobs:
           citation = Path('CITATION.cff').read_text(encoding='utf-8')
           assert 'version: "7.0.0"' in citation
           readme = Path('README.md').read_text(encoding='utf-8')
+          handling = Path('docs/RESEARCHER_DATA_HANDLING.md').read_text(encoding='utf-8')
           assert 'Software release: 7.0.0' in readme
+          assert '### Research Assistant' in readme
+          assert '## Research Assistant boundary' in handling
+          assert 'GROQ_API_KEY' in readme
           print('RELEASE METADATA OK')
           PY
       - name: Streamlit product smoke test
@@ -145,7 +165,7 @@ jobs:
 
           ui = Path('app_ui.py').read_text()
           assert 'use_container_width=' not in ui
-          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
+          for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison', 'Research Assistant'):
               assert required in ui, required
           at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
           if at.exception:
