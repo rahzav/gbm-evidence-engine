@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use GBM Gene Analysis in research, please cite the software using this metadata."
-title: "GBM Gene Analysis"
+message: "If you use Glia in research, please cite the software using this metadata."
+title: "Glia: Evidence-Grounded Research Intelligence for Glioblastoma"
 type: software
 version: "7.0.0"
 date-released: 2026-09-04

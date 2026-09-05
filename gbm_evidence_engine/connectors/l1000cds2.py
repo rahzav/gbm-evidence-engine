@@ -259,7 +259,7 @@ def reverse_gene_sets(
             "combination": bool(combinations),
             "db-version": "latest",
         },
-        "meta": [{"key": "Tag", "value": "GBM Gene Analysis reverse-signature query"}],
+        "meta": [{"key": "Tag", "value": "Glia reverse-signature query"}],
     }
     try:
         result = _summarize_response(_post(payload), max_results=max_results, resolve_pubchem=True)
@@ -310,7 +310,7 @@ def reverse_weighted_signature(
             "combination": bool(combinations),
             "db-version": "latest",
         },
-        "meta": [{"key": "Tag", "value": "GBM Gene Analysis researcher-signature query"}],
+        "meta": [{"key": "Tag", "value": "Glia researcher-signature query"}],
     }
     try:
         result = _summarize_response(_post(payload), max_results=max_results, resolve_pubchem=True)

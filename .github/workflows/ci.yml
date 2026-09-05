@@ -109,7 +109,7 @@ jobs:
           for required in ('Build dossier', 'Gene Analysis', 'Target Pair Analysis', 'Researcher Data', 'Gene Set Comparison'):
               assert required in ui, required
           assert 'research_intelligence_v7_prod' in ui
-          assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in ui
+          assert 'Evidence-grounded research intelligence for glioblastoma.' in ui
           assert 'Search publications' in ui
           assert 'Load 25 more' in ui
           assert 'on_change=on_workflow_tab_change' not in ui
@@ -161,7 +161,7 @@ jobs:
           readme = Path('README.md').read_text(encoding='utf-8')
           handling = Path('docs/RESEARCHER_DATA_HANDLING.md').read_text(encoding='utf-8')
           assert 'Software release: 7.0.0' in readme
-          assert '### Glia' in readme
+          assert '### Glia conversational interface' in readme
           assert '## Glia boundary' in handling
           assert 'GROQ_API_KEY' in readme
           print('RELEASE METADATA OK')

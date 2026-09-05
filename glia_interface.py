@@ -1,4 +1,4 @@
-"""Integrated Glia copilot UI, selection bridge, and browser-persistent research memory."""
+"""Glia's conversational layer, selection bridge, and persistent research memory."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -29,16 +29,16 @@ GLIA_CSS = """
 #glia-shell {
   position:fixed; z-index:1000000; top:0; right:0;
   width:440px; height:100vh;
-  background:var(--st-background-color, #fff); color:var(--st-text-color, #111);
+  background:#0e1117; color:#f1f5f9;
   border-left:1px solid color-mix(in srgb, var(--st-text-color, #111) 13%, transparent);
-  box-shadow:-14px 0 38px rgba(0,0,0,.10);
+  box-shadow:-18px 0 48px rgba(0,0,0,.28);
   display:flex; flex-direction:column;
   transform:translateX(0); transition:transform .2s ease, opacity .2s ease, width .2s ease;
 }
 #glia-shell.glia-closed { transform:translateX(100%); pointer-events:none; opacity:0; }
-#glia-header { padding:15px 16px 12px; border-bottom:1px solid color-mix(in srgb, var(--st-text-color, #111) 10%, transparent); background:color-mix(in srgb, var(--st-background-color, #fff) 96%, transparent); }
+#glia-header { padding:15px 16px 12px; border-bottom:1px solid rgba(148,163,184,.15); background:#11151d; }
 .glia-header-row { display:grid; grid-template-columns:42px minmax(0,1fr) 30px 30px 30px 30px; align-items:center; column-gap:7px; }
-.glia-mark { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; border:1px solid color-mix(in srgb, var(--st-primary-color, #ff4b4b) 42%, transparent); background:color-mix(in srgb, var(--st-primary-color, #ff4b4b) 9%, var(--st-background-color, #fff)); color:var(--st-primary-color, #ff4b4b); box-shadow:0 0 18px color-mix(in srgb, var(--st-primary-color, #ff4b4b) 13%, transparent); }
+.glia-mark { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(231,107,100,.42); background:rgba(231,107,100,.08); color:#ef7770; }
 .glia-mark svg { width:25px; height:25px; display:block; }
 .glia-title-wrap { min-width:0; display:flex; flex-direction:column; justify-content:center; padding-left:2px; }
 .glia-title { font-weight:790; font-size:1.06rem; letter-spacing:-.018em; line-height:1.08; }
@@ -78,17 +78,17 @@ GLIA_CSS = """
 @keyframes gliaPulse { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-2px)} }
 #glia-quick-actions { padding:0 16px 12px; display:flex; gap:7px; flex-wrap:wrap; }
 .glia-quick { border-radius:999px; padding:6px 9px; font-size:.72rem; opacity:.78; }
-#glia-composer-wrap { border-top:1px solid color-mix(in srgb, var(--st-text-color, #111) 10%, transparent); padding:11px 14px 14px; background:var(--st-background-color, #fff); }
+#glia-composer-wrap { border-top:1px solid rgba(148,163,184,.15); padding:11px 14px 14px; background:#11151d; }
 #glia-draft-quote { display:none; position:relative; margin-bottom:8px; border-radius:9px; padding:8px 31px 8px 9px; background:color-mix(in srgb, var(--st-text-color, #111) 4%, transparent); border-left:3px solid color-mix(in srgb, var(--st-primary-color, #ff4b4b) 65%, transparent); font-size:.75rem; line-height:1.36; max-height:92px; overflow:auto; }
 #glia-draft-quote.glia-visible { display:block; }
 #glia-remove-quote { position:absolute; top:4px; right:5px; border:0; background:transparent; color:inherit; opacity:.5; cursor:pointer; font-size:15px; }
-.glia-composer { display:flex; align-items:flex-end; gap:7px; border:1px solid color-mix(in srgb, var(--st-text-color, #111) 18%, transparent); border-radius:13px; padding:7px 7px 7px 10px; background:var(--st-background-color, #fff); box-shadow:0 3px 14px rgba(0,0,0,.035); }
+.glia-composer { display:flex; align-items:flex-end; gap:7px; border:1px solid rgba(148,163,184,.22); border-radius:11px; padding:7px 7px 7px 10px; background:#0e1117; box-shadow:none; }
 #glia-input { flex:1; resize:none; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-size:.84rem; line-height:1.45; min-height:40px; max-height:132px; }
 #glia-send { width:36px; height:36px; border-radius:9px; border:0; cursor:pointer; color:white; background:var(--st-primary-color, #ff4b4b); font-weight:800; }
 #glia-send:disabled { opacity:.38; cursor:not-allowed; }
 .glia-footer-note { font-size:.65rem; opacity:.45; margin:6px 2px 0; line-height:1.35; }
 #glia-launcher { display:none !important; }
-#glia-shell.glia-fullscreen { width:100vw; max-width:none; height:100vh; border-left:0; box-shadow:none; background:radial-gradient(circle at 50% -18%, color-mix(in srgb, var(--st-primary-color, #ff4b4b) 7%, transparent), transparent 42%), var(--st-background-color, #fff); }
+#glia-shell.glia-fullscreen { width:100vw; max-width:none; height:100vh; border-left:0; box-shadow:none; background:#0e1117; }
 #glia-shell.glia-fullscreen #glia-header .glia-header-row,
 #glia-shell.glia-fullscreen #glia-header .glia-memory-line,
 #glia-shell.glia-fullscreen #glia-memory-panel,
@@ -295,7 +295,7 @@ export default function(component) {
         <div class="glia-header-row">
           <div class="glia-mark">${gliaGlyph}</div>
           <div class="glia-title-wrap">
-            <div class="glia-title">Glia Research Copilot</div>
+            <div class="glia-title">Glia</div>
             <div class="glia-context">${escapeHtml(contextLabel)}</div>
           </div>
           <button class="glia-icon-btn" id="glia-new-thread" title="New thread" aria-label="New thread">＋</button>
@@ -311,7 +311,7 @@ export default function(component) {
         <div class="glia-memory-actions"><button class="glia-small-btn" id="glia-clear-memory">Clear memory</button></div>
       </div>
       <div id="glia-messages">
-        ${messages.length ? messages.map(renderMessage).join("") : `<div class="glia-empty"><div class="glia-empty-kicker">Glia Research Copilot</div><div class="glia-empty-title">What do you want to resolve?</div><div class="glia-empty-copy">Interrogate the current analysis, challenge a target, compare evidence, or turn the largest uncertainty into a discriminating experiment. You can also highlight any finding in the workspace and send it directly to Glia.</div></div>`}
+        ${messages.length ? messages.map(renderMessage).join("") : `<div class="glia-empty"><div class="glia-empty-kicker">Current research context loaded</div><div class="glia-empty-title">What decision are you trying to make?</div><div class="glia-empty-copy">Ask about the active analysis, challenge an interpretation, compare evidence, or identify the experiment that would resolve the largest uncertainty. Highlight any finding to attach it as quoted context.</div></div>`}
         ${data.processing ? '<div class="glia-thinking">Glia is working<span></span><span></span><span></span></div>' : ""}
       </div>
       <div id="glia-quick-actions"></div>
