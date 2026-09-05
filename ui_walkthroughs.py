@@ -8,6 +8,20 @@ from __future__ import annotations
 import streamlit as st
 
 
+def _suppressed_key(feature: str) -> str:
+    return f"{feature}_walkthrough_suppressed"
+
+
+def _is_suppressed(feature: str) -> bool:
+    return bool(st.session_state.get(_suppressed_key(feature), False))
+
+
+def _suppress_walkthrough(feature: str) -> None:
+    """Disable future automatic launches while preserving manual info-button access."""
+    st.session_state[_suppressed_key(feature)] = True
+    st.session_state.pop("pending_feature_walkthrough", None)
+
+
 def _step_key(feature: str) -> str:
     return f"{feature}_walkthrough_step"
 
@@ -40,7 +54,7 @@ def _nav(feature: str, step: int, titles: list[str]) -> None:
         + "</div>",
         unsafe_allow_html=True,
     )
-    back_col, _, next_col = st.columns([1.3, 4.4, 1.3], vertical_alignment="center")
+    back_col, preference_col, next_col = st.columns([1.3, 4.4, 1.3], vertical_alignment="center")
     with back_col:
         if step > 0:
             st.button(
@@ -50,6 +64,16 @@ def _nav(feature: str, step: int, titles: list[str]) -> None:
                 on_click=_move,
                 args=(feature, -1, len(titles)),
             )
+    with preference_col:
+        st.button(
+            "Don't show again",
+            key=f"{feature}_walkthrough_suppress_{step}",
+            type="tertiary",
+            width="stretch",
+            help="Stops this walkthrough from opening automatically. You can still open it anytime with the info button.",
+            on_click=_suppress_walkthrough,
+            args=(feature,),
+        )
     with next_col:
         if step < len(titles) - 1:
             st.button(
@@ -398,7 +422,9 @@ def show_comparison_walkthrough() -> None:
     _nav(feature, step, titles)
 
 
-def _launch(feature: str) -> None:
+def _launch(feature: str, *, manual: bool = False) -> None:
+    if not manual and _is_suppressed(feature):
+        return
     _reset(feature)
     if feature == "gene":
         show_gene_walkthrough()
@@ -421,11 +447,13 @@ WORKFLOW_TAB_TO_FEATURE = {
 
 
 def on_workflow_tab_change() -> None:
-    """Queue the selected workflow's walkthrough whenever its tab is opened."""
+    """Queue the selected workflow's walkthrough unless automatic display was disabled."""
     label = st.session_state.get("research_workflow_tabs")
     feature = WORKFLOW_TAB_TO_FEATURE.get(label)
-    if feature:
+    if feature and not _is_suppressed(feature):
         st.session_state["pending_feature_walkthrough"] = feature
+    else:
+        st.session_state.pop("pending_feature_walkthrough", None)
 
 
 def maybe_show_active_walkthrough() -> None:
@@ -450,14 +478,15 @@ def render_feature_header(title: str, feature: str, caption: str | None = None) 
             key=f"open_{feature}_walkthrough",
             type="tertiary",
         ):
-            _launch(feature)
+            _launch(feature, manual=True)
     if caption:
         st.caption(caption)
 
 
 def maybe_show_initial_gene_walkthrough() -> None:
-    """Preserve the first-use Gene Analysis tour without forcing other tours."""
+    """Show the first-use Gene Analysis tour unless the user disabled automatic display."""
     if "gene_walkthrough_seen" not in st.session_state:
         st.session_state["gene_walkthrough_seen"] = True
-        _reset("gene")
-        show_gene_walkthrough()
+        if not _is_suppressed("gene"):
+            _reset("gene")
+            show_gene_walkthrough()
