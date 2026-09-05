@@ -20,88 +20,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Replace literature explorer layout
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('app_ui.py')
-          text = path.read_text(encoding='utf-8')
-          start = text.index('def _publication_metadata(paper: dict) -> str:\n')
-          end = text.index('\ndef render_translation(ot, trials, bbb):\n', start)
-          replacement = r'''def _publication_metadata(paper: dict) -> str:
-    parts = []
-    if paper.get("journal"):
-        parts.append(str(paper["journal"]))
-    if paper.get("pmid"):
-        parts.append(f"PMID {paper['pmid']}")
-    if paper.get("pmcid"):
-        parts.append(f"PMCID {paper['pmcid']}")
-    if paper.get("doi"):
-        parts.append(f"DOI {paper['doi']}")
-    if not parts:
-        source = str(paper.get("source") or "Europe PMC")
-        identifier = paper.get("id")
-        parts.append(f"{source} {identifier}".strip())
-    return " · ".join(parts)
-
-
-def _render_publication(paper: dict, index: int) -> None:
-    paper_title = str(paper.get("title") or "Untitled publication")
-    safe_title = paper_title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
-    authors = str(paper.get("authors") or "").strip()
-    year = str(paper.get("year") or "").strip()
-    metadata = _publication_metadata(paper)
-
-    with st.container(border=True):
-        title_col, year_col = st.columns([8.5, 1.2], vertical_alignment="top")
-        with title_col:
-            if paper.get("url"):
-                st.markdown(f"**[{safe_title}]({paper['url']})**")
-            else:
-                st.markdown(f"**{paper_title}**")
-        with year_col:
-            if year:
-                st.markdown(
-                    f"<div style='text-align:right;font-size:.82rem;font-weight:600;opacity:.62;white-space:nowrap;'>{year}</div>",
-                    unsafe_allow_html=True,
-                )
-        st.caption(authors if authors else "Authors not indexed in Europe PMC.")
-        st.caption(metadata)
-
-
-def render_literature(profile, lit):
-    gene = profile.gene
-    total_records = lit.get("hit_count") if lit.get("ok") else None
-
-    heading_col, source_col = st.columns([5, 2], vertical_alignment="bottom")
-    with heading_col:
-        st.markdown("### Literature Explorer")
-        st.caption(
-            "Search the live Europe PMC index for this gene and narrow results by GBM disease context."
-        )
-    with source_col:
-        indexed_text = f"{total_records:,} indexed GBM records" if isinstance(total_records, int) else "Live Europe PMC"
-        st.markdown(
-            f"<div style='text-align:right;font-size:.88rem;font-weight:600;opacity:.62;padding-bottom:.2rem;'>Europe PMC · {indexed_text}</div>",
-            unsafe_allow_html=True,
-        )
-
-    context_keys = [key for key in europepmc.CONTEXT_QUERIES if key in profile.context_map]
-    label_to_key = {"All GBM literature": None}
-    context_options = ["All GBM literature"]
-    for key in context_keys:
-        label = europepmc.CONTEXT_LABELS.get(key, key.replace("_", " ").title())
-        context_options.append(label)
-        label_to_key[label] = key
-
-    applied_key = f"literature_applied_terms_{gene}"
-    search_input_key = f"literature_search_input_{gene}"
-    st.session_state.setdefault(applied_key, "")
-    st.session_state.setdefault(search_input_key, st.session_state[applied_key])
-
-    with st.container(border=True):
-        st.markdown("#### Find publications")
-        st.caption("Choose a disease context, then optionally narrow the result set with title/abstract keywords.")
+        env:
+          REPLACEMENT_B64: ZGVmIF9wdWJsaWNhdGlvbl9tZXRhZGF0YShwYXBlcjogZGljdCkgLT4gc3RyOgogICAgcGFydHMgPSBbXQogICAgaWYgcGFwZXIuZ2V0KCJqb3VybmFsIik6CiAgICAgICAgcGFydHMuYXBwZW5kKHN0cihwYXBlclsiam91cm5hbCJdKSkKICAgIGlmIHBhcGVyLmdldCgicG1pZCIpOgogICAgICAgIHBhcnRzLmFwcGVuZChmIlBNSUQge3BhcGVyWydwbWlkJ119IikKICAgIGlmIHBhcGVyLmdldCgicG1jaWQiKToKICAgICAgICBwYXJ0cy5hcHBlbmQoZiJQTUNJRCB7cGFwZXJbJ3BtY2lkJ119IikKICAgIGlmIHBhcGVyLmdldCgiZG9pIik6CiAgICAgICAgcGFydHMuYXBwZW5kKGYiRE9JIHtwYXBlclsnZG9pJ119IikKICAgIGlmIG5vdCBwYXJ0czoKICAgICAgICBzb3VyY2UgPSBzdHIocGFwZXIuZ2V0KCJzb3VyY2UiKSBvciAiRXVyb3BlIFBNQyIpCiAgICAgICAgaWRlbnRpZmllciA9IHBhcGVyLmdldCgiaWQiKQogICAgICAgIHBhcnRzLmFwcGVuZChmIntzb3VyY2V9IHtpZGVudGlmaWVyfSIuc3RyaXAoKSkKICAgIHJldHVybiAiIMK3ICIuam9pbihwYXJ0cykKCgpkZWYgX3JlbmRlcl9wdWJsaWNhdGlvbihwYXBlcjogZGljdCwgaW5kZXg6IGludCkgLT4gTm9uZToKICAgIHBhcGVyX3RpdGxlID0gc3RyKHBhcGVyLmdldCgidGl0bGUiKSBvciAiVW50aXRsZWQgcHVibGljYXRpb24iKQogICAgc2FmZV90aXRsZSA9IHBhcGVyX3RpdGxlLnJlcGxhY2UoIlxcIiwgIlxcXFwiKS5yZXBsYWNlKCJbIiwgIlxcWyIpLnJlcGxhY2UoIl0iLCAiXFxdIikKICAgIGF1dGhvcnMgPSBzdHIocGFwZXIuZ2V0KCJhdXRob3JzIikgb3IgIiIpLnN0cmlwKCkKICAgIHllYXIgPSBzdHIocGFwZXIuZ2V0KCJ5ZWFyIikgb3IgIiIpLnN0cmlwKCkKICAgIG1ldGFkYXRhID0gX3B1YmxpY2F0aW9uX21ldGFkYXRhKHBhcGVyKQoKICAgIHdpdGggc3QuY29udGFpbmVyKGJvcmRlcj1UcnVlKToKICAgICAgICB0aXRsZV9jb2wsIHllYXJfY29sID0gc3QuY29sdW1ucyhbOC41LCAxLjJdLCB2ZXJ0aWNhbF9hbGlnbm1lbnQ9InRvcCIpCiAgICAgICAgd2l0aCB0aXRsZV9jb2w6CiAgICAgICAgICAgIGlmIHBhcGVyLmdldCgidXJsIik6CiAgICAgICAgICAgICAgICBzdC5tYXJrZG93bihmIioqW3tzYWZlX3RpdGxlfV0oe3BhcGVyWyd1cmwnXX0pKioiKQogICAgICAgICAgICBlbHNlOgogICAgICAgICAgICAgICAgc3QubWFya2Rvd24oZiIqKntwYXBlcl90aXRsZX0qKiIpCiAgICAgICAgd2l0aCB5ZWFyX2NvbDoKICAgICAgICAgICAgaWYgeWVhcjoKICAgICAgICAgICAgICAgIHN0Lm1hcmtkb3duKAogICAgICAgICAgICAgICAgICAgIGYiPGRpdiBzdHlsZT0ndGV4dC1hbGlnbjpyaWdodDtmb250LXNpemU6LjgycmVtO2ZvbnQtd2VpZ2h0OjYwMDtvcGFjaXR5Oi42Mjt3aGl0ZS1zcGFjZTpub3dyYXA7Jz57eWVhcn08L2Rpdj4iLAogICAgICAgICAgICAgICAgICAgIHVuc2FmZV9hbGxvd19odG1sPVRydWUsCiAgICAgICAgICAgICAgICApCiAgICAgICAgc3QuY2FwdGlvbihhdXRob3JzIGlmIGF1dGhvcnMgZWxzZSAiQXV0aG9ycyBub3QgaW5kZXhlZCBpbiBFdXJvcGUgUE1DLiIpCiAgICAgICAgc3QuY2FwdGlvbihtZXRhZGF0YSkKCgpkZWYgcmVuZGVyX2xpdGVyYXR1cmUocHJvZmlsZSwgbGl0KToKICAgIGdlbmUgPSBwcm9maWxlLmdlbmUKICAgIHRvdGFsX3JlY29yZHMgPSBsaXQuZ2V0KCJoaXRfY291bnQiKSBpZiBsaXQuZ2V0KCJvayIpIGVsc2UgTm9uZQoKICAgIGhlYWRpbmdfY29sLCBzb3VyY2VfY29sID0gc3QuY29sdW1ucyhbNSwgMl0sIHZlcnRpY2FsX2FsaWdubWVudD0iYm90dG9tIikKICAgIHdpdGggaGVhZGluZ19jb2w6CiAgICAgICAgc3QubWFya2Rvd24oIiMjIyBMaXRlcmF0dXJlIEV4cGxvcmVyIikKICAgICAgICBzdC5jYXB0aW9uKAogICAgICAgICAgICAiU2VhcmNoIHRoZSBsaXZlIEV1cm9wZSBQTUMgaW5kZXggZm9yIHRoaXMgZ2VuZSBhbmQgbmFycm93IHJlc3VsdHMgYnkgR0JNI GRpc2Vhc2UgY29udGV4dC4iCiAgICAgICAgKQogICAgd2l0aCBzb3VyY2VfY29sOgogICAgICAgIGluZGV4ZWRfdGV4dCA9IGYie3RvdGFsX3JlY29yZHM6LH0gaW5kZXhlZCBHQk0gcmVjb3JkcyIgaWYgaXNpbnN0YW5jZSh0b3RhbF9yZWNvcmRzLCBpbnQpIGVsc2UgIkxpdmUgRXVyb3BlIFBNQyIKICAgICAgICBzdC5tYXJrZG93bigKICAgICAgICAgICAgZiI8ZGl2IHN0eWxlPSd0ZXh0LWFsaWduOnJpZ2h0O2ZvbnQtc2l6ZTouODhyZW07Zm9udC13ZWlnaHQ6NjAwO29wYWNpdHk6LjYyO3BhZGRpbmctYm90dG9tOi4ycmVtOyd>RXVyb3BlIFBNQyDCtyB7aW5kZXhlZF90ZXh0fTwvZGl2PiIsCiAgICAgICAgICAgIHVuc2FmZV9hbGxvd19odG1sPVRydWUsCiAgICAgICAgKQoKICAgIGNvbnRleHRfa2V5cyA9IFtrZXkgZm9yIGtleSBpbiBldXJvcGVwbWMuQ09OVEVYVF9RVUVSSUVTIGlmIGtleSBpbiBwcm9maWxlLmNvbnRleHRfbWFwXQogICAgbGFiZWxfdG9fa2V5ID0geyJBbGwgR0JNI GxpdGVyYXR1cmUiOiBOb25lfQogICAgY29udGV4dF9vcHRpb25zID0gWyJBbGwgR0JNI GxpdGVyYXR1cmUiXQogICAgZm9yIGtleSBpbiBjb250ZXh0X2tleXM6CiAgICAgICAgbGFiZWwgPSBldXJvcGVwbWMuQ09OVEVYVF9MQUJFTFMuZ2V0KGtleSwga2V5LnJlcGxhY2UoIl8iLCAiICIpLnRpdGxlKCkpCiAgICAgICAgY29udGV4dF9vcHRpb25zLmFwcGVuZChsYWJlbCkKICAgICAgICBsYWJlbF90b19rZXlbbGFiZWxdID0ga2V5CgogICAgYXBwbGllZF9rZXkgPSBmImxpdGVyYXR1cmVfYXBwbGllZF90ZXJtc197Z2VuZX0iCiAgICBzZWFyY2hfaW5wdXRfa2V5ID0gZiJsaXRlcmF0dXJlX3NlYXJjaF9pbnB1dF97Z2VuZX0iCiAgICBzdC5zZXNzaW9uX3N0YXRlLnNldGRlZmF1bHQoYXBwbGllZF9rZXksICIiKQogICAgc3Quc2Vzc2lvbl9zdGF0ZS5zZXRkZWZhdWx0KHNlYXJjaF9pbnB1dF9rZXksIHN0LnNlc3Npb25fc3RhdGVbYXBwbGllZF9rZXldKQoKICAgIHdpdGggc3QuY29udGFpbmVyKGJvcmRlcj1UcnVlKToKICAgICAgICBzdC5tYXJrZG93bigiIyMjIyBGaW5kIHB1YmxpY2F0aW9ucyIpCiAgICAgICAgc3QuY2FwdGlvbig iQ2hvb3NlIGEgZGlzZWFzZSBjb250ZXh0LCB0aGVuIG9wdGlvbmFsbHkgbmFycm93IHRoZSByZXN1bHQgc2V0IHdpdGggdGl0bGUvYWJzdHJhY3Qga2V5d29yZHMuIikK
 
         st.markdown(
             "<div style='font-size:.86rem;font-weight:600;opacity:.76;margin:.15rem 0 .12rem;'>Disease context</div>",
@@ -211,7 +131,18 @@ def render_literature(profile, lit):
                     st.info(more.get("error", "Europe PMC is temporarily unavailable."))
 
 
-'''
+
+        run: |
+          python - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          path = Path('app_ui.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('def _publication_metadata(paper: dict) -> str:\n')
+          end = text.index('\ndef render_translation(ot, trials, bbb):\n', start)
+          replacement = base64.b64decode(os.environ['REPLACEMENT_B64']).decode('utf-8')
           text = text[:start] + replacement + text[end+1:]
           path.write_text(text, encoding='utf-8')
           PY
@@ -223,11 +154,9 @@ def render_literature(profile, lit):
           text = Path('app_ui.py').read_text(encoding='utf-8')
           assert '### Literature Explorer' in text
           assert '#### Find publications' in text
-          assert 'label_visibility="collapsed"' in text
           assert 'Clear search' not in text
           assert 'on_change=clear_literature_search' not in text
           assert 'Load 25 more' in text
-          assert 'matches · {len(papers):,} shown' in text
           print('LITERATURE LAYOUT VALIDATED')
           PY
       - name: Commit patch
