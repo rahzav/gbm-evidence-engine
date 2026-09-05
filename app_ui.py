@@ -901,16 +901,6 @@ render_tool_tour_launcher()
 maybe_show_initial_tool_walkthrough()
 render_glia_command_center()
 
-st.markdown(
-    """
-    <div style="margin:1.05rem 0 .45rem 0;">
-      <div style="font-size:.72rem;font-weight:760;letter-spacing:.12em;text-transform:uppercase;opacity:.52;">Research Workflows</div>
-      <div style="font-size:.93rem;line-height:1.4;opacity:.66;margin-top:.16rem;">Build structured evidence, then use Glia to interrogate the result, challenge the interpretation, and decide what to test next.</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
     [
         "Gene Analysis",
@@ -1172,4 +1162,3 @@ with methods_tab:
     section_space(0.7)
     st.markdown("### Provenance and Validation")
     st.write("Quantitative evidence retains source, method, retrieval metadata, confidence, and citation information. Deterministic scientific tests, grounding checks, current-behavior benchmarks, and production interaction tests are maintained separately from biological validation.")
-
