@@ -42,19 +42,19 @@ def test_quick_actions_are_workflow_specific():
     assert "Interpret the highest-priority signals" in _quick_actions("Researcher Data")
 
 
-def test_component_contains_required_integrated_interactions():
+def test_glia_component_has_integrated_high_contrast_controls_and_force_open():
     source = Path("glia_interface.py").read_text(encoding="utf-8")
     for required in (
         "Ask Glia",
-        "mouseup",
-        "localStorage",
-        "setTriggerValue(\"prompt\"",
-        "glia-panel-open",
-        "Research memory",
+        "gliaGlyph",
+        "force_open_nonce",
         "selectionTouchesIgnoredArea",
         "syncWorkspaceLayout",
-        "Memory on · carries across visits",
-        "background:var(--st-text-color, #111); color:var(--st-background-color, #fff)",
+        "localStorage",
+        "glia-panel-open",
+        "Research memory",
+        "background:#171717; color:#fff",
+        "<span>Ask Glia</span>",
     ):
         assert required in source, required
 
@@ -64,10 +64,31 @@ def test_main_header_is_excluded_from_ask_glia_selection():
     assert source.count('data-glia-ignore-selection="true"') >= 2
 
 
+def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
+    source = Path("ui_walkthroughs.py").read_text(encoding="utf-8")
+    assert "def show_tool_walkthrough" in source
+    assert "Gene Analysis" in source
+    assert "Target Pair Analysis" in source
+    assert "Researcher Data" in source
+    assert "Gene Set Comparison" in source
+    assert "Methods & Data Sources" in source
+    assert "glia_force_open_nonce" in source
+    assert 'st.button("Ask Glia"' in source
+    for obsolete in (
+        "def show_gene_walkthrough",
+        "def show_pair_walkthrough",
+        "def show_researcher_walkthrough",
+        "def show_comparison_walkthrough",
+        "on_workflow_tab_change",
+    ):
+        assert obsolete not in source
+
+
 if __name__ == "__main__":
     test_memory_is_bounded_and_normalized()
     test_messages_keep_only_conversation_fields()
     test_quick_actions_are_workflow_specific()
-    test_component_contains_required_integrated_interactions()
+    test_glia_component_has_integrated_high_contrast_controls_and_force_open()
     test_main_header_is_excluded_from_ask_glia_selection()
+    test_single_condensed_product_tour_replaces_per_tab_walkthroughs()
     print("GLIA INTERFACE TESTS OK")

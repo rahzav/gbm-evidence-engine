@@ -8,10 +8,9 @@ import pandas as pd
 import streamlit as st
 
 from ui_walkthroughs import (
-    maybe_show_active_walkthrough,
-    maybe_show_initial_gene_walkthrough,
-    on_workflow_tab_change,
+    maybe_show_initial_tool_walkthrough,
     render_feature_header,
+    render_tool_tour_launcher,
 )
 from gbm_evidence_engine.evidence_model import EvidenceTier
 from glia_interface import render_glia_layer
@@ -902,8 +901,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-maybe_show_initial_gene_walkthrough()
+render_tool_tour_launcher()
+maybe_show_initial_tool_walkthrough()
 
+
+st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
 
 analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
     [
@@ -914,9 +916,7 @@ analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
         "Methods & Data Sources",
     ],
     key="research_workflow_tabs",
-    on_change=on_workflow_tab_change,
 )
-maybe_show_active_walkthrough()
 render_glia_layer()
 
 with analysis_tab:
