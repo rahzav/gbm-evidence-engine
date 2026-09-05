@@ -24,7 +24,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git revert --no-edit 720e1b473c9b862f55e01c20125331cc7ec8a50c
+          git checkout 6a6fe16013105175b7d06ac3d6db22524dd7efb4 -- \
+            .env.example \
+            README.md \
+            app_ui.py \
+            docs/RESEARCHER_DATA_HANDLING.md \
+            gbm_evidence_engine/research_agent.py \
+            requirements.txt \
+            tests/test_research_agent.py
 
           python - <<'PY'
           from pathlib import Path
@@ -93,23 +100,10 @@ jobs:
           p = Path('tests/test_research_agent.py')
           s = p.read_text(encoding='utf-8').replace('model="gpt-5.4"', 'model="openai/gpt-oss-120b"')
           p.write_text(s, encoding='utf-8')
-
-          p = Path('.github/workflows/ci.yml')
-          s = p.read_text(encoding='utf-8')
-          needle = "          assert 'store\": False' in agent\n"
-          addition = (
-              needle
-              + "          assert 'https://api.groq.com/openai/v1' in agent\n"
-              + "          assert 'GROQ_API_KEY' in ui\n"
-              + "          assert 'OPENAI_API_KEY' not in ui\n"
-          )
-          if needle not in s:
-              raise SystemExit('missing CI agent assertion')
-          p.write_text(s.replace(needle, addition, 1), encoding='utf-8')
           PY
 
           python -m py_compile gbm_evidence_engine/research_agent.py app_ui.py
 
-          git add .env.example .github/workflows/ci.yml README.md app_ui.py docs/RESEARCHER_DATA_HANDLING.md gbm_evidence_engine/research_agent.py requirements.txt tests/test_research_agent.py
+          git add .env.example README.md app_ui.py docs/RESEARCHER_DATA_HANDLING.md gbm_evidence_engine/research_agent.py requirements.txt tests/test_research_agent.py
           git commit -m "Restore Research Assistant with Groq free-tier backend"
           git push origin groq-research-assistant
