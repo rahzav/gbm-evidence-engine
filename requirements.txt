@@ -1,29 +1,22 @@
-# Core (this V1 was built and tested against these versions in a network-
-# disabled sandbox using only numpy/pandas/scipy, which were preinstalled;
-# everything below is what a networked deployment should add.)
+# Core numerical stack
 numpy>=1.26
 pandas>=2.0
 scipy>=1.11
 
-# Recommended for production survival analysis instead of
-# gbm_evidence_engine/analysis/survival.py's from-scratch implementation
-# (see that module's docstring for why: more thoroughly tested edge cases).
+# Production survival-analysis dependency
 lifelines>=0.29
 
-# API layer (api/app.py)
+# API layer
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
 
-# Web UI (streamlit_app.py) -- the recommended fastest path to a live,
-# clickable tool; see chat walkthrough / streamlit_app.py docstring.
-streamlit>=1.35
+# Web UI. Production interaction and rerun tests are validated on this runtime.
+streamlit==1.63.0
 
-# GLASS ingestion (connectors/glass.py) once a team member has completed
-# Synapse registration + the GLASS data-use agreement
+# GLASS ingestion once a team member has completed Synapse registration and
+# the GLASS data-use agreement.
 synapseclient>=4.0
 
-# Testing (this sandbox could not install pytest -- tests/ were written to
-# also run as plain scripts via `python3 tests/test_x.py`; pytest is still
-# recommended for CI)
+# Test runner. Tests can also be executed as plain Python scripts.
 pytest>=8.0

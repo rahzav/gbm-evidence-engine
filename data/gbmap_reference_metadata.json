@@ -1,0 +1,64 @@
+{
+  "reference_schema_version": "1.2.0",
+  "source_collection_id": "999f2a15-3d7e-440b-96ae-2c806799c08c",
+  "state_column": "annotation_level_3",
+  "class_column": "annotation_level_1",
+  "patient_column": "donor_id",
+  "n_cells": 338564,
+  "n_patients": 110,
+  "n_states": 20,
+  "n_features": 27632,
+  "n_genes": 27625,
+  "n_unique_gene_labels": 27625,
+  "n_duplicate_gene_labels": 7,
+  "duplicate_gene_features": {
+    "GOLGA8M": [
+      "ENSG00000188626",
+      "ENSG00000261480"
+    ],
+    "GUSBP11": [
+      "ENSG00000272578",
+      "ENSG00000228315"
+    ],
+    "GUSBP5": [
+      "ENSG00000236296",
+      "ENSG00000251600"
+    ],
+    "LINC01115": [
+      "ENSG00000272342",
+      "ENSG00000237667"
+    ],
+    "LINC03021": [
+      "ENSG00000254319",
+      "ENSG00000277526"
+    ],
+    "PINX1": [
+      "ENSG00000254093",
+      "ENSG00000258724"
+    ],
+    "ZNF833P": [
+      "ENSG00000197332",
+      "ENSG00000267343"
+    ]
+  },
+  "rows_written": 426620,
+  "output": "/tmp/gbmap_gene_state_summary.csv.gz",
+  "builder": "direct_hdf5_memory_safe",
+  "semantics": {
+    "patient_prevalence": "n patients with >=1 expressing cell / n patients represented in that state",
+    "fraction_expressing": "expressing cells / cells in that state",
+    "mean_expression": "mean value of published Core GBmap X matrix within state",
+    "expression_z_across_states": "z-score of state mean across annotation_level_3 states for the same gene"
+  },
+  "caveat": "Expression breadth and enrichment are contextual; they do not establish dependency, causality, drug response or clinical utility.",
+  "source_dataset": {
+    "dataset_title": "Core GBmap",
+    "dataset_id": "c888b684-6c51-431f-972a-6c963044cef0",
+    "dataset_version_id": "861acfd8-25f0-418b-a445-aa96da232827",
+    "asset_url": "https://datasets.cellxgene.cziscience.com/861acfd8-25f0-418b-a445-aa96da232827.h5ad",
+    "asset_size": 8127057404,
+    "cell_count": 338564,
+    "published_at": "2022-08-29T21:50:26+00:00",
+    "schema_version": "7.1.0"
+  }
+}

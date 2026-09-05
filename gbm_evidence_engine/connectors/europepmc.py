@@ -1,9 +1,11 @@
 """Live Europe PMC literature connector."""
 from __future__ import annotations
-from typing import Optional
-from .base import http_get_json, SOURCE_REGISTRY
-import urllib.parse
+
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
+import urllib.parse
+
+from .base import SOURCE_REGISTRY, http_get_json
 
 BASE = SOURCE_REGISTRY["europepmc"].base_url
 
@@ -23,18 +25,30 @@ def co_mention_count(gene: str, context: str = "glioblastoma") -> Optional[int]:
     return result.get("hitCount") if result else None
 
 
-def _publication_url(row: dict) -> str:
-    doi = str(row.get("doi") or "").strip()
+def publication_url(record: dict) -> str | None:
+    """Return a stable click-through URL for a Europe PMC result.
+
+    Prefer DOI when present, then PubMed/PMC identifiers, then Europe PMC's own
+    source/id route. A title-search fallback ensures a displayed publication is
+    still navigable even when identifier metadata is incomplete.
+    """
+    doi = str(record.get("doi") or "").strip()
     if doi:
-        return f"https://doi.org/{doi}"
-    pmcid = str(row.get("pmcid") or "").strip()
-    if pmcid:
-        return f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/"
-    pmid = str(row.get("pmid") or "").strip()
+        return f"https://doi.org/{urllib.parse.quote(doi, safe='/:;()[]') }"
+    pmid = str(record.get("pmid") or "").strip()
     if pmid:
-        return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-    title = str(row.get("title") or "").strip()
-    return "https://europepmc.org/search?query=" + urllib.parse.quote(title)
+        return f"https://pubmed.ncbi.nlm.nih.gov/{urllib.parse.quote(pmid)}/"
+    pmcid = str(record.get("pmcid") or "").strip()
+    if pmcid:
+        return f"https://pmc.ncbi.nlm.nih.gov/articles/{urllib.parse.quote(pmcid)}/"
+    source = str(record.get("source") or "").strip()
+    ext_id = str(record.get("id") or record.get("extId") or "").strip()
+    if source and ext_id:
+        return f"https://europepmc.org/article/{urllib.parse.quote(source)}/{urllib.parse.quote(ext_id)}"
+    title = str(record.get("title") or "").strip()
+    if title:
+        return "https://europepmc.org/search?query=" + urllib.parse.quote(f'TITLE:"{title}"')
+    return None
 
 
 def top_papers(gene: str, page_size: int = 8) -> list[dict]:
@@ -42,7 +56,7 @@ def top_papers(gene: str, page_size: int = 8) -> list[dict]:
     rows = result.get("resultList", {}).get("result", [])
     papers = []
     for r in rows:
-        papers.append({
+        paper = {
             "title": r.get("title"),
             "authors": r.get("authorString"),
             "journal": r.get("journalTitle"),
@@ -50,10 +64,13 @@ def top_papers(gene: str, page_size: int = 8) -> list[dict]:
             "pmid": r.get("pmid"),
             "pmcid": r.get("pmcid"),
             "doi": r.get("doi"),
+            "source": r.get("source"),
+            "id": r.get("id") or r.get("extId"),
             "cited_by": r.get("citedByCount"),
             "abstract": r.get("abstractText"),
-            "url": _publication_url(r),
-        })
+        }
+        paper["url"] = publication_url(paper)
+        papers.append(paper)
     return papers
 
 
@@ -73,7 +90,10 @@ def context_counts(gene: str) -> dict[str, Optional[int]]:
         label, tail = item
         data = search(f'"{gene}" AND (glioblastoma OR GBM) AND {tail}', page_size=1, result_type="lite")
         return label, (data.get("hitCount") if data else None)
-    with ThreadPoolExecutor(max_workers=4) as ex:
+
+    # Two workers keeps latency reasonable without adding unnecessary request
+    # pressure to the rest of a multi-source profile build.
+    with ThreadPoolExecutor(max_workers=2) as ex:
         return dict(ex.map(one, CONTEXT_QUERIES.items()))
 
 

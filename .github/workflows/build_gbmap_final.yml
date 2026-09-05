@@ -1,0 +1,128 @@
+name: Final GBmap Reference Build
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - scripts/build_gbmap_reference.py
+      - scripts/build_gbmap_reference_v3.py
+      - scripts/patch_gbmap_duplicate_policy.py
+      - gbm_evidence_engine/connectors/gbmap.py
+      - .github/workflows/build_gbmap_final.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Free build disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+          sudo apt-get clean || true
+          df -h /
+      - name: Install offline aggregation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install h5py numpy scipy pandas
+      - name: Apply duplicate-feature identity policy
+        run: python scripts/patch_gbmap_duplicate_policy.py
+      - name: Validate published Core GBmap metadata
+        run: PYTHONPATH=. python scripts/build_gbmap_reference_v3.py --metadata-only
+      - name: Build compact patient-aware GBmap reference
+        run: |
+          PYTHONPATH=. python scripts/build_gbmap_reference_v3.py \
+            --output /tmp/gbmap_gene_state_summary.csv.gz \
+            --metadata-output /tmp/gbmap_reference_metadata.json \
+            --chunk-size 4096
+          ls -lh /tmp/gbmap_gene_state_summary.csv.gz /tmp/gbmap_reference_metadata.json
+          bytes=$(stat -c%s /tmp/gbmap_gene_state_summary.csv.gz)
+          if [ "$bytes" -ge 95000000 ]; then
+            echo "Compact reference is ${bytes} bytes, too large for a normal GitHub blob."
+            exit 1
+          fi
+      - name: Validate derived reference scientifically
+        run: |
+          python - <<'PY'
+          import gzip, json, csv
+          from collections import defaultdict
+          from pathlib import Path
+
+          data_path = Path('/tmp/gbmap_gene_state_summary.csv.gz')
+          meta_path = Path('/tmp/gbmap_reference_metadata.json')
+          meta = json.loads(meta_path.read_text())
+          assert meta['n_cells'] >= 300000, meta
+          assert meta['n_patients'] >= 100, meta
+          assert meta['n_states'] >= 10, meta
+          assert meta['rows_written'] > 100000, meta
+          assert meta['reference_schema_version'] == '1.2.0', meta
+          assert meta.get('n_duplicate_gene_labels', 0) >= 1, meta
+
+          canonical = {'EGFR','SOX2','OLIG2','GFAP','CDK4','PTEN'}
+          seen = set()
+          malignant_states = set()
+          features_by_gene = defaultdict(set)
+          row_count = 0
+          with gzip.open(data_path, 'rt', encoding='utf-8') as handle:
+              reader = csv.DictReader(handle)
+              assert 'feature_id' in reader.fieldnames, reader.fieldnames
+              for row in reader:
+                  row_count += 1
+                  gene = row['gene']
+                  seen.add(gene)
+                  features_by_gene[gene].add(row['feature_id'])
+                  prevalence = float(row['patient_prevalence'])
+                  assert 0.0 <= prevalence <= 1.0, row
+                  assert int(row['n_expressing_patients']) <= int(row['n_state_patients']), row
+                  if row['state_class'] == 'malignant':
+                      malignant_states.add(row['state'])
+          assert canonical <= seen, canonical - seen
+          assert len(malignant_states) >= 3, malignant_states
+          assert row_count == meta['rows_written'], (row_count, meta['rows_written'])
+          for symbol, feature_ids in (meta.get('duplicate_gene_features') or {}).items():
+              declared = set(feature_ids)
+              expressed = features_by_gene[symbol]
+              assert len(declared) > 1, (symbol, feature_ids)
+              assert expressed <= declared, (symbol, expressed, declared)
+          print('GBMAP_REFERENCE_VALID', meta)
+          PY
+      - name: Validate runtime connector behavior
+        run: |
+          mkdir -p data
+          cp /tmp/gbmap_gene_state_summary.csv.gz data/gbmap_gene_state_summary.csv.gz
+          cp /tmp/gbmap_reference_metadata.json data/gbmap_reference_metadata.json
+          PYTHONPATH=. python - <<'PY'
+          from gbm_evidence_engine.connectors.gbmap import summarize_gene
+          for gene in ['EGFR','SOX2','OLIG2','GFAP','CDK4','PTEN']:
+              result = summarize_gene(gene)
+              assert result.get('ok'), (gene, result)
+              assert result.get('states'), (gene, result)
+              assert all(0 <= float(x['patient_prevalence']) <= 1 for x in result['states'])
+              print(gene, result.get('top_malignant_state'), result.get('malignant_patient_prevalence'))
+          ambiguous = summarize_gene('PINX1')
+          assert ambiguous.get('status') == 'ambiguous_gene_symbol', ambiguous
+          assert len(ambiguous.get('feature_ids') or []) == 2, ambiguous
+          print('GBMAP_RUNTIME_VALID')
+          PY
+      - name: Commit validated compact reference
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            scripts/build_gbmap_reference_v3.py \
+            gbm_evidence_engine/connectors/gbmap.py \
+            data/gbmap_gene_state_summary.csv.gz \
+            data/gbmap_reference_metadata.json
+          git commit -m "Add validated native Core GBmap cell-state reference"
+          git fetch origin final-production-integration
+          git rebase origin/final-production-integration
+          git push origin HEAD:final-production-integration

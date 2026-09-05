@@ -1,0 +1,50 @@
+name: Release Edge Cases
+
+on:
+  pull_request:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - .github/workflows/release_edges.yml
+      - tests/test_release_edge_cases.py
+      - tests/test_research_intelligence_v5.py
+      - gbm_evidence_engine/research_intelligence_v5.py
+      - gbm_evidence_engine/benchmarking.py
+      - app_ui.py
+
+jobs:
+  edge-cases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Deterministic invalid-input and source-outage tests
+        run: |
+          PYTHONPATH=. python tests/test_research_intelligence_v5.py
+          PYTHONPATH=. python tests/test_release_edge_cases.py
+      - name: Malformed researcher-table UI behavior
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+
+          at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
+          assert not list(at.exception), list(at.exception)
+          at.session_state['walkthrough_open'] = False
+          at.run(timeout=30)
+
+          pasted = next(x for x in at.text_area if x.label == 'Or paste a processed table')
+          pasted.set_value('gene,effect\nEGFR,not-a-number\nPTEN,also-not-a-number')
+          at.run(timeout=30)
+          result_button = next(x for x in at.button if x.label == 'Build result dossier')
+          result_button.click()
+          at.run(timeout=30)
+
+          assert not list(at.exception), list(at.exception)
+          errors = [str(x.value) for x in at.error]
+          assert any('at least 6 unique genes' in message.lower() for message in errors), errors
+          print('MALFORMED RESEARCHER TABLE FAILS CLEARLY')
+          PY

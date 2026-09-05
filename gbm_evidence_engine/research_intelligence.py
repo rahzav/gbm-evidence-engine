@@ -59,11 +59,13 @@ class ResearchProfile:
     next_experiments: list[str]
     source_status: dict[str, str]
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    software_version: str = "7.0.0"
 
     def to_dict(self) -> dict:
         return {
             "gene": self.gene,
             "generated_at": self.generated_at,
+            "software_version": self.software_version,
             "score": self.score.to_dict(),
             "live": self.live,
             "context_map": self.context_map,

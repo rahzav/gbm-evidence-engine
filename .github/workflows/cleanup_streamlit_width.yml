@@ -1,0 +1,48 @@
+name: Streamlit Width Cleanup
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - scripts/cleanup_streamlit_width.py
+      - .github/workflows/cleanup_streamlit_width.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/cleanup_streamlit_width.py
+      - run: pip install -r requirements.txt
+      - name: Validate Streamlit UI
+        run: |
+          python -m py_compile app_ui.py streamlit_app.py
+          python - <<'PY'
+          from pathlib import Path
+          from streamlit.testing.v1 import AppTest
+          text = Path('app_ui.py').read_text()
+          assert 'use_container_width=' not in text
+          assert 'Build dossier' in text
+          at = AppTest.from_file('streamlit_app.py', default_timeout=60).run(timeout=30)
+          if at.exception:
+              raise SystemExit(at.exception)
+          assert any(button.label == 'Build dossier' for button in at.button)
+          print('STREAMLIT WIDTH CLEANUP OK')
+          PY
+      - name: Commit cleanup
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_ui.py
+          git commit -m "Update Streamlit width API usage"
+          git fetch origin final-production-integration
+          git rebase origin/final-production-integration
+          git push origin HEAD:final-production-integration

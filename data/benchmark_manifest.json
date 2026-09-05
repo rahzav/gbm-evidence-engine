@@ -1,0 +1,283 @@
+{
+  "benchmark_version": "0.3.1",
+  "scope": "GBM molecular research decision-support behavior",
+  "notes": "This fixed benchmark is a current-data regression suite with balanced known-positive, known-negative, and context-specific controls. Live-source expectations are conditionally evaluable: an upstream outage is reported as not evaluable rather than as a scientific pass or failure. The suite is not retrospective discovery validation. True retrospective cases require frozen or date-bounded evidence snapshots, and prospective claims require preregistered hypotheses evaluated against later evidence.",
+  "cases": [
+    {
+      "id": "egfr_established_gbm_genomic_signal",
+      "gene": "EGFR",
+      "case_class": "known_positive",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.cbioportal.mutation.frequency",
+          "operator": "gte",
+          "value": 0.05,
+          "when": {"path": "live.cbioportal.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "TCGA/cBioPortal was unavailable for this live run.",
+          "rationale": "When current TCGA/cBioPortal evidence is available, EGFR should retain a non-trivial GBM somatic mutation signal."
+        },
+        {
+          "path": "score.overall",
+          "operator": "gte",
+          "value": 40,
+          "rationale": "An established GBM driver should not collapse into a low-priority negative-control range when the broader evidence stack is available."
+        },
+        {
+          "path": "live.overall_evidence_confidence.score",
+          "operator": "gte",
+          "value": 55,
+          "rationale": "An established GBM driver should retain at least moderate aggregate evidence confidence."
+        }
+      ]
+    },
+    {
+      "id": "pten_established_gbm_genomic_signal",
+      "gene": "PTEN",
+      "case_class": "known_positive",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.cbioportal.mutation.frequency",
+          "operator": "gte",
+          "value": 0.10,
+          "when": {"path": "live.cbioportal.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "TCGA/cBioPortal was unavailable for this live run.",
+          "rationale": "When current TCGA/cBioPortal evidence is available, PTEN should preserve a substantial GBM mutation signal."
+        },
+        {
+          "path": "score.overall",
+          "operator": "gte",
+          "value": 38,
+          "rationale": "The integrated profile should preserve meaningful GBM relevance for PTEN without requiring every evidence layer to agree."
+        },
+        {
+          "path": "live.overall_evidence_confidence.score",
+          "operator": "gte",
+          "value": 55,
+          "rationale": "The current PTEN evidence stack should remain at least moderately supported."
+        }
+      ]
+    },
+    {
+      "id": "cdk4_functional_dependency_positive_control",
+      "gene": "CDK4",
+      "case_class": "known_positive",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.median_effect_gbm",
+          "operator": "lte",
+          "value": -0.40,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "When DepMap is available, CDK4 should preserve a meaningful loss-of-function dependency signal in the strict GBM model set."
+        },
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": false,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "CDK4 should not be collapsed into the pan-essential safeguard category."
+        },
+        {
+          "path": "score.overall",
+          "operator": "gte",
+          "value": 35,
+          "rationale": "The integrated profile should retain meaningful research priority while still allowing other dimensions to temper the functional signal."
+        }
+      ]
+    },
+    {
+      "id": "rpl3_panessential_negative_control",
+      "gene": "RPL3",
+      "case_class": "known_negative",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": true,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "RPL3 provides a pan-essential control for distinguishing generic cellular essentiality from GBM-specific dependency."
+        },
+        {
+          "path": "score.overall",
+          "operator": "lte",
+          "value": 30,
+          "rationale": "Strong generic dependency alone must not create a high GBM target-priority score."
+        },
+        {
+          "path": "live.model_relevance.score",
+          "operator": "lte",
+          "value": 40,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "Pan-essential behavior should reduce disease-specific model relevance."
+        }
+      ]
+    },
+    {
+      "id": "hbb_non_gbm_negative_control",
+      "gene": "HBB",
+      "case_class": "known_negative",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.median_effect_gbm",
+          "operator": "gte",
+          "value": -0.20,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "HBB should not display a strong current GBM loss-of-function dependency signal."
+        },
+        {
+          "path": "score.overall",
+          "operator": "lte",
+          "value": 40,
+          "rationale": "A non-GBM control should remain below the established-driver range in the integrated target-priority score."
+        }
+      ]
+    },
+    {
+      "id": "alb_non_gbm_negative_control",
+      "gene": "ALB",
+      "case_class": "known_negative",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.median_effect_gbm",
+          "operator": "gte",
+          "value": -0.20,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "ALB should not display a strong current GBM loss-of-function dependency signal."
+        },
+        {
+          "path": "score.overall",
+          "operator": "lte",
+          "value": 42,
+          "rationale": "A non-GBM control should remain outside the higher-priority range despite broad contextual data availability."
+        }
+      ]
+    },
+    {
+      "id": "egfr_genomic_dependency_discordance",
+      "gene": "EGFR",
+      "case_class": "context_specific",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.cbioportal.mutation.frequency",
+          "operator": "gte",
+          "value": 0.05,
+          "when": {"path": "live.cbioportal.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "TCGA/cBioPortal was unavailable for this live run.",
+          "rationale": "When cBioPortal is available, the context case should preserve EGFR's current GBM genomic signal."
+        },
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": false,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "EGFR should not be mislabeled pan-essential in the current strict GBM panel."
+        },
+        {
+          "path": "live.depmap.median_selectivity_delta",
+          "operator": "lte",
+          "value": 0,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "Current DepMap evidence does not support a GBM-selective EGFR dependency, and the system must preserve that discordance instead of forcing agreement."
+        },
+        {
+          "path": "live.model_relevance.level",
+          "operator": "eq",
+          "value": "limited",
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "The current EGFR functional evidence is primarily conventional-cell-line evidence and must retain its limited model-relevance grade."
+        }
+      ]
+    },
+    {
+      "id": "cdk4_dependency_model_relevance_context",
+      "gene": "CDK4",
+      "case_class": "context_specific",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.depmap.median_effect_gbm",
+          "operator": "lte",
+          "value": -0.40,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "The context case requires preservation of CDK4's strong functional dependency signal."
+        },
+        {
+          "path": "live.depmap.pan_essential",
+          "operator": "eq",
+          "value": false,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "The dependency should remain distinguishable from generic pan-essential behavior."
+        },
+        {
+          "path": "live.model_relevance.level",
+          "operator": "eq",
+          "value": "limited",
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "A strong dependency in predominantly conventional models must not be presented as high physiologic model relevance."
+        },
+        {
+          "path": "live.overall_evidence_confidence.score",
+          "operator": "gte",
+          "value": 55,
+          "rationale": "Evidence confidence and model relevance are distinct concepts; moderate confidence can coexist with limited model relevance."
+        }
+      ]
+    },
+    {
+      "id": "pten_genomic_without_functional_dependency_context",
+      "gene": "PTEN",
+      "case_class": "context_specific",
+      "mode": "current_behavior_regression",
+      "expectations": [
+        {
+          "path": "live.cbioportal.mutation.frequency",
+          "operator": "gte",
+          "value": 0.10,
+          "when": {"path": "live.cbioportal.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "TCGA/cBioPortal was unavailable for this live run.",
+          "rationale": "When cBioPortal is available, the PTEN context case should preserve the current genomic alteration signal."
+        },
+        {
+          "path": "live.depmap.median_effect_gbm",
+          "operator": "gte",
+          "value": 0,
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "Current strict-GBM DepMap data do not show a loss-of-function dependency for PTEN, so genomic relevance must not be conflated with dependency."
+        },
+        {
+          "path": "live.model_relevance.level",
+          "operator": "eq",
+          "value": "limited",
+          "when": {"path": "live.depmap.ok", "operator": "eq", "value": true},
+          "not_evaluable_reason": "DepMap was unavailable for this live run.",
+          "rationale": "The functional-model context must remain explicitly qualified."
+        },
+        {
+          "path": "score.overall",
+          "operator": "gte",
+          "value": 38,
+          "rationale": "The integrated score should preserve meaningful target context even when functional evidence does not point in the same direction."
+        }
+      ]
+    }
+  ]
+}

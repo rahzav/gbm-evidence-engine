@@ -1,0 +1,53 @@
+name: Fixed Live Benchmark
+
+on:
+  push:
+    branches: [final-production-integration]
+    paths:
+      - .github/workflows/benchmark_probe.yml
+      - data/benchmark_manifest.json
+      - gbm_evidence_engine/benchmarking.py
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: final-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Run balanced fixed benchmark
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          from gbm_evidence_engine.benchmarking import run_benchmark
+          from gbm_evidence_engine.research_intelligence_v7_prod import build_research_profile
+
+          result = run_benchmark(build_research_profile)
+          print('FIXED_BENCHMARK', json.dumps(result, sort_keys=True))
+          assert result['benchmark_version'] == '0.3.1', result
+          assert result['n_cases'] == 9, result
+          assert result['n_unique_genes'] == 6, result
+          assert result['case_class_counts'] == {
+              'context_specific': 3,
+              'known_negative': 3,
+              'known_positive': 3,
+          }, result
+          assert result['n_retrospective_cases'] == 0, result
+          assert result['retrospective_claim_allowed'] is False, result
+          assert result['evaluable_cases'] >= 6, result
+          assert result['all_evaluable_cases_passed'], result
+          assert result['check_accuracy'] == 1.0, result
+          print(
+              'SOURCE_AVAILABILITY',
+              json.dumps({
+                  'fully_evaluable_cases': result['fully_evaluable_cases'],
+                  'source_limited_cases': result['source_limited_cases'],
+                  'not_evaluable_checks': result['not_evaluable_checks'],
+              }, sort_keys=True),
+          )
+          PY
