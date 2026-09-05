@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 
 import pandas as pd
 import streamlit as st
@@ -14,6 +15,11 @@ from ui_walkthroughs import (
     render_feature_header,
 )
 from gbm_evidence_engine.evidence_model import EvidenceTier
+from gbm_evidence_engine.research_agent import (
+    ResearchAgentError,
+    configured_model,
+    run_agent_turn,
+)
 from gbm_evidence_engine.connectors import europepmc
 from gbm_evidence_engine.research_intelligence_v7_prod import (
     analyze_researcher_signature,
@@ -890,6 +896,123 @@ def render_profile(profile):
 
 
 
+def _agent_secret(name: str) -> str | None:
+    try:
+        value = st.secrets.get(name)
+    except Exception:
+        value = None
+    value = value or os.getenv(name)
+    return str(value).strip() if value else None
+
+
+def _render_agent_references(references):
+    if not references:
+        return
+    with st.expander(f"Evidence references ({len(references)})", expanded=False):
+        for ref in references:
+            token = ref.get("token", "source")
+            label = ref.get("label", "Evidence source")
+            source = ref.get("source", "")
+            url = ref.get("url")
+            if url:
+                st.markdown(f"- `{token}` [{label}]({url}) — {source}")
+            else:
+                st.markdown(f"- `{token}` {label} — {source}")
+
+
+def _render_agent_message(message):
+    st.markdown(message.get("content", ""))
+    if message.get("grounding_ok") is False:
+        st.warning("Some quantitative phrasing could not be automatically traced to retrieved evidence. Verify the cited records before using it.")
+    _render_agent_references(message.get("references") or [])
+
+
+def render_research_assistant():
+    st.markdown("### Research Assistant")
+    st.caption("Evidence-grounded GBM research copilot that can interrogate dossiers, compare targets, inspect current analyses, and retrieve live Europe PMC publications.")
+
+    context = {
+        "profile": st.session_state.get("profile"),
+        "pair": st.session_state.get("pair"),
+        "signature": st.session_state.get("signature"),
+        "comparison_profiles": st.session_state.get("comparison_profiles"),
+    }
+    context_labels = []
+    if context["profile"] is not None:
+        context_labels.append(f"Gene: {context['profile'].gene}")
+    if context["pair"] is not None:
+        context_labels.append(f"Pair: {context['pair'].get('gene_a')} + {context['pair'].get('gene_b')}")
+    if context["signature"] is not None:
+        context_labels.append("Researcher Data result")
+    if context["comparison_profiles"]:
+        context_labels.append("Gene Set Comparison")
+    if context_labels:
+        st.caption("Current context available · " + " · ".join(context_labels))
+
+    st.caption("Messages and only the derived analysis context the assistant explicitly retrieves are sent to OpenAI. Raw Researcher Data tables are not passed to the assistant.")
+
+    api_key = _agent_secret("OPENAI_API_KEY")
+    model = _agent_secret("OPENAI_MODEL") or configured_model()
+    if not api_key:
+        st.info("Research Assistant is not configured on this deployment yet.")
+        return
+
+    messages = st.session_state.setdefault("research_agent_messages", [])
+    if messages:
+        clear_col, _ = st.columns([1, 5])
+        with clear_col:
+            if st.button("Clear conversation", key="clear_research_agent", type="tertiary"):
+                st.session_state["research_agent_messages"] = []
+                st.rerun()
+
+    for message in messages:
+        with st.chat_message(message.get("role", "assistant")):
+            if message.get("role") == "assistant":
+                _render_agent_message(message)
+            else:
+                st.markdown(message.get("content", ""))
+
+    prompt = st.chat_input(
+        "Ask about a target, the evidence, conflicting results, current researcher data, literature, or the next experiment...",
+        key="research_agent_input",
+    )
+    if not prompt:
+        return
+
+    prior_history = [
+        {"role": item.get("role"), "content": item.get("content", "")}
+        for item in messages[-8:]
+    ]
+    messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        try:
+            with st.spinner("Interrogating the GBM evidence..."):
+                result = run_agent_turn(
+                    prompt,
+                    history=prior_history,
+                    session_context=context,
+                    api_key=api_key,
+                    model=model,
+                )
+            assistant_message = {
+                "role": "assistant",
+                "content": result.text,
+                "references": result.references,
+                "tools_used": result.tools_used,
+                "grounding_ok": result.grounding_ok,
+            }
+            messages.append(assistant_message)
+            _render_agent_message(assistant_message)
+        except ResearchAgentError as exc:
+            error_text = str(exc)
+            st.error(error_text)
+            messages.append({"role": "assistant", "content": error_text, "references": [], "grounding_ok": True})
+
+
+
 st.markdown(
     """
     <div style="margin:0 0 .9rem 0;padding:0;">
@@ -904,12 +1027,13 @@ st.markdown(
 maybe_show_initial_gene_walkthrough()
 
 
-analysis_tab, pair_tab, researcher_tab, batch_tab, methods_tab = st.tabs(
+analysis_tab, pair_tab, researcher_tab, batch_tab, assistant_tab, methods_tab = st.tabs(
     [
         "Gene Analysis",
         "Target Pair Analysis",
         "Researcher Data",
         "Gene Set Comparison",
+        "Research Assistant",
         "Methods & Data Sources",
     ],
     key="research_workflow_tabs",
@@ -1116,33 +1240,39 @@ with batch_tab:
     if st.button("Build comparison", type="primary") and genes:
         try:
             with st.spinner("Building and comparing GBM evidence dossiers..."):
-                profiles = cached_batch(tuple(genes))
-            rows = []
-            for item in profiles:
-                item_live = item.live
-                item_dep = item_live.get("depmap", {})
-                item_cgg = item_live.get("cgga", {})
-                item_identity = item_live.get("gene_identity", {})
-                rows.append({
-                    "Gene": item.gene,
-                    "Submitted Symbol": item_identity.get("query", item.gene),
-                    "Target Priority Score": item.score.overall,
-                    "Evidence Coverage (%)": item.score.evidence_coverage_pct,
-                    "Evidence Confidence": confidence_text(item_live.get("overall_evidence_confidence", {})),
-                    "Model Relevance": str((item_live.get("model_relevance") or {}).get("level", "unknown")).title(),
-                    "Priority Classification": item.score.label,
-                    "DepMap Selectivity Difference": item_dep.get("median_selectivity_delta"),
-                    "Usable CGGA Cohorts": item_cgg.get("n_usable_cohorts", 0),
-                    "Active GBM Trials": item_live.get("clinical_trials", {}).get("active", 0),
-                    "B3DB Matches": item_live.get("bbb_candidates", {}).get("matched_count", 0),
-                })
-            display_dataframe(rows, width="stretch", hide_index=True)
+                st.session_state["comparison_profiles"] = cached_batch(tuple(genes))
         except Exception as exc:
             st.error(f"Gene set comparison failed: {exc}")
 
+    profiles = st.session_state.get("comparison_profiles")
+    if profiles:
+        rows = []
+        for item in profiles:
+            item_live = item.live
+            item_dep = item_live.get("depmap", {})
+            item_cgg = item_live.get("cgga", {})
+            item_identity = item_live.get("gene_identity", {})
+            rows.append({
+                "Gene": item.gene,
+                "Submitted Symbol": item_identity.get("query", item.gene),
+                "Target Priority Score": item.score.overall,
+                "Evidence Coverage (%)": item.score.evidence_coverage_pct,
+                "Evidence Confidence": confidence_text(item_live.get("overall_evidence_confidence", {})),
+                "Model Relevance": str((item_live.get("model_relevance") or {}).get("level", "unknown")).title(),
+                "Priority Classification": item.score.label,
+                "DepMap Selectivity Difference": item_dep.get("median_selectivity_delta"),
+                "Usable CGGA Cohorts": item_cgg.get("n_usable_cohorts", 0),
+                "Active GBM Trials": item_live.get("clinical_trials", {}).get("active", 0),
+                "B3DB Matches": item_live.get("bbb_candidates", {}).get("matched_count", 0),
+            })
+        display_dataframe(rows, width="stretch", hide_index=True)
+
+with assistant_tab:
+    render_research_assistant()
+
 with methods_tab:
     st.markdown("### Research Scope")
-    st.write("GBM Gene Analysis integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, and experimental planning. The system is focused on glioblastoma molecular research rather than clinical treatment selection.")
+    st.write("GBM Gene Analysis integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, conversational evidence interrogation, and experimental planning. The system is focused on glioblastoma molecular research rather than clinical treatment selection.")
 
     section_space(0.7)
     st.markdown("### Scored Evidence Model")

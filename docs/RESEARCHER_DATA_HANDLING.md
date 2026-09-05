@@ -25,6 +25,10 @@ Do not upload:
 
 Use de-identified, processed gene-level summaries whenever possible.
 
+## Research Assistant boundary
+
+The Research Assistant does not receive the raw uploaded or pasted researcher table. If a researcher asks the assistant to inspect the current Researcher Data analysis, the application sends only the derived result-dossier context needed for that question, such as prioritized genes, pathway results, perturbational-reversal results, and summary counts. The message and retrieved derived context are processed through the configured OpenAI API deployment and are therefore subject to that deployment's applicable data controls and retention settings. Do not use the assistant with PHI, identifiable patient information, controlled raw genomic data, credentials, or restricted material that is not approved for that environment.
+
 ## Hosting and retention boundary
 
 The repository itself does not implement persistent storage for researcher uploads. However, a deployed copy runs on third-party infrastructure. Uploaded content is therefore processed by the host environment and may be subject to that provider's infrastructure, logging, security, and retention policies. Researchers should review the policies of the specific deployment before submitting sensitive or restricted information.
