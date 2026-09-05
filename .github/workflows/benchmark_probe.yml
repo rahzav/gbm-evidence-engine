@@ -24,7 +24,7 @@ jobs:
           import json
           from gbm_evidence_engine.research_intelligence_v7_prod import build_research_profile
 
-          genes = ['EGFR', 'TP53', 'CDK4', 'PTEN', 'RPL3']
+          genes = ['EGFR', 'TP53', 'CDK4', 'PTEN', 'RPL3', 'HBB', 'ALB']
           output = {}
           for gene in genes:
               p = build_research_profile(gene)
