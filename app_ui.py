@@ -406,11 +406,9 @@ def render_literature(profile, lit):
     label_to_key = {"All GBM literature": None}
     context_options = ["All GBM literature"]
     for key in context_keys:
-        count = profile.context_map.get(key)
         label = europepmc.CONTEXT_LABELS.get(key, key.replace("_", " ").title())
-        display = f"{label} ({count:,})" if isinstance(count, int) else label
-        context_options.append(display)
-        label_to_key[display] = key
+        context_options.append(label)
+        label_to_key[label] = key
 
     applied_key = f"literature_applied_terms_{gene}"
     search_input_key = f"literature_search_input_{gene}"
