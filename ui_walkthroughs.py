@@ -17,79 +17,152 @@ TOUR_TITLES = [
 
 PRODUCT_SHELL_CSS = """
 <style>
-/* Product shell: compact, research-first, and intentionally quieter than the data. */
+/* Glia workspace system: a dense, research-first shell around the validated engine. */
+:root {
+  --glia-canvas:#0a0e13;
+  --glia-surface:#10161e;
+  --glia-surface-raised:#141b24;
+  --glia-line:rgba(148,163,184,.16);
+  --glia-line-strong:rgba(148,163,184,.26);
+  --glia-text:#eef2f7;
+  --glia-muted:#919baa;
+  --glia-faint:#677180;
+  --glia-accent:#e66c65;
+  --glia-accent-hover:#f07870;
+  --glia-radius:8px;
+}
+[data-testid="stAppViewContainer"], [data-testid="stMain"] {
+  background:var(--glia-canvas) !important;
+}
 [data-testid="stAppViewBlockContainer"] {
-  max-width: 1480px !important;
-  padding-top: 2.25rem !important;
-  padding-bottom: 4rem !important;
+  max-width:1520px !important;
+  padding:1.45rem 2.15rem 5rem !important;
 }
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stToolbar"] { right: 1rem !important; }
-.glia-product-bar {
-  min-height:2.6rem;
+.glia-product-bar { min-height:2.35rem; display:flex; align-items:center; }
+.st-key-glia_header_identity [data-testid="stHorizontalBlock"] {
+  gap:.18rem !important;
+  align-items:center !important;
+  flex-wrap:nowrap !important;
 }
-.glia-identity { display:flex; align-items:center; gap:.7rem; }
+.st-key-glia_header_identity [data-testid="stMarkdownContainer"] { width:auto !important; }
+.st-key-glia_header_identity [data-testid="stElementContainer"] { flex:0 0 auto !important; width:auto !important; }
+.glia-identity { display:flex; align-items:center; gap:.62rem; }
 .glia-identity-mark {
-  width:2.15rem; height:2.15rem; flex:0 0 auto; color:#e76b64;
+  width:1.95rem; height:1.95rem; flex:0 0 auto; color:var(--glia-accent);
   display:flex; align-items:center; justify-content:center;
 }
 .glia-identity-mark svg { width:100%; height:100%; display:block; }
 .glia-wordmark {
-  font-size:1.65rem; font-weight:770; letter-spacing:.015em; line-height:1;
-  color:#f8fafc;
+  font-size:1.45rem; font-weight:780; letter-spacing:.09em; line-height:1;
+  color:var(--glia-text);
 }
 .glia-product-copy {
-  padding:.48rem 0 1rem; border-bottom:1px solid rgba(148,163,184,.16);
+  padding:.42rem 0 1.05rem; border-bottom:1px solid var(--glia-line);
 }
 .glia-product-subtitle {
-  color:rgba(226,232,240,.7); font-size:.93rem; line-height:1.4;
+  color:#b7c0cc; font-size:.9rem; line-height:1.45;
 }
 .glia-research-note {
-  margin-top:.18rem; color:rgba(226,232,240,.48); font-size:.76rem; line-height:1.4;
+  margin-top:.16rem; color:var(--glia-faint); font-size:.72rem; line-height:1.45;
+}
+.glia-engine-status {
+  display:flex; justify-content:flex-end; align-items:center; gap:.46rem;
+  min-height:2.25rem; color:var(--glia-muted); font-size:.7rem;
+  letter-spacing:.055em; text-transform:uppercase; white-space:nowrap;
+}
+.glia-engine-status::before {
+  content:""; width:6px; height:6px; border-radius:50%; background:#68a986;
 }
 .st-key-open_glia_header button {
-  min-height:2.25rem !important; border-radius:.52rem !important; padding:0 .85rem !important;
-  font-weight:680 !important; box-shadow:none !important;
+  min-height:2.25rem !important; border-radius:6px !important; padding:0 .85rem !important;
+  font-weight:690 !important; box-shadow:none !important;
 }
-.st-key-open_tool_tour_info { width:2.2rem; flex:0 0 auto; }
+.st-key-open_tool_tour_info { width:2rem !important; flex:0 0 2rem !important; margin-left:.05rem !important; }
 .st-key-open_tool_tour_info button {
-  min-height:2.1rem !important; width:2.1rem !important; border-radius:.5rem !important;
-  padding:0 !important; border:1px solid rgba(148,163,184,.16) !important;
+  min-height:1.9rem !important; width:1.9rem !important; border-radius:6px !important;
+  padding:0 !important; border:0 !important; background:transparent !important;
+  color:var(--glia-muted) !important;
 }
-/* Make the workflow selector read as product navigation, not another content block. */
-[data-testid="stTabs"] > [data-baseweb="tab-list"] {
-  gap:1.65rem !important; border-bottom:1px solid rgba(148,163,184,.16) !important;
-  margin-bottom:1.45rem !important;
+.st-key-open_tool_tour_info button:hover { color:var(--glia-text) !important; background:rgba(148,163,184,.08) !important; }
+/* Root workflow rail */
+.st-key-research_workflow_tabs > [data-testid="stTabs"] > [data-baseweb="tab-list"],
+.st-key-research_workflow_tabs [data-testid="stTabs"]:first-child > [data-baseweb="tab-list"] {
+  gap:.24rem !important; border-bottom:1px solid var(--glia-line) !important;
+  margin:0 0 1.35rem !important; padding:.55rem 0 0 !important;
 }
-[data-testid="stTabs"] > [data-baseweb="tab-list"] button {
-  min-height:2.8rem !important; padding:0 !important; font-size:.86rem !important;
-  color:rgba(226,232,240,.62) !important;
+.st-key-research_workflow_tabs > [data-testid="stTabs"] > [data-baseweb="tab-list"] button,
+.st-key-research_workflow_tabs [data-testid="stTabs"]:first-child > [data-baseweb="tab-list"] button {
+  min-height:2.65rem !important; padding:0 .9rem !important; border-radius:6px 6px 0 0 !important;
+  font-size:.82rem !important; color:var(--glia-muted) !important; white-space:nowrap !important;
 }
-[data-testid="stTabs"] > [data-baseweb="tab-list"] button[aria-selected="true"] {
-  color:#f8fafc !important; font-weight:680 !important;
+.st-key-research_workflow_tabs > [data-testid="stTabs"] > [data-baseweb="tab-list"] button[aria-selected="true"],
+.st-key-research_workflow_tabs [data-testid="stTabs"]:first-child > [data-baseweb="tab-list"] button[aria-selected="true"] {
+  color:var(--glia-text) !important; font-weight:700 !important; background:rgba(148,163,184,.07) !important;
+}
+/* Evidence navigation stays subordinate to the workflow rail. */
+[data-testid="stTabPanel"] [data-testid="stTabs"] > [data-baseweb="tab-list"] {
+  gap:1.15rem !important; border-bottom:1px solid var(--glia-line) !important;
+  margin:.2rem 0 1rem !important;
+}
+[data-testid="stTabPanel"] [data-testid="stTabs"] > [data-baseweb="tab-list"] button {
+  min-height:2.45rem !important; padding:0 !important; font-size:.77rem !important;
+  color:var(--glia-muted) !important;
+}
+[data-testid="stTabPanel"] [data-testid="stTabs"] > [data-baseweb="tab-list"] button[aria-selected="true"] {
+  color:var(--glia-text) !important; font-weight:660 !important;
 }
 [data-testid="stForm"] {
-  border:1px solid rgba(148,163,184,.2) !important; border-radius:.75rem !important;
-  background:rgba(20,25,34,.52) !important; padding:1rem 1.05rem .9rem !important;
+  border:1px solid var(--glia-line-strong) !important; border-radius:var(--glia-radius) !important;
+  background:var(--glia-surface) !important; padding:1rem 1.05rem .95rem !important;
 }
-[data-testid="stForm"] [data-testid="stTextInput"] input {
-  min-height:3rem; border-radius:.55rem;
+[data-baseweb="input"] > div, [data-baseweb="textarea"] > div,
+[data-baseweb="select"] > div, [data-testid="stFileUploaderDropzone"] {
+  background:var(--glia-surface-raised) !important; border-color:var(--glia-line-strong) !important;
+  border-radius:6px !important; box-shadow:none !important;
 }
-.glia-workflow-heading { margin:.05rem 0 1rem; }
+[data-testid="stForm"] [data-testid="stTextInput"] input { min-height:2.8rem; }
+[data-testid="stMetric"] {
+  border-top:1px solid var(--glia-line-strong); padding:.85rem .2rem .45rem !important;
+}
+[data-testid="stMetricLabel"] { color:var(--glia-muted) !important; font-size:.74rem !important; }
+[data-testid="stMetricValue"] { color:var(--glia-text) !important; font-size:1.55rem !important; letter-spacing:-.025em; }
+[data-testid="stDataFrame"], [data-testid="stTable"] { border:1px solid var(--glia-line) !important; border-radius:var(--glia-radius) !important; overflow:hidden; }
+[data-testid="stExpander"] { border-color:var(--glia-line) !important; border-radius:var(--glia-radius) !important; background:var(--glia-surface) !important; }
+[data-testid="stAlert"] { border-radius:var(--glia-radius) !important; }
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button { border-radius:6px !important; box-shadow:none !important; }
+.glia-workflow-heading { margin:.05rem 0 1.1rem; padding-bottom:.1rem; }
 .glia-workflow-title {
-  font-size:1.6rem; font-weight:720; letter-spacing:-.025em; line-height:1.15;
+  font-size:1.48rem; font-weight:730; letter-spacing:-.028em; line-height:1.18; color:var(--glia-text);
 }
 .glia-workflow-caption {
-  margin-top:.35rem; max-width:53rem; color:rgba(226,232,240,.6);
-  font-size:.88rem; line-height:1.5;
+  margin-top:.34rem; max-width:58rem; color:var(--glia-muted); font-size:.82rem; line-height:1.5;
+}
+.glia-section-label {
+  display:flex; align-items:center; gap:.65rem; margin:.2rem 0 .6rem;
+  color:var(--glia-faint); font-size:.66rem; font-weight:750; letter-spacing:.095em;
+  line-height:1; text-transform:uppercase;
+}
+.glia-section-label::after { content:""; height:1px; flex:1; background:var(--glia-line); }
+h2, h3, h4 { letter-spacing:-.018em !important; }
+h3 { font-size:1.12rem !important; margin-top:1rem !important; }
+h4 { font-size:.92rem !important; color:#d8dee7 !important; }
+p, li { line-height:1.55; }
+hr { border-color:var(--glia-line) !important; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--glia-accent) !important; outline-offset:2px !important; }
+@media (prefers-color-scheme: light) {
+  :root { --glia-canvas:#f4f6f8; --glia-surface:#ffffff; --glia-surface-raised:#f7f8fa; --glia-line:rgba(30,41,59,.13); --glia-line-strong:rgba(30,41,59,.22); --glia-text:#18212d; --glia-muted:#5f6b79; --glia-faint:#778392; }
 }
 @media (prefers-reduced-motion: reduce) {
   .st-key-open_glia_header button { transition:none !important; }
 }
-@media (max-width: 760px) {
-  [data-testid="stAppViewBlockContainer"] { padding-top:1.25rem !important; }
-  .glia-product-subtitle { font-size:.86rem; }
-  [data-testid="stTabs"] > [data-baseweb="tab-list"] { gap:1.1rem !important; overflow-x:auto; }
+@media (max-width: 900px) {
+  [data-testid="stAppViewBlockContainer"] { padding:1rem 1rem 4rem !important; }
+  .glia-engine-status { display:none; }
+  .glia-product-subtitle { font-size:.84rem; }
+  .st-key-research_workflow_tabs [data-baseweb="tab-list"] { overflow-x:auto !important; }
+  .st-key-research_workflow_tabs [data-baseweb="tab-list"] button { padding:0 .7rem !important; }
 }
 </style>
 """
@@ -266,7 +339,7 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
 def render_product_header() -> None:
     """Render Glia's primary identity and single persistent copilot entry point."""
     st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
-    identity_col, glia_col = st.columns([8.75, 1.25], vertical_alignment="center")
+    identity_col, status_col, glia_col = st.columns([7.8, 1.35, 1.35], vertical_alignment="center")
     with identity_col:
         with st.container(
             horizontal=True,
@@ -304,6 +377,8 @@ def render_product_header() -> None:
                 type="tertiary",
             ):
                 _launch_tool_tour(manual=True)
+    with status_col:
+        st.markdown('<div class="glia-engine-status">V7 engine active</div>', unsafe_allow_html=True)
     with glia_col:
         if st.button(
             "Open Glia",
@@ -337,6 +412,11 @@ def render_feature_header(title: str, feature: str, caption: str | None = None) 
         + (f"<div class='glia-workflow-caption'>{caption}</div>" if caption else "")
         + "</div>", unsafe_allow_html=True,
     )
+
+
+def render_section_label(label: str) -> None:
+    """Separate analysis controls from generated research output."""
+    st.markdown(f"<div class='glia-section-label'>{label}</div>", unsafe_allow_html=True)
 
 
 def maybe_show_initial_tool_walkthrough() -> None:
