@@ -78,6 +78,8 @@ def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
     assert '"Open Glia"' in source
     assert 'open_tool_tour_info' in source
     assert 'class="glia-wordmark">GLIA' in source
+    assert '"Glia Walkthrough"' in source
+    assert 'Glia Product Tour' not in source
     assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in source
     assert 'Research use only:' in source
     assert 'Research workspace' not in source
