@@ -165,7 +165,7 @@ def _nav(step: int) -> None:
 
 
 @st.dialog(
-    "Glia Product Tour",
+    "Glia Walkthrough",
     width="large",
     dismissible=True,
     icon=":material/slideshow:",
@@ -267,7 +267,7 @@ def render_product_header() -> None:
     """Render Glia's primary identity and single persistent copilot entry point."""
     st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
     title_col, info_col, spacer_col, glia_col = st.columns(
-        [1.55, 0.32, 6.88, 1.25], vertical_alignment="center"
+        [1.08, 0.28, 7.39, 1.25], vertical_alignment="center"
     )
     with title_col:
         st.markdown(
@@ -296,7 +296,7 @@ def render_product_header() -> None:
             "",
             icon=":material/info:",
             key="open_tool_tour_info",
-            help="Open product walkthrough",
+            help="Open Glia walkthrough",
             type="tertiary",
         ):
             _launch_tool_tour(manual=True)
