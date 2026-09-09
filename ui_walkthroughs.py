@@ -26,21 +26,26 @@ PRODUCT_SHELL_CSS = """
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stToolbar"] { right: 1rem !important; }
 .glia-product-bar {
-  display:flex; align-items:center; gap:.85rem; min-height:3.25rem;
-  padding-bottom:1.15rem; border-bottom:1px solid rgba(148,163,184,.16);
+  min-height:2.6rem;
 }
+.glia-identity { display:flex; align-items:center; gap:.7rem; }
+.glia-identity-mark {
+  width:2.15rem; height:2.15rem; flex:0 0 auto; color:#e76b64;
+  display:flex; align-items:center; justify-content:center;
+}
+.glia-identity-mark svg { width:100%; height:100%; display:block; }
 .glia-wordmark {
-  font-size:1.75rem; font-weight:760; letter-spacing:-.055em; line-height:1;
+  font-size:1.65rem; font-weight:770; letter-spacing:.015em; line-height:1;
   color:#f8fafc;
 }
-.glia-product-copy { min-width:0; padding-left:.1rem; }
+.glia-product-copy {
+  padding:.48rem 0 1rem; border-bottom:1px solid rgba(148,163,184,.16);
+}
 .glia-product-subtitle {
-  color:rgba(226,232,240,.64); font-size:.82rem; line-height:1.3;
+  color:rgba(226,232,240,.7); font-size:.93rem; line-height:1.4;
 }
 .glia-research-note {
-  margin-left:auto; white-space:nowrap; border:1px solid rgba(148,163,184,.2);
-  border-radius:999px; padding:.34rem .65rem; color:rgba(226,232,240,.62);
-  font-size:.7rem; font-weight:650; letter-spacing:.025em;
+  margin-top:.18rem; color:rgba(226,232,240,.48); font-size:.76rem; line-height:1.4;
 }
 .st-key-open_glia_header button {
   min-height:2.25rem !important; border-radius:.52rem !important; padding:0 .85rem !important;
@@ -71,10 +76,6 @@ PRODUCT_SHELL_CSS = """
   min-height:3rem; border-radius:.55rem;
 }
 .glia-workflow-heading { margin:.05rem 0 1rem; }
-.glia-workflow-kicker {
-  color:#e76b64; font-size:.68rem; font-weight:760; letter-spacing:.12em;
-  text-transform:uppercase; margin-bottom:.35rem;
-}
 .glia-workflow-title {
   font-size:1.6rem; font-weight:720; letter-spacing:-.025em; line-height:1.15;
 }
@@ -87,8 +88,7 @@ PRODUCT_SHELL_CSS = """
 }
 @media (max-width: 760px) {
   [data-testid="stAppViewBlockContainer"] { padding-top:1.25rem !important; }
-  .glia-product-subtitle { display:none; }
-  .glia-research-note { display:none; }
+  .glia-product-subtitle { font-size:.86rem; }
   [data-testid="stTabs"] > [data-baseweb="tab-list"] { gap:1.1rem !important; overflow-x:auto; }
 }
 </style>
@@ -266,20 +266,40 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
 def render_product_header() -> None:
     """Render Glia's primary identity and single persistent copilot entry point."""
     st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
-    title_col, glia_col, info_col = st.columns([8.55, 1.15, 0.3], vertical_alignment="center")
+    title_col, info_col, spacer_col, glia_col = st.columns(
+        [1.55, 0.32, 6.88, 1.25], vertical_alignment="center"
+    )
     with title_col:
         st.markdown(
             """
             <div class="glia-product-bar" data-glia-ignore-selection="true">
-              <div class="glia-wordmark">Glia</div>
-              <div class="glia-product-copy">
-                <div class="glia-product-subtitle">Evidence-grounded research intelligence for glioblastoma.</div>
+              <div class="glia-identity">
+                <div class="glia-identity-mark" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" focusable="false">
+                    <g fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M16 10.2 10.4 6.4M16 10.2l5.8-4M16 20.9l-6 4.2M16 20.9l6.3 3.7M11.2 15.5H5.8M20.8 15.5h5.4"/>
+                      <circle cx="16" cy="15.5" r="5.4" fill="currentColor" fill-opacity=".14"/>
+                      <circle cx="10.1" cy="6.2" r="1.8" fill="currentColor"/><circle cx="22.1" cy="6" r="1.8" fill="currentColor"/>
+                      <circle cx="9.7" cy="25.3" r="1.8" fill="currentColor"/><circle cx="22.6" cy="24.8" r="1.8" fill="currentColor"/>
+                      <circle cx="5.3" cy="15.5" r="1.7" fill="currentColor"/><circle cx="26.7" cy="15.5" r="1.7" fill="currentColor"/>
+                    </g>
+                  </svg>
+                </div>
+                <div class="glia-wordmark">GLIA</div>
               </div>
-              <div class="glia-research-note">Research use only</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    with info_col:
+        if st.button(
+            "",
+            icon=":material/info:",
+            key="open_tool_tour_info",
+            help="Open product walkthrough",
+            type="tertiary",
+        ):
+            _launch_tool_tour(manual=True)
     with glia_col:
         if st.button(
             "Open Glia",
@@ -290,15 +310,15 @@ def render_product_header() -> None:
             help="Open the context-aware research interface",
         ):
             _open_glia()
-    with info_col:
-        if st.button(
-            "",
-            icon=":material/info:",
-            key="open_tool_tour_info",
-            help="Open product walkthrough",
-            type="tertiary",
-        ):
-            _launch_tool_tour(manual=True)
+    st.markdown(
+        """
+        <div class="glia-product-copy" data-glia-ignore-selection="true">
+          <div class="glia-product-subtitle">Real-time integrated gene-level evidence synthesis for glioblastoma research.</div>
+          <div class="glia-research-note"><strong>Research use only:</strong> Results support research prioritization and hypothesis development, not clinical decision-making.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_tool_tour_launcher() -> None:
@@ -309,8 +329,7 @@ def render_tool_tour_launcher() -> None:
 def render_feature_header(title: str, feature: str, caption: str | None = None) -> None:
     """Render a focused workflow header without competing global controls."""
     st.markdown(
-        f"<div class='glia-workflow-heading'><div class='glia-workflow-kicker'>Research workspace</div>"
-        f"<div class='glia-workflow-title'>{title}</div>"
+        f"<div class='glia-workflow-heading'><div class='glia-workflow-title'>{title}</div>"
         + (f"<div class='glia-workflow-caption'>{caption}</div>" if caption else "")
         + "</div>", unsafe_allow_html=True,
     )

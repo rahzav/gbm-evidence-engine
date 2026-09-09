@@ -895,8 +895,8 @@ def render_profile(profile):
 
 
 
-# Product identity retained here as a release-contract marker:
-# Evidence-grounded research intelligence for glioblastoma.
+# Product description retained here as a release-contract marker:
+# Real-time integrated gene-level evidence synthesis for glioblastoma research.
 
 st.session_state.setdefault("research_workflow_tabs", "Gene Analysis")
 render_product_header()
