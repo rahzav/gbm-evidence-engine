@@ -63,6 +63,7 @@ def test_glia_component_has_integrated_high_contrast_controls_and_force_open():
 def test_main_header_is_excluded_from_ask_glia_selection():
     source = Path("ui_walkthroughs.py").read_text(encoding="utf-8")
     assert 'class="glia-product-bar" data-glia-ignore-selection="true"' in source
+    assert 'class="glia-product-copy" data-glia-ignore-selection="true"' in source
 
 
 def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
@@ -76,8 +77,10 @@ def test_single_condensed_product_tour_replaces_per_tab_walkthroughs():
     assert "glia_force_open_nonce" in source
     assert '"Open Glia"' in source
     assert 'open_tool_tour_info' in source
-    assert 'class="glia-wordmark">Glia' in source
-    assert 'Evidence-grounded research intelligence for glioblastoma.' in source
+    assert 'class="glia-wordmark">GLIA' in source
+    assert 'Real-time integrated gene-level evidence synthesis for glioblastoma research.' in source
+    assert 'Research use only:' in source
+    assert 'Research workspace' not in source
     assert "Don't show this walkthrough again" in source
     for obsolete in (
         "def show_gene_walkthrough",
