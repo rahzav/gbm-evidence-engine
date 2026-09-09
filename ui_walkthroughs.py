@@ -266,40 +266,44 @@ def _launch_tool_tour(*, manual: bool = False) -> None:
 def render_product_header() -> None:
     """Render Glia's primary identity and single persistent copilot entry point."""
     st.markdown(PRODUCT_SHELL_CSS, unsafe_allow_html=True)
-    title_col, info_col, spacer_col, glia_col = st.columns(
-        [1.08, 0.28, 7.39, 1.25], vertical_alignment="center"
-    )
-    with title_col:
-        st.markdown(
-            """
-            <div class="glia-product-bar" data-glia-ignore-selection="true">
-              <div class="glia-identity">
-                <div class="glia-identity-mark" aria-hidden="true">
-                  <svg viewBox="0 0 32 32" focusable="false">
-                    <g fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M16 10.2 10.4 6.4M16 10.2l5.8-4M16 20.9l-6 4.2M16 20.9l6.3 3.7M11.2 15.5H5.8M20.8 15.5h5.4"/>
-                      <circle cx="16" cy="15.5" r="5.4" fill="currentColor" fill-opacity=".14"/>
-                      <circle cx="10.1" cy="6.2" r="1.8" fill="currentColor"/><circle cx="22.1" cy="6" r="1.8" fill="currentColor"/>
-                      <circle cx="9.7" cy="25.3" r="1.8" fill="currentColor"/><circle cx="22.6" cy="24.8" r="1.8" fill="currentColor"/>
-                      <circle cx="5.3" cy="15.5" r="1.7" fill="currentColor"/><circle cx="26.7" cy="15.5" r="1.7" fill="currentColor"/>
-                    </g>
-                  </svg>
-                </div>
-                <div class="glia-wordmark">GLIA</div>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with info_col:
-        if st.button(
-            "",
-            icon=":material/info:",
-            key="open_tool_tour_info",
-            help="Open Glia walkthrough",
-            type="tertiary",
+    identity_col, glia_col = st.columns([8.75, 1.25], vertical_alignment="center")
+    with identity_col:
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            gap="small",
+            key="glia_header_identity",
         ):
-            _launch_tool_tour(manual=True)
+            st.markdown(
+                """
+                <div class="glia-product-bar" data-glia-ignore-selection="true">
+                  <div class="glia-identity">
+                    <div class="glia-identity-mark" aria-hidden="true">
+                      <svg viewBox="0 0 32 32" focusable="false">
+                        <g fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M16 10.2 10.4 6.4M16 10.2l5.8-4M16 20.9l-6 4.2M16 20.9l6.3 3.7M11.2 15.5H5.8M20.8 15.5h5.4"/>
+                          <circle cx="16" cy="15.5" r="5.4" fill="currentColor" fill-opacity=".14"/>
+                          <circle cx="10.1" cy="6.2" r="1.8" fill="currentColor"/><circle cx="22.1" cy="6" r="1.8" fill="currentColor"/>
+                          <circle cx="9.7" cy="25.3" r="1.8" fill="currentColor"/><circle cx="22.6" cy="24.8" r="1.8" fill="currentColor"/>
+                          <circle cx="5.3" cy="15.5" r="1.7" fill="currentColor"/><circle cx="26.7" cy="15.5" r="1.7" fill="currentColor"/>
+                        </g>
+                      </svg>
+                    </div>
+                    <div class="glia-wordmark">GLIA</div>
+                  </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+                width="content",
+            )
+            if st.button(
+                "",
+                icon=":material/info:",
+                key="open_tool_tour_info",
+                help="Open Glia walkthrough",
+                type="tertiary",
+            ):
+                _launch_tool_tour(manual=True)
     with glia_col:
         if st.button(
             "Open Glia",
