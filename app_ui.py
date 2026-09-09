@@ -11,6 +11,7 @@ from ui_walkthroughs import (
     maybe_show_initial_tool_walkthrough,
     render_feature_header,
     render_product_header,
+    render_section_label,
     render_tool_tour_launcher,
 )
 from gbm_evidence_engine.evidence_model import EvidenceTier
@@ -920,6 +921,7 @@ with analysis_tab:
         "Gene Analysis", "gene",
         "Build a single-gene dossier across genomic, functional, spatial, human, translational, literature, and cell-state evidence.",
     )
+    render_section_label("Analysis setup")
     with st.form("gene_analysis_form", clear_on_submit=False):
         input_col, button_col = st.columns([4, 1], vertical_alignment="bottom")
         with input_col:
@@ -948,6 +950,7 @@ with analysis_tab:
 
     profile = st.session_state.get("profile")
     if profile:
+        render_section_label("Evidence dossier")
         render_profile(profile)
 
 with pair_tab:
@@ -955,6 +958,7 @@ with pair_tab:
         "Target Pair Analysis", "pair",
         "Cross-target evidence comparison across functional, network, spatial, cell-state, recurrence, translational, and model-relevance layers.",
     )
+    render_section_label("Analysis setup")
     with st.form("pair_analysis_form", clear_on_submit=False):
         a_col, b_col, run_col = st.columns([2, 2, 1], vertical_alignment="bottom")
         with a_col:
@@ -972,6 +976,7 @@ with pair_tab:
 
     pair = st.session_state.get("pair")
     if pair:
+        render_section_label("Pair evidence")
         section_space(0.7)
         p1, p2, p3 = st.columns(3)
         p1.metric("Combination Rationale Score", f"{pair.get('combination_rationale_score', 'N/A')}/100")
@@ -1010,6 +1015,7 @@ with researcher_tab:
         "Researcher Data", "researcher",
         "Analyze processed gene-level signed effects with optional p-values/FDR, then add GBM evidence, pathway, and perturbational context.",
     )
+    render_section_label("Data and column mapping")
     uploaded = st.file_uploader("Upload CSV or TSV", type=["csv", "tsv", "txt"], key="research_upload")
     default_text = "gene,effect,p value,fdr\nEGFR,2.4,0.0001,0.002\nSOX2,1.8,0.001,0.01\nSTAT3,1.5,0.004,0.02\nCDK6,1.2,0.01,0.04\nOLIG2,-1.1,0.02,0.05\nGFAP,-1.4,0.001,0.01\nCDKN1A,-1.7,0.0005,0.005\nBAX,-2.0,0.0001,0.002"
     pasted = st.text_area("Or paste a processed table", value=default_text, height=180)
@@ -1055,6 +1061,7 @@ with researcher_tab:
 
     signature = st.session_state.get("signature")
     if signature:
+        render_section_label("Result dossier")
         section_space(0.7)
         s1, s2 = st.columns(2)
         s1.metric("Input Genes", signature.get("n_input_genes"))
@@ -1106,6 +1113,7 @@ with batch_tab:
         "Gene Set Comparison", "comparison",
         "Compare a focused gene set side by side using the same production evidence architecture.",
     )
+    render_section_label("Comparison set")
     raw = st.text_area("Gene symbols", value="EGFR, PTEN, TP53, CDK4", key="gene_set")
     genes = list(dict.fromkeys(x.strip() for x in raw.replace(",", " ").split() if x.strip()))
     if len(genes) > 6:
@@ -1120,6 +1128,7 @@ with batch_tab:
 
     profiles = st.session_state.get("comparison_profiles")
     if profiles:
+        render_section_label("Comparative evidence")
         rows = []
         for item in profiles:
             item_live = item.live
@@ -1146,6 +1155,7 @@ with methods_tab:
         "Methods & Data Sources", "methods",
         "Audit the evidence model, provenance, interpretation boundaries, and source availability.",
     )
+    render_section_label("Scientific architecture")
     st.markdown("### Research Scope")
     st.write("Glia integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, evidence interrogation, and experimental planning. Its scientific backbone is focused on glioblastoma molecular research rather than clinical treatment selection.")
 
