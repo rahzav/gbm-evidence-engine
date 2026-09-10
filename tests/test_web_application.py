@@ -10,7 +10,7 @@ from gbm_evidence_engine import research_agent
 def test_web_application_and_assets_are_served():
     client = TestClient(app)
     page = client.get("/")
-    styles = client.get("/assets/styles.css")
+    styles = client.get("/assets/research.css")
     script = client.get("/assets/app.js")
 
     assert page.status_code == 200
