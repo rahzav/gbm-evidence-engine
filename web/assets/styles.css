@@ -24,3 +24,44 @@
 .form-grid>.button,.form-grid.three>.button{height:42px;min-height:42px;align-self:end}
 .walkthrough footer label{display:inline-flex;align-items:center;gap:9px;line-height:1.2}
 .walkthrough footer label input[type="checkbox"]{width:18px;height:18px;margin:0;flex:0 0 18px;accent-color:var(--accent)}
+
+/* Glia-first product entry */
+.nav-glia{grid-template-columns:22px 1fr auto;margin-bottom:24px;background:rgba(236,112,105,.035);border-color:rgba(236,112,105,.12)}
+.nav-glia svg{width:20px;height:20px;color:var(--accent)}
+.nav-glia.active{background:rgba(236,112,105,.09);border-color:rgba(236,112,105,.3)}
+.workspace:has(.glia-home){max-width:1440px;padding-top:0}
+.glia-home{padding-bottom:40px}
+.glia-home-intro{display:flex;flex-direction:column;align-items:center;text-align:center;min-height:570px;padding:72px 24px 42px;justify-content:center;border-bottom:1px solid var(--line)}
+.glia-home-mark{display:grid;place-items:center;width:64px;height:64px;margin-bottom:19px;border:1px solid rgba(236,112,105,.32);border-radius:16px;background:rgba(236,112,105,.065);color:var(--accent)}
+.glia-home-mark svg{width:43px;height:43px}
+.glia-home-kicker{font:500 12px "IBM Plex Mono";letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.glia-home h1{margin:15px 0 14px;font-size:clamp(38px,5vw,66px);line-height:1.04;letter-spacing:-.055em;font-weight:700}
+.glia-home h1 em{font-style:normal;color:#9ba8b7;font-weight:500}
+.glia-home-intro>p{max-width:710px;margin:0;color:#aab5c2;font-size:17px;line-height:1.55}
+.glia-home-composer{display:flex;width:min(850px,100%);margin:31px auto 0;padding:7px;border:1px solid #344354;border-radius:10px;background:var(--surface);box-shadow:0 18px 60px rgba(0,0,0,.22)}
+.glia-home-composer:focus-within{border-color:rgba(236,112,105,.75);box-shadow:0 0 0 3px rgba(236,112,105,.1),0 18px 60px rgba(0,0,0,.22)}
+.glia-home-composer textarea{flex:1;resize:none;min-height:48px;padding:13px 14px;border:0;outline:0;background:transparent;color:var(--text);font-size:15px;line-height:1.45}
+.glia-home-composer button{display:flex;align-items:center;gap:7px;align-self:stretch;padding:0 17px;border:0;border-radius:7px;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+.glia-home-composer button:hover{background:var(--accent-hover)}
+.glia-home-composer button svg{width:22px;height:22px}
+.glia-home-prompts{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:13px}
+.glia-home-prompts button{padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
+.glia-home-prompts button:hover{color:var(--text);border-color:#405165;background:var(--surface)}
+.glia-capabilities{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)}
+.glia-capabilities>div{padding:24px 28px;border-right:1px solid var(--line)}
+.glia-capabilities>div:last-child{border-right:0}
+.glia-capabilities strong{display:block;margin-bottom:5px;font-size:14px}
+.glia-capabilities span{color:var(--muted);font-size:13px}
+.workflow-launch{padding:42px 0 0}
+.workflow-launch>div:first-child{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.workflow-launch>div:first-child>span{font-size:18px;font-weight:700}
+.workflow-launch>div:first-child>p{margin:0;color:var(--muted);font-size:13px}
+.workflow-launch-grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.workflow-launch-grid button{min-height:172px;padding:19px;text-align:left;border:0;border-right:1px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer}
+.workflow-launch-grid button:last-child{border-right:0}
+.workflow-launch-grid button:hover{background:var(--raised)}
+.workflow-launch-grid strong{display:block;font-size:14px;margin-bottom:8px}
+.workflow-launch-grid span{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+.workflow-launch-grid b{display:block;margin-top:17px;color:var(--accent);font-size:11px;font-weight:600}
+@media(max-width:1000px){.workflow-launch-grid{grid-template-columns:repeat(2,1fr)}.workflow-launch-grid button:nth-child(2){border-right:0}.workflow-launch-grid button:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+@media(max-width:760px){.workspace:has(.glia-home){padding-top:0}.glia-home-intro{min-height:auto;padding:54px 0 35px}.glia-home h1{font-size:40px}.glia-home-intro>p{font-size:15px}.glia-home-composer button span{display:none}.glia-home-composer button{padding:0 13px}.glia-capabilities{grid-template-columns:1fr}.glia-capabilities>div{border-right:0;border-bottom:1px solid var(--line);padding:19px 4px}.glia-capabilities>div:last-child{border-bottom:0}.workflow-launch>div:first-child{display:block}.workflow-launch>div:first-child>p{margin-top:4px}.workflow-launch-grid{grid-template-columns:1fr}.workflow-launch-grid button{border-right:0!important;border-bottom:1px solid var(--line);min-height:auto}.workflow-launch-grid button:last-child{border-bottom:0}}
