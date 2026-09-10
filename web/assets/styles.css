@@ -7,3 +7,18 @@
 @media(max-width:420px){.topbar-actions .button-primary{font-size:0;padding:0 11px}.topbar-actions .button-primary .spark{font-size:14px;margin:0}.metrics{grid-template-columns:1fr}.metric{border-right:0;border-bottom:1px solid var(--line)}.metric:last-child{border-bottom:0}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation-duration:.01ms!important}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Refined Glia identity and simplified workflow hierarchy. */
+.svg-defs{position:absolute;width:0;height:0;overflow:hidden}
+.brand-row{gap:9px}
+.brand-row>span{line-height:1}
+.brand-mark{width:31px;height:31px}
+.info-button{display:grid;place-items:center;width:24px;height:24px;margin:0 0 0 1px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--faint);cursor:pointer}
+.info-button svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+.info-button:hover{color:var(--text);background:rgba(255,255,255,.045)}
+.button-mark{width:20px;height:20px;margin-right:7px;flex:none}
+#open-glia{display:flex;align-items:center;justify-content:center}
+.nav-item{grid-template-columns:1fr auto;padding-left:12px}
+.workflow-header{align-items:flex-start;margin-bottom:24px}
+.control-surface{margin-top:0}
+.form-grid>.button,.form-grid.three>.button{height:42px;min-height:42px;align-self:end}
