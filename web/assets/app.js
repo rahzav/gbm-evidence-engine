@@ -14,14 +14,14 @@ const current=()=>workflows.find(w=>w.id===state.workflow);
 const icon=id=>({gene:"⌁",pair:"⇄",researcher:"↥",comparison:"≋",methods:"§"}[id]);
 
 function persist(){localStorage.setItem("glia.messages",JSON.stringify(state.messages.slice(-30)));localStorage.setItem("glia.memory",JSON.stringify(state.memory))}
-function sectionLabel(text){return `<div class="section-label">${esc(text)}</div>`}
-function header(w){return `<header class="workflow-header"><div><span class="workflow-kicker">${String(workflows.indexOf(w)+1).padStart(2,"0")} · Research workflow</span><h1>${w.name}</h1><p>${w.caption}</p></div><div class="workflow-meta">GLIA / ${w.id.toUpperCase()}</div></header>`}
+function sectionLabel(text){return ["Analysis setup","Data and column mapping","Comparison set","Scientific architecture"].includes(text)?"":`<div class="section-label">${esc(text)}</div>`}
+function header(w){return `<header class="workflow-header"><div><h1>${w.name}</h1><p>${w.caption}</p></div></header>`}
 function loading(label){return `<div class="loading"><span class="spinner"></span>${esc(label)}</div>`}
 function errorBox(message){return `<div class="error-state"><strong>Analysis could not be completed.</strong><br>${esc(message)}</div>`}
 function empty(title,copy){return `<div class="empty-state"><strong>${title}</strong>${copy}</div>`}
 async function api(path,body){const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await response.json().catch(()=>({detail:"The server returned an unreadable response."}));if(!response.ok)throw new Error(data.detail||"Request failed.");return data}
 
-function renderNav(){const nav=$("#workflow-nav");nav.innerHTML=`<div class="nav-label">Workflows</div>`+workflows.map((w,i)=>`<button class="nav-item ${w.id===state.workflow?"active":""}" data-workflow="${w.id}"><span class="nav-index">${String(i+1).padStart(2,"0")}</span><span class="nav-name">${w.name}</span><span class="nav-arrow">›</span></button>`).join("");$$('[data-workflow]',nav).forEach(b=>b.onclick=()=>switchWorkflow(b.dataset.workflow))}
+function renderNav(){const nav=$("#workflow-nav");nav.innerHTML=`<div class="nav-label">Workflows</div>`+workflows.map(w=>`<button class="nav-item ${w.id===state.workflow?"active":""}" data-workflow="${w.id}"><span class="nav-name">${w.name}</span><span class="nav-arrow">›</span></button>`).join("");$$('[data-workflow]',nav).forEach(b=>b.onclick=()=>switchWorkflow(b.dataset.workflow))}
 function switchWorkflow(id){state.workflow=id;renderNav();$("#breadcrumb-workflow").textContent=current().name;$("#copilot-context").textContent=current().name;renderWorkspace();renderQuickActions();$(".sidebar").classList.remove("open");$("#workspace").focus()}
 
 function renderWorkspace(){const w=current();let content=header(w);if(w.id==="gene")content+=geneView();if(w.id==="pair")content+=pairView();if(w.id==="researcher")content+=researcherView();if(w.id==="comparison")content+=comparisonView();if(w.id==="methods")content+=methodsView();$("#workspace").innerHTML=content;bindWorkspace()}
