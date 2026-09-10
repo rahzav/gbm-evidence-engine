@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Glia — evidence-grounded research intelligence for glioblastoma." />
+    <title>Glia · GBM Research Intelligence</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand-row">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M16 10 10 6M16 10l6-4M16 21l-6 4M16 21l6 4M11 16H5M21 16h6"/><circle cx="16" cy="16" r="5.5" fill="currentColor" fill-opacity=".12"/><circle cx="10" cy="6" r="2" fill="currentColor"/><circle cx="22" cy="6" r="2" fill="currentColor"/><circle cx="10" cy="25" r="2" fill="currentColor"/><circle cx="22" cy="25" r="2" fill="currentColor"/><circle cx="5" cy="16" r="2" fill="currentColor"/><circle cx="27" cy="16" r="2" fill="currentColor"/></g></svg>
+          <span>GLIA</span>
+          <button class="icon-button walkthrough-trigger" aria-label="Open walkthrough" title="Walkthrough">i</button>
+        </div>
+        <p class="brand-description">Evidence-grounded research intelligence for glioblastoma.</p>
+        <nav class="workflow-nav" id="workflow-nav"></nav>
+        <div class="sidebar-footer">
+          <div class="engine-status"><span></span>V7 evidence engine</div>
+          <p>Research prioritization only. Not for clinical decision-making.</p>
+        </div>
+      </aside>
+
+      <div class="workspace-shell">
+        <header class="topbar">
+          <button class="mobile-menu icon-button" id="mobile-menu" aria-label="Open navigation">☰</button>
+          <div class="breadcrumb"><span>Glia</span><b>/</b><strong id="breadcrumb-workflow">Gene Analysis</strong></div>
+          <div class="topbar-actions">
+            <button class="button button-secondary walkthrough-trigger">Walkthrough</button>
+            <button class="button button-primary" id="open-glia"><span class="spark">✦</span> Open Glia</button>
+          </div>
+        </header>
+        <main class="workspace" id="workspace" tabindex="-1"></main>
+      </div>
+    </div>
+
+    <div class="selection-action" id="selection-action">Ask Glia</div>
+    <div class="scrim" id="scrim"></div>
+    <aside class="copilot" id="copilot" aria-label="Glia copilot" aria-hidden="true">
+      <header class="copilot-header">
+        <div class="copilot-identity"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="6" fill="currentColor"/><path d="M16 10 10 6M16 10l6-4M16 22l-6 4M16 22l6 4M10 16H5M22 16h5" stroke="currentColor" stroke-width="2"/></svg><div><strong>Glia</strong><span id="copilot-context">Gene Analysis</span></div></div>
+        <div class="copilot-controls"><button class="icon-button" id="new-thread" title="New thread">＋</button><button class="icon-button" id="expand-glia" title="Full screen">⛶</button><button class="icon-button" id="close-glia" title="Close">×</button></div>
+      </header>
+      <div class="grounding-line"><span><i></i> Evidence-grounded</span><button id="memory-button">Research memory</button></div>
+      <div class="memory-panel" id="memory-panel"><strong>Research memory</strong><p>Recent questions and investigated targets stay in this browser so Glia can maintain continuity across workflows.</p><button class="text-button" id="clear-memory">Clear memory</button></div>
+      <div class="messages" id="messages"></div>
+      <div class="quick-actions" id="quick-actions"></div>
+      <form class="composer" id="composer">
+        <div class="quote-context" id="quote-context"><button type="button" id="remove-quote">×</button><small>Selected context</small><p></p></div>
+        <div class="composer-box"><textarea id="glia-input" rows="1" placeholder="Ask about this analysis…" aria-label="Ask Glia"></textarea><button type="submit" aria-label="Send">↑</button></div>
+        <p>Answers distinguish retrieved evidence from inference and preserve source references.</p>
+      </form>
+    </aside>
+
+    <dialog class="walkthrough" id="walkthrough">
+      <button class="dialog-close" id="close-walkthrough" aria-label="Close walkthrough">×</button>
+      <div class="walkthrough-step" id="walkthrough-step"></div>
+      <footer><label><input type="checkbox" id="hide-walkthrough" /> Don’t show this walkthrough again</label><div><button class="button button-secondary" id="walkthrough-back">Back</button><button class="button button-primary" id="walkthrough-next">Next</button></div></footer>
+    </dialog>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

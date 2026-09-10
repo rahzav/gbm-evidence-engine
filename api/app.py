@@ -1,8 +1,13 @@
 """FastAPI interface for the Glia evidence engine."""
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 try:
     from fastapi import FastAPI, HTTPException
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
     from pydantic import BaseModel, Field
 except ImportError as e:  # pragma: no cover
     raise ImportError("Install fastapi, uvicorn and pydantic to run the API layer.") from e
@@ -13,6 +18,7 @@ from gbm_evidence_engine.research_intelligence_v7_prod import (
     evaluate_gene_pair,
     rank_gene_list,
 )
+from gbm_evidence_engine.research_agent import ResearchAgentError, run_agent_turn
 
 app = FastAPI(title="Glia Evidence Engine", version="7.0.0")
 
@@ -35,6 +41,15 @@ class SignatureQuery(BaseModel):
     values: list[float] = Field(min_length=6, max_length=500)
     p_values: list[float | None] | None = Field(default=None, max_length=500)
     fdr_values: list[float | None] | None = Field(default=None, max_length=500)
+
+
+class GliaQuery(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    history: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+    context: dict[str, Any] = Field(default_factory=dict)
+    memory: dict[str, Any] = Field(default_factory=dict)
+    selected_quote: str | None = Field(default=None, max_length=1800)
+    selected_section: str | None = Field(default=None, max_length=120)
 
 
 @app.post("/profile")
@@ -106,3 +121,34 @@ def health():
         ],
         "scope": "GBM molecular research decision support; not clinical decision-making",
     }
+
+
+@app.post("/glia/chat")
+def glia_chat(query: GliaQuery):
+    context = dict(query.context)
+    context["selected_quote"] = query.selected_quote
+    context["selected_section"] = query.selected_section
+    try:
+        result = run_agent_turn(
+            query.message,
+            history=query.history[-10:],
+            session_context=context,
+            persistent_memory=query.memory,
+        )
+    except ResearchAgentError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "text": result.text,
+        "references": result.references,
+        "tools_used": result.tools_used,
+        "grounding_ok": result.grounding_ok,
+    }
+
+
+WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
+if WEB_ROOT.exists():
+    app.mount("/assets", StaticFiles(directory=WEB_ROOT / "assets"), name="web-assets")
+
+    @app.get("/", include_in_schema=False)
+    def web_app():
+        return FileResponse(WEB_ROOT / "index.html")
