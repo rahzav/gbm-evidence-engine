@@ -22,3 +22,5 @@
 .workflow-header{align-items:flex-start;margin-bottom:24px}
 .control-surface{margin-top:0}
 .form-grid>.button,.form-grid.three>.button{height:42px;min-height:42px;align-self:end}
+.walkthrough footer label{display:inline-flex;align-items:center;gap:9px;line-height:1.2}
+.walkthrough footer label input[type="checkbox"]{width:18px;height:18px;margin:0;flex:0 0 18px;accent-color:var(--accent)}
