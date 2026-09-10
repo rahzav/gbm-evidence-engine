@@ -376,6 +376,43 @@ def _profile_payload(
     *,
     include_evidence: bool = True,
 ) -> dict[str, Any]:
+    if isinstance(profile, dict):
+        live = profile.get("live") or {}
+        score = profile.get("score") or {}
+        gene = str(profile.get("gene") or "unknown").upper()
+        analysis_citation = _register_reference(
+            registry,
+            f"AN:GENE:{gene}",
+            f"Production Glia V7 gene dossier for {gene}",
+            f"Glia evidence engine {profile.get('software_version') or SOFTWARE_VERSION}",
+            kind="analysis",
+        )
+        records = ((profile.get("dossier") or {}).get("evidence") or [])[:MAX_EVIDENCE_RECORDS]
+        evidence = _compact_for_model(records) if include_evidence else []
+        papers = [
+            _publication_payload(paper, registry)
+            for paper in (live.get("literature", {}).get("top_papers") or [])[:4]
+        ]
+        return {
+            "analysis_citation": analysis_citation,
+            "gene": gene,
+            "target_priority_score": score.get("overall"),
+            "priority_classification": score.get("label"),
+            "evidence_coverage_pct": score.get("evidence_coverage_pct"),
+            "overall_evidence_confidence": live.get("overall_evidence_confidence"),
+            "functional_model_relevance": live.get("model_relevance"),
+            "key_findings": (live.get("key_findings") or [])[:6],
+            "evidence_consistency": live.get("evidence_consistency") or {},
+            "research_opportunities": (live.get("research_opportunities") or [])[:4],
+            "mechanistic_hypotheses": (live.get("mechanistic_hypotheses") or [])[:3],
+            "evidence_gaps": (profile.get("evidence_gaps") or [])[:6],
+            "next_experiments": (profile.get("next_experiments") or [])[:5],
+            "evidence_records": evidence,
+            "relevant_publications": papers,
+            "source_status": _compact_for_model(profile.get("source_status") or {}),
+            "score_caveat": score.get("caveat"),
+            "software_version": profile.get("software_version") or SOFTWARE_VERSION,
+        }
     live = profile.live
     analysis_citation = _register_reference(
         registry,
@@ -454,7 +491,7 @@ def _signature_payload(signature: dict[str, Any], registry: dict[str, AgentRefer
 
 
 def _comparison_payload(profiles: list[Any], registry: dict[str, AgentReference]) -> dict[str, Any]:
-    genes = [profile.gene for profile in profiles]
+    genes = [str(profile.get("gene")) if isinstance(profile, dict) else profile.gene for profile in profiles]
     token = "CTX:COMPARISON:" + "-".join(g.upper() for g in genes[:6])
     citation = _register_reference(
         registry,
@@ -465,6 +502,21 @@ def _comparison_payload(profiles: list[Any], registry: dict[str, AgentReference]
     )
     rows = []
     for profile in profiles[:6]:
+        if isinstance(profile, dict):
+            live = profile.get("live") or {}
+            score = profile.get("score") or {}
+            rows.append(
+                {
+                    "gene": profile.get("gene"),
+                    "target_priority_score": score.get("overall"),
+                    "evidence_coverage_pct": score.get("evidence_coverage_pct"),
+                    "priority_classification": score.get("label"),
+                    "evidence_confidence": live.get("overall_evidence_confidence"),
+                    "model_relevance": live.get("model_relevance"),
+                    "key_findings": (live.get("key_findings") or [])[:3],
+                }
+            )
+            continue
         live = profile.live
         rows.append(
             {

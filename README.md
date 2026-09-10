@@ -177,7 +177,7 @@ Gene profiles can be exported as:
 
 Structured production outputs carry software release identifier `7.0.0` so exported dossiers can be traced to the shipped software version.
 
-## API
+## Web application and API
 
 Run locally:
 
@@ -185,12 +185,17 @@ Run locally:
 uvicorn api.app:app --reload
 ```
 
+Open `http://127.0.0.1:8000` to use the standalone Glia web application. This is the primary path for developing and previewing the product independently before it is connected to `rutgersg4g.org`.
+
+The web interface and scientific service remain separate layers: `web/` contains the browser experience, while the existing Python V7 engine and FastAPI endpoints provide the validated analyses. The Streamlit interface remains temporarily available as a fallback during migration.
+
 Endpoints:
 
 - `POST /profile`
 - `POST /profile/batch`
 - `POST /combination`
 - `POST /signature`
+- `POST /glia/chat`
 - `GET /health`
 
 The API reports version `7.0.0` and imports the same production research facade used by the Streamlit application.
