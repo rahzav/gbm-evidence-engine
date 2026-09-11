@@ -10,15 +10,23 @@ from gbm_evidence_engine import research_agent
 def test_web_application_and_assets_are_served():
     client = TestClient(app)
     page = client.get("/")
-    styles = client.get("/assets/research.css")
+    styles = client.get("/assets/ai.css")
     script = client.get("/assets/app.js")
 
     assert page.status_code == 200
     assert "GLIA" in page.text
-    assert "Open Glia" in page.text
+    assert "Glia Deep Research" in page.text
+    assert "New research" in page.text
+    assert "Research tools" in page.text
     assert styles.status_code == 200
     assert script.status_code == 200
-    assert "highlight" not in page.text.lower() or "Ask Glia" in script.text
+    assert "Gene Analysis" in script.text
+    assert "Target Pair Analysis" in script.text
+    assert "Researcher Data" in script.text
+    assert "Gene Set Comparison" in script.text
+    assert "Methods & Data Sources" in script.text
+    assert 'id="copilot"' not in page.text
+    assert "selected_quote" in script.text
 
 
 def test_serialized_profile_is_available_to_glia_without_rebuilding():
