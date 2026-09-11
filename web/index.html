@@ -3,70 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Glia — evidence-grounded research intelligence for glioblastoma." />
-    <title>Glia · GBM Research Intelligence</title>
-    <link rel="stylesheet" href="/assets/research.css?v=1" />
+    <meta name="description" content="Glia Deep Research — evidence-grounded research intelligence for glioblastoma." />
+    <title>Glia Deep Research</title>
+    <link rel="stylesheet" href="/assets/ai.css?v=1" />
   </head>
   <body>
-    <svg class="svg-defs" aria-hidden="true">
-      <defs>
-        <symbol id="glia-symbol" viewBox="0 0 32 32">
-          <path d="M16 5.5c2.7 0 4.1 2.1 4.1 4.1 2.2-1 4.9-.1 5.8 2.3.9 2.5-.7 4.7-2.7 5.5 1.5 1.8 1.3 4.6-.7 6.2-2 1.6-4.6.8-5.8-.9-1.2 1.8-3.9 2.6-5.9 1-2-1.6-2.2-4.4-.7-6.2-2.1-.8-3.7-3-2.8-5.5.9-2.4 3.6-3.3 5.8-2.3 0-2.1 1.4-4.2 4.1-4.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <circle cx="16.6" cy="15.1" r="4.2" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.6"/>
-          <path d="m13.6 13.2 2.1 1.9-2 2.1M19.5 12.8l-1.9 2.3 2.1 1.8" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
-        </symbol>
-      </defs>
-    </svg>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Primary navigation">
-        <div class="brand-row">
-          <svg class="brand-mark" aria-hidden="true"><use href="#glia-symbol" /></svg>
-          <span>GLIA</span>
-          <button class="info-button walkthrough-trigger" aria-label="Open walkthrough" title="Walkthrough"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 10.8v5M12 7.8h.01"/></svg></button>
-        </div>
-        <p class="brand-description">Evidence-grounded research intelligence for glioblastoma.</p>
-        <nav class="workflow-nav" id="workflow-nav"></nav>
-        <div class="sidebar-footer">
-          <div class="engine-status"><span></span>V7 evidence engine</div>
-          <p>Research prioritization only. Not for clinical decision-making.</p>
-        </div>
+    <svg class="svg-defs" aria-hidden="true"><defs><symbol id="glia-symbol" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="5.4" fill="none" stroke="currentColor" stroke-width="2" />
+      <circle cx="16" cy="4" r="2.4" fill="currentColor" /><circle cx="16" cy="28" r="2.4" fill="currentColor" />
+      <circle cx="4" cy="16" r="2.4" fill="currentColor" /><circle cx="28" cy="16" r="2.4" fill="currentColor" />
+      <circle cx="7.5" cy="7.5" r="2.4" fill="currentColor" /><circle cx="24.5" cy="24.5" r="2.4" fill="currentColor" />
+      <circle cx="24.5" cy="7.5" r="2.4" fill="currentColor" /><circle cx="7.5" cy="24.5" r="2.4" fill="currentColor" />
+      <path d="M16 10.6V6.4M16 25.6v-4.2M10.6 16H6.4M25.6 16h-4.2M12.2 12.2 9.1 9.1M22.9 22.9l-3.1-3.1M19.8 12.2l3.1-3.1M9.1 22.9l3.1-3.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+    </symbol></defs></svg>
+
+    <div class="ai-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Glia navigation">
+        <div class="brand"><svg aria-hidden="true"><use href="#glia-symbol" /></svg><span>GLIA</span></div>
+        <button class="new-research" id="new-research"><span>＋</span> New research</button>
+        <nav class="primary-nav" aria-label="Research navigation">
+          <button class="nav-item active" data-view="research"><span class="nav-icon">⌕</span><span>Deep Research</span></button>
+          <div class="nav-label">Research tools</div>
+          <div id="tool-navigation"></div>
+        </nav>
+        <section class="history" aria-labelledby="history-title">
+          <div class="nav-label" id="history-title">Recent research</div>
+          <div id="thread-list"></div>
+        </section>
+        <footer class="sidebar-footer">
+          <button class="memory-control" id="memory-button"><span class="status-dot"></span><span><strong>Research memory</strong><small id="memory-status">Available</small></span></button>
+          <div class="engine-line"><span>V7 evidence engine</span><span>Operational</span></div>
+          <p>For research prioritization. Not for clinical decision-making.</p>
+        </footer>
       </aside>
 
-      <div class="workspace-shell">
+      <section class="main-shell">
         <header class="topbar">
-          <button class="mobile-menu icon-button" id="mobile-menu" aria-label="Open navigation">☰</button>
-          <div class="breadcrumb"><span>Research intelligence</span><b>/</b><strong id="breadcrumb-workflow">Glia</strong></div>
+          <button class="icon-button mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button>
+          <div class="view-identity"><strong id="view-title">Glia Deep Research</strong><span id="view-subtitle">Evidence-grounded GBM research intelligence</span></div>
           <div class="topbar-actions">
-            <button class="button button-primary" id="open-glia"><svg class="button-mark" aria-hidden="true"><use href="#glia-symbol" /></svg>Open Glia</button>
+            <button class="text-action hidden" id="return-research">Return to Deep Research</button>
+            <button class="icon-button walkthrough-trigger" aria-label="Open walkthrough" title="Walkthrough">i</button>
           </div>
         </header>
-        <main class="workspace" id="workspace" tabindex="-1"></main>
-      </div>
+        <main id="main-view" tabindex="-1"></main>
+      </section>
     </div>
 
-    <div class="selection-action" id="selection-action">Ask Glia</div>
-    <div class="scrim" id="scrim"></div>
-    <aside class="copilot" id="copilot" aria-label="Glia copilot" aria-hidden="true">
-      <header class="copilot-header">
-        <div class="copilot-identity"><svg class="brand-mark" aria-hidden="true"><use href="#glia-symbol" /></svg><div><strong>Glia</strong><span id="copilot-context">Gene Analysis</span></div></div>
-        <div class="copilot-controls"><button class="icon-button" id="new-thread" title="New thread">＋</button><button class="icon-button" id="expand-glia" title="Full screen">⛶</button><button class="icon-button" id="close-glia" title="Close">×</button></div>
-      </header>
-      <div class="grounding-line"><span><i></i> Evidence-grounded</span><button id="memory-button">Research memory</button></div>
-      <div class="memory-panel" id="memory-panel"><strong>Research memory</strong><p>Recent questions and investigated targets stay in this browser so Glia can maintain continuity across workflows.</p><button class="text-button" id="clear-memory">Clear memory</button></div>
-      <div class="messages" id="messages"></div>
-      <div class="quick-actions" id="quick-actions"></div>
-      <form class="composer" id="composer">
-        <div class="quote-context" id="quote-context"><button type="button" id="remove-quote">×</button><small>Selected context</small><p></p></div>
-        <div class="composer-box"><textarea id="glia-input" rows="1" placeholder="Ask about this analysis…" aria-label="Ask Glia"></textarea><button type="submit" aria-label="Send">↑</button></div>
-        <p>Answers distinguish retrieved evidence from inference and preserve source references.</p>
-      </form>
-    </aside>
+    <div class="mobile-scrim" id="mobile-scrim"></div>
+    <button class="selection-action" id="selection-action">Ask Glia</button>
+
+    <dialog class="memory-dialog" id="memory-dialog">
+      <header><div><small>Continuity across research</small><h2>Research memory</h2></div><button class="dialog-close" data-close-memory aria-label="Close">×</button></header>
+      <p>Glia retains recent questions and investigated targets in this browser so research can continue across tools and visits.</p>
+      <div class="memory-summary" id="memory-summary"></div>
+      <footer><button class="button secondary" id="clear-memory">Clear memory</button><button class="button primary" data-close-memory>Done</button></footer>
+    </dialog>
 
     <dialog class="walkthrough" id="walkthrough">
       <button class="dialog-close" id="close-walkthrough" aria-label="Close walkthrough">×</button>
-      <div class="walkthrough-step" id="walkthrough-step"></div>
-      <footer><label><input type="checkbox" id="hide-walkthrough" /> Don’t show this walkthrough again</label><div><button class="button button-secondary" id="walkthrough-back">Back</button><button class="button button-primary" id="walkthrough-next">Next</button></div></footer>
+      <div id="walkthrough-step"></div>
+      <footer>
+        <label><input type="checkbox" id="hide-walkthrough" /> <span>Don’t show this walkthrough again</span></label>
+        <div><button class="button secondary" id="walkthrough-back">Back</button><button class="button primary" id="walkthrough-next">Next</button></div>
+      </footer>
     </dialog>
-    <script src="/assets/app.js" defer></script>
+    <script src="/assets/app.js?v=2" defer></script>
   </body>
 </html>

@@ -1,4 +1,3 @@
-const gliaHome={id:"glia",name:"Glia",caption:"Evidence-grounded research intelligence for glioblastoma."};
 const workflows = [
   {id:"gene",name:"Gene Analysis",caption:"Build a single-gene dossier across genomic, functional, spatial, human, translational, literature, and cell-state evidence."},
   {id:"pair",name:"Target Pair Analysis",caption:"Compare two targets through functional, network, spatial, recurrence, translational, and model-relevance evidence."},
@@ -6,27 +5,76 @@ const workflows = [
   {id:"comparison",name:"Gene Set Comparison",caption:"Compare a focused gene set through the same production evidence architecture."},
   {id:"methods",name:"Methods & Data Sources",caption:"Audit the evidence model, provenance, interpretation boundaries, and source availability."},
 ];
-const state={workflow:"glia",results:{},resultTabs:{},messages:JSON.parse(localStorage.getItem("glia.messages")||"[]"),memory:JSON.parse(localStorage.getItem("glia.memory")||'{"investigated_genes":[],"recent_questions":[],"interaction_count":0}'),quote:null,expanded:false};
+const state={
+  view:"research",
+  results:{},
+  resultTabs:{},
+  messages:JSON.parse(localStorage.getItem("glia.messages")||"[]"),
+  archives:JSON.parse(localStorage.getItem("glia.archives")||"[]"),
+  memory:JSON.parse(localStorage.getItem("glia.memory")||'{"investigated_genes":[],"recent_questions":[],"interaction_count":0}'),
+  quote:null,
+  sending:false,
+};
 const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const human=v=>String(v??"N/A").replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 const number=(v,d=1)=>v===null||v===undefined?"N/A":typeof v==="number"?v.toFixed(d).replace(/\.0$/,""):v;
-const current=()=>state.workflow==="glia"?gliaHome:workflows.find(w=>w.id===state.workflow);
+const current=()=>state.view==="research"?{id:"research",name:"Glia Deep Research",caption:"Evidence-grounded GBM research intelligence"}:workflows.find(w=>w.id===state.view);
 const icon=id=>({gene:"⌁",pair:"⇄",researcher:"↥",comparison:"≋",methods:"§"}[id]);
 
-function persist(){localStorage.setItem("glia.messages",JSON.stringify(state.messages.slice(-30)));localStorage.setItem("glia.memory",JSON.stringify(state.memory))}
+function persist(){localStorage.setItem("glia.messages",JSON.stringify(state.messages.slice(-40)));localStorage.setItem("glia.archives",JSON.stringify(state.archives.slice(0,12)));localStorage.setItem("glia.memory",JSON.stringify(state.memory))}
 function sectionLabel(text){return ["Analysis setup","Data and column mapping","Comparison set","Scientific architecture"].includes(text)?"":`<div class="section-label">${esc(text)}</div>`}
-function header(w){return `<header class="workflow-header"><div><h1>${w.name}</h1><p>${w.caption}</p></div></header>`}
+function header(w){return `<header class="tool-heading"><div><small>Research tool</small><h1>${w.name}</h1><p>${w.caption}</p></div><span class="tool-context">Context is available to Glia</span></header>`}
 function loading(label){return `<div class="loading"><span class="spinner"></span>${esc(label)}</div>`}
 function errorBox(message){return `<div class="error-state"><strong>Analysis could not be completed.</strong><br>${esc(message)}</div>`}
 function empty(title,copy){return `<div class="empty-state"><strong>${title}</strong>${copy}</div>`}
 async function api(path,body){const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await response.json().catch(()=>({detail:"The server returned an unreadable response."}));if(!response.ok)throw new Error(data.detail||"Request failed.");return data}
 
-function renderNav(){const nav=$("#workflow-nav");nav.innerHTML=`<button class="nav-item nav-glia ${state.workflow==="glia"?"active":""}" data-workflow="glia"><svg aria-hidden="true"><use href="#glia-symbol" /></svg><span class="nav-name">Glia</span><span class="nav-arrow">›</span></button><div class="nav-label">Evidence workflows</div>`+workflows.map(w=>`<button class="nav-item ${w.id===state.workflow?"active":""}" data-workflow="${w.id}"><span class="nav-name">${w.name}</span><span class="nav-arrow">›</span></button>`).join("");$$('[data-workflow]',nav).forEach(b=>b.onclick=()=>switchWorkflow(b.dataset.workflow))}
-function switchWorkflow(id){state.workflow=id;renderNav();$("#breadcrumb-workflow").textContent=current().name;$("#copilot-context").textContent=current().name;renderWorkspace();renderQuickActions();$(".sidebar").classList.remove("open");$("#workspace").focus()}
-
-function renderWorkspace(){const w=current();let content=w.id==="glia"?gliaView():header(w);if(w.id==="gene")content+=geneView();if(w.id==="pair")content+=pairView();if(w.id==="researcher")content+=researcherView();if(w.id==="comparison")content+=comparisonView();if(w.id==="methods")content+=methodsView();$("#workspace").innerHTML=content;bindWorkspace()}
-function gliaView(){return `<section class="glia-home"><div class="glia-home-intro"><div class="glia-home-mark"><svg aria-hidden="true"><use href="#glia-symbol" /></svg></div><span class="glia-home-kicker">Introducing Glia</span><h1>Interrogate the evidence.<br><em>Decide what to test next.</em></h1><p>Glia reasons across GBM evidence, exposes what could invalidate a conclusion, and turns the largest uncertainty into a discriminating experiment.</p><form class="glia-home-composer" id="glia-home-form"><textarea id="glia-home-input" rows="1" placeholder="Ask a GBM research question…" aria-label="Ask Glia a research question"></textarea><button type="submit" aria-label="Ask Glia"><svg aria-hidden="true"><use href="#glia-symbol" /></svg><span>Ask Glia</span></button></form><div class="glia-home-prompts"><button data-home-prompt="What is the strongest evidence for EGFR as a GBM target?">Interrogate a target</button><button data-home-prompt="Compare EGFR and CDK4 and identify the decisive evidence gap.">Compare alternatives</button><button data-home-prompt="What experiment would most reduce uncertainty around a GBM target?">Design the next experiment</button></div></div><div class="glia-capabilities"><div><strong>Evidence synthesis</strong><span>Use the current analysis before rebuilding evidence.</span></div><div><strong>Critical analysis</strong><span>Surface contradictions, confounds, and failure modes.</span></div><div><strong>Experiment design</strong><span>Prioritize the highest-information next test.</span></div></div><div class="workflow-launch"><div><span>Structured evidence tools</span><p>Build validated analysis context for Glia to interrogate.</p></div><div class="workflow-launch-grid">${workflows.slice(0,4).map(w=>`<button data-home-workflow="${w.id}"><strong>${w.name}</strong><span>${w.caption}</span><b>Open workflow →</b></button>`).join("")}</div></div></section>`}
+function renderNav(){
+  $("#tool-navigation").innerHTML=workflows.map(w=>`<button class="nav-item ${w.id===state.view?"active":""}" data-view="${w.id}"><span class="nav-icon">${icon(w.id)}</span><span>${w.name}</span></button>`).join("");
+  $$("[data-view]").forEach(b=>{b.classList.toggle("active",b.dataset.view===state.view);b.onclick=()=>switchView(b.dataset.view)});
+  renderHistory();
+}
+function switchView(id){
+  state.view=id;
+  const w=current();
+  $("#view-title").textContent=w.name;
+  $("#view-subtitle").textContent=w.caption;
+  $("#return-research").classList.toggle("hidden",id==="research");
+  renderNav();
+  renderWorkspace();
+  $("#sidebar").classList.remove("open");
+  $("#mobile-scrim").classList.remove("visible");
+  $("#main-view").focus();
+}
+function renderWorkspace(){
+  const w=current();
+  let content="";
+  if(w.id==="research") content=researchView();
+  else {
+    content=`<section class="tool-view">${header(w)}`;
+    if(w.id==="gene")content+=geneView();
+    if(w.id==="pair")content+=pairView();
+    if(w.id==="researcher")content+=researcherView();
+    if(w.id==="comparison")content+=comparisonView();
+    if(w.id==="methods")content+=methodsView();
+    content+="</section>";
+  }
+  $("#main-view").innerHTML=content;
+  bindWorkspace();
+}
+function researchView(){
+  const messages=state.messages.length?state.messages.map(messageMarkup).join(""):`<div class="research-empty"><div class="empty-mark"><svg aria-hidden="true"><use href="#glia-symbol" /></svg><span>Glia Deep Research</span></div><h1>What are you investigating?</h1><p>Ask a consequential GBM research question. Glia can build and interrogate evidence, challenge a conclusion, compare targets, or identify the experiment that best reduces uncertainty.</p><div class="starter-list"><button data-prompt="What is the strongest evidence for EGFR as a GBM target?"><small>Interrogate evidence</small><span>Assess the case for a target</span></button><button data-prompt="Compare EGFR and CDK4 and identify the decisive evidence gap."><small>Compare alternatives</small><span>Determine what separates two targets</span></button><button data-prompt="What experiment would most reduce uncertainty around a GBM target?"><small>Design a study</small><span>Find the highest-information next test</span></button></div></div>`;
+  return `<section class="research-view"><div class="conversation" id="conversation">${messages}${state.sending?'<div class="message assistant"><div class="message-heading">Glia</div><div class="thinking"><i></i>Interrogating the evidence…</div></div>':""}</div>${composerMarkup()}</section>`;
+}
+function messageMarkup(m){
+  const refs=(m.references||[]).map(r=>r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label||r.source)}</a>`:`<span>${esc(r.label||r.source)}</span>`).join("");
+  return `<article class="message ${m.role}"><div class="message-heading">${m.role==="user"?"You":"Glia"}</div><div class="message-body">${m.quote?`<div class="message-quote">${esc(m.quote)}</div>`:""}${esc(m.content)}${refs?`<div class="message-refs">${refs}</div>`:""}</div></article>`;
+}
+function composerMarkup(){
+  const menu=workflows.map(w=>`<button type="button" data-tool="${w.id}">${w.name}</button>`).join("");
+  return `<div class="composer-dock"><form id="composer"><div class="composer"><div class="quote-context ${state.quote?"visible":""}" id="quote-context"><button type="button" id="remove-quote">×</button><small>${esc(state.quote?.section||"Selected context")}</small><p>${esc(state.quote?.text||"")}</p></div><textarea id="glia-input" rows="1" placeholder="Ask Glia a research question…" aria-label="Ask Glia"></textarea><div class="composer-toolbar"><div class="tool-menu-wrap"><button class="composer-tool" id="tools-button" type="button">＋ Research tools</button><div class="tool-menu" id="tools-menu">${menu}</div></div><span class="mode-label">Deep research</span><button class="send-button" type="submit" aria-label="Send">↑</button></div></div><p class="composer-note">Glia separates retrieved evidence from inference and preserves citations and provenance.</p></form></div>`;
+}
 function geneView(){return `${sectionLabel("Analysis setup")}<form class="control-surface form-grid" id="gene-form"><div class="field"><label for="gene-input">Gene symbol <span class="field-help">HGNC-approved symbol or known alias</span></label><input id="gene-input" value="EGFR" placeholder="EGFR, PTEN, TERT, CDK6" autocomplete="off"></div><button class="button button-primary" type="submit">Build dossier</button></form><div id="gene-output">${state.results.gene?profileResult(state.results.gene):""}</div>`}
 function pairView(){return `${sectionLabel("Analysis setup")}<form class="control-surface form-grid three" id="pair-form"><div class="field"><label for="gene-a">Target A</label><input id="gene-a" value="EGFR"></div><div class="field"><label for="gene-b">Target B</label><input id="gene-b" value="CDK4"></div><button class="button button-primary" type="submit">Build pair dossier</button></form><div id="pair-output">${state.results.pair?pairResult(state.results.pair):""}</div>`}
 function researcherView(){return `${sectionLabel("Data and column mapping")}<form class="control-surface" id="researcher-form"><label class="dropzone"><input id="signature-file" type="file" accept=".csv,.tsv,.txt"><strong>Upload a processed CSV or TSV</strong><span>Gene, signed effect, and optional p-value/FDR columns</span></label><div class="or-divider">OR PASTE RESULTS</div><div class="field"><label for="signature-data">Processed gene-level table</label><textarea id="signature-data">gene,effect,p_value,fdr\nEGFR,2.4,0.0001,0.002\nSOX2,1.8,0.001,0.01\nSTAT3,1.5,0.004,0.02\nCDK6,1.2,0.01,0.04\nOLIG2,-1.1,0.02,0.05\nGFAP,-1.4,0.001,0.01\nCDKN1A,-1.7,0.0005,0.005\nBAX,-2.0,0.0001,0.002</textarea></div><div class="field-row"><div class="field"><label>Gene column</label><input id="col-gene" value="gene"></div><div class="field"><label>Signed effect</label><input id="col-effect" value="effect"></div><div class="field"><label>p-value <span class="field-help">optional</span></label><input id="col-p" value="p_value"></div><div class="field"><label>FDR <span class="field-help">optional</span></label><input id="col-fdr" value="fdr"></div></div><button class="button button-primary" style="margin-top:14px" type="submit">Build result dossier</button></form><div id="researcher-output">${state.results.researcher?signatureResult(state.results.researcher):""}</div>`}
@@ -54,7 +102,25 @@ function tableFromObjects(rows){if(!rows.length)return `<p>No supported results 
 
 function methodsView(){return `${sectionLabel("Scientific architecture")}<div class="methods-grid"><nav class="methods-index"><a href="#scope">Research scope</a><a href="#score">Scored evidence model</a><a href="#confidence">Confidence framework</a><a href="#researcher-method">Researcher data</a><a href="#provenance">Provenance & validation</a></nav><article class="prose"><h2 id="scope">Research scope</h2><p>Glia integrates molecular evidence for research prioritization, processed-result interpretation, target-pair evaluation, evidence interrogation, and experimental planning. It is built for glioblastoma molecular research rather than clinical treatment selection.</p><h2 id="score">Scored evidence model</h2><p>The V7 Target Priority Score integrates TCGA genomic signal, Open Targets disease relevance and druggability, clinical translation, literature context, DepMap functional dependency, Ivy GAP spatial expression, CGGA independent human validation, and GLASS longitudinal recurrence. Missing sources reduce Evidence Coverage rather than counting as negative biology.</p>${table(["Scored dimension","Weight"],[['TCGA GBM genomic signal','16.9%'],['Open Targets relevance','13.2%'],['Druggability','13.2%'],['Clinical translation','11.3%'],['Literature/context depth','9.4%'],['DepMap functional dependency','15.0%'],['Ivy GAP spatial context','7.5%'],['CGGA human validation','7.5%'],['GLASS recurrence','6.0%']])}<h2 id="confidence">Confidence, model relevance, and cell state</h2><p>Evidence Confidence remains separate from Target Priority. Functional Model Relevance describes dependency-model context. GBmap provides patient-aware malignant and microenvironment cell-state expression from the compact published Core GBmap reference.</p><h2 id="researcher-method">Processed researcher results</h2><p>Signed gene-level effects may include p-values or FDR/q-values. Glia adds GBM evidence prioritization, pathway enrichment, and L1000 perturbational-reversal context without processing raw sequencing files.</p><h2 id="provenance">Provenance and validation</h2><p>Quantitative evidence retains source, method, retrieval metadata, confidence, and citation information. Deterministic scientific tests, grounding checks, behavioral benchmarks, and production interaction tests remain separate from biological validation.</p></article></div>`}
 
-function bindWorkspace(){const forms={"gene-form":runGene,"pair-form":runPair,"researcher-form":runResearcher,"comparison-form":runComparison};Object.entries(forms).forEach(([id,fn])=>{const f=$("#"+id);if(f)f.onsubmit=e=>{e.preventDefault();fn()}});const homeForm=$("#glia-home-form");if(homeForm)homeForm.onsubmit=e=>{e.preventDefault();const input=$("#glia-home-input"),message=input.value.trim();if(message){openGlia();input.value="";sendGlia(message)}};$$('[data-home-prompt]').forEach(b=>b.onclick=()=>{const input=$("#glia-home-input");input.value=b.dataset.homePrompt;input.focus()});$$('[data-home-workflow]').forEach(b=>b.onclick=()=>switchWorkflow(b.dataset.homeWorkflow));$$('[data-result-tab]').forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.resultTab.split(":");state.resultTabs[id]=Number(i);renderWorkspace()});$$('[data-ask-result]').forEach(b=>b.onclick=()=>{openGlia();$("#glia-input").value="What is the most decision-relevant finding in this analysis?";$("#glia-input").focus()});$$('[data-export]').forEach(b=>b.onclick=()=>downloadJSON(b.dataset.export.startsWith("gene")?state.results.gene:state.results.researcher));const file=$("#signature-file");if(file)file.onchange=async()=>{if(file.files[0])$("#signature-data").value=await file.files[0].text()}}
+function bindWorkspace(){
+  const forms={"gene-form":runGene,"pair-form":runPair,"researcher-form":runResearcher,"comparison-form":runComparison};
+  Object.entries(forms).forEach(([id,fn])=>{const f=$("#"+id);if(f)f.onsubmit=e=>{e.preventDefault();fn()}});
+  $$("[data-result-tab]").forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.resultTab.split(":");state.resultTabs[id]=Number(i);renderWorkspace()});
+  $$("[data-ask-result]").forEach(b=>b.onclick=()=>{switchView("research");setComposer("What is the single most decision-relevant finding in the current analysis?")});
+  $$("[data-export]").forEach(b=>b.onclick=()=>downloadJSON(b.dataset.export.startsWith("gene")?state.results.gene:state.results.researcher));
+  const file=$("#signature-file");if(file)file.onchange=async()=>{if(file.files[0])$("#signature-data").value=await file.files[0].text()};
+  const composer=$("#composer");
+  if(composer) composer.onsubmit=e=>{e.preventDefault();const input=$("#glia-input"),message=input.value.trim();if(message&&!state.sending){input.value="";sendGlia(message)}};
+  const input=$("#glia-input");
+  if(input) input.oninput=e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,180)+"px"};
+  const tools=$("#tools-button");
+  if(tools) tools.onclick=()=>$("#tools-menu").classList.toggle("open");
+  $$("[data-tool]").forEach(b=>b.onclick=()=>switchView(b.dataset.tool));
+  $$("[data-prompt]").forEach(b=>b.onclick=()=>setComposer(b.dataset.prompt));
+  const remove=$("#remove-quote");if(remove)remove.onclick=()=>{state.quote=null;renderWorkspace();setTimeout(()=>$("#glia-input")?.focus(),0)};
+  if(state.view==="research"&&state.messages.length) requestAnimationFrame(()=>{const main=$("#main-view");main.scrollTop=main.scrollHeight});
+}
+function setComposer(value){const input=$("#glia-input");if(input){input.value=value;input.focus()}}
 async function runGene(){const gene=$("#gene-input").value.trim();if(!gene)return;const out=$("#gene-output");out.innerHTML=loading(`Building the ${gene.toUpperCase()} evidence dossier…`);try{state.results.gene=await api("/profile",{gene});state.memory.investigated_genes=[...new Set([...(state.memory.investigated_genes||[]),state.results.gene.gene])].slice(-12);persist();out.innerHTML=profileResult(state.results.gene);bindWorkspace()}catch(e){out.innerHTML=errorBox(e.message)}}
 async function runPair(){const gene_a=$("#gene-a").value.trim(),gene_b=$("#gene-b").value.trim(),out=$("#pair-output");out.innerHTML=loading(`Comparing ${gene_a.toUpperCase()} + ${gene_b.toUpperCase()}…`);try{state.results.pair=await api("/combination",{gene_a,gene_b});out.innerHTML=pairResult(state.results.pair);bindWorkspace()}catch(e){out.innerHTML=errorBox(e.message)}}
 function parseDelimited(text){const lines=text.trim().split(/\r?\n/).filter(Boolean);const delimiter=lines[0].includes("\t")?"\t":",";const heads=lines[0].split(delimiter).map(x=>x.trim());return lines.slice(1).map(line=>Object.fromEntries(line.split(delimiter).map((x,i)=>[heads[i],x.trim()]))) }
@@ -62,22 +128,70 @@ async function runResearcher(){const rows=parseDelimited($("#signature-data").va
 async function runComparison(){const genes=$("#gene-set").value.split(/[\s,]+/).filter(Boolean).slice(0,6),out=$("#comparison-output");out.innerHTML=loading(`Comparing ${genes.length} targets…`);try{state.results.comparison=await api("/profile/batch",{genes});out.innerHTML=comparisonResult(state.results.comparison);bindWorkspace()}catch(e){out.innerHTML=errorBox(e.message)}}
 function downloadJSON(data){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="glia-research-dossier.json";a.click();URL.revokeObjectURL(a.href)}
 
-function openGlia(){$("#copilot").classList.add("open");$("#copilot").setAttribute("aria-hidden","false");$("#scrim").classList.add("visible");renderMessages();setTimeout(()=>$("#glia-input").focus(),100)}
-function closeGlia(){$("#copilot").classList.remove("open","fullscreen");$("#copilot").setAttribute("aria-hidden","true");$("#scrim").classList.remove("visible");state.expanded=false}
-function renderMessages(){const box=$("#messages");if(!state.messages.length){box.innerHTML=`<div class="copilot-empty"><svg class="brand-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="6" fill="currentColor"/></svg><strong>What decision are you trying to make?</strong>Ask about the current analysis, challenge an interpretation, or identify the experiment that would resolve the largest uncertainty.</div>`;return}box.innerHTML=state.messages.map(m=>`<div class="message ${m.role}"><div class="message-role">${m.role==="user"?"You":"Glia"}</div><div class="message-body">${m.quote?`<div class="message-quote">${esc(m.quote)}</div>`:""}${esc(m.content)}${(m.references||[]).length?`<div class="message-refs">${m.references.map(r=>r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label||r.source)}</a>`:esc(r.label||r.source)).join(" · ")}</div>`:""}</div></div>`).join("");box.scrollTop=box.scrollHeight}
-function renderQuickActions(){const map={gene:["What matters most?","Challenge this interpretation","What should I test next?"],pair:["Which target drives the rationale?","What could invalidate this pair?","Design the first combination test"],researcher:["Which signal changes the decision?","Find the main confound","What should be validated first?"],comparison:["Which target should move forward?","What changes the ranking?","Compare the top two"],methods:["What can this evidence establish?","What can it not establish?","Which source matters most?"]};$("#quick-actions").innerHTML=map[state.workflow].map(q=>`<button>${q}</button>`).join("");$$('button',$("#quick-actions")).forEach(b=>b.onclick=()=>{$("#glia-input").value=b.textContent;$("#glia-input").focus()})}
-async function sendGlia(message){const entry={role:"user",content:message,...(state.quote?{quote:state.quote.text,section:state.quote.section}:{})};state.messages.push(entry);state.memory.recent_questions=[...(state.memory.recent_questions||[]),message].slice(-8);state.memory.interaction_count=(state.memory.interaction_count||0)+1;persist();state.quote=null;renderQuote();renderMessages();$("#messages").insertAdjacentHTML("beforeend",loading("Glia is interrogating the evidence…"));const context={active_workflow:current().name,profile:state.results.gene||null,pair:state.results.pair||null,signature:state.results.researcher||null,comparison_profiles:state.results.comparison?.results||null};try{const result=await api("/glia/chat",{message,history:state.messages.slice(-11,-1).map(x=>({role:x.role,content:x.content})),context,memory:state.memory,selected_quote:entry.quote||null,selected_section:entry.section||null});state.messages.push({role:"assistant",content:result.text,references:result.references,grounding_ok:result.grounding_ok})}catch(e){state.messages.push({role:"assistant",content:e.message,references:[]})}persist();renderMessages()}
-function renderQuote(){const box=$("#quote-context");box.classList.toggle("visible",!!state.quote);if(state.quote){$("p",box).textContent=state.quote.text;$("small",box).textContent=state.quote.section}}
+async function sendGlia(message){
+  const entry={role:"user",content:message,...(state.quote?{quote:state.quote.text,section:state.quote.section}:{})};
+  state.messages.push(entry);
+  state.memory.recent_questions=[...(state.memory.recent_questions||[]),message].slice(-8);
+  state.memory.interaction_count=(state.memory.interaction_count||0)+1;
+  state.quote=null;state.sending=true;persist();renderWorkspace();
+  const context={active_workflow:current().name,profile:state.results.gene||null,pair:state.results.pair||null,signature:state.results.researcher||null,comparison_profiles:state.results.comparison?.results||null};
+  try{
+    const result=await api("/glia/chat",{message,history:state.messages.slice(-11,-1).map(x=>({role:x.role,content:x.content})),context,memory:state.memory,selected_quote:entry.quote||null,selected_section:entry.section||null});
+    state.messages.push({role:"assistant",content:result.text,references:result.references,grounding_ok:result.grounding_ok});
+  }catch(e){state.messages.push({role:"assistant",content:e.message,references:[]})}
+  state.sending=false;persist();renderWorkspace();renderNav();
+}
+function archiveCurrent(){
+  if(!state.messages.length)return;
+  const first=state.messages.find(m=>m.role==="user")?.content||"Untitled research";
+  state.archives.unshift({id:String(Date.now()),title:first.slice(0,58),messages:state.messages,updatedAt:new Date().toISOString()});
+  state.archives=state.archives.slice(0,12);
+}
+function newResearch(){archiveCurrent();state.messages=[];state.quote=null;persist();switchView("research")}
+function renderHistory(){
+  const list=$("#thread-list");
+  list.innerHTML=state.archives.length?state.archives.map(a=>`<button class="thread-item" data-thread="${esc(a.id)}" title="${esc(a.title)}">${esc(a.title)}</button>`).join(""):'<div class="empty-history">No saved research yet</div>';
+  $$("[data-thread]",list).forEach(b=>b.onclick=()=>{archiveCurrent();const i=state.archives.findIndex(a=>a.id===b.dataset.thread);if(i<0)return;const [thread]=state.archives.splice(i,1);state.messages=thread.messages;persist();switchView("research")});
+}
 
 const tour=[
-  ["01 · Platform","Meet Glia","A focused GBM research environment. The workspace remains primary while Glia stays available across every analysis.","Five specialized workflows share one validated evidence architecture."],
-  ["02 · Workflow","Build evidence dossiers","Start with a gene, pair, processed signature, or focused gene set. Controls and generated evidence are kept visually distinct.","Scores prioritize research; coverage and confidence explain how much weight to place on them."],
-  ["03 · Evidence","Interrogate the result","Move from the high-level decision signal into score composition, source-derived evidence, contradictions, provenance, and exports.","Missing data lowers coverage. It is never treated as negative biology."],
-  ["04 · Glia","Use the copilot in context","Open Glia from any workflow or highlight a finding and choose Ask Glia.","Conversation and bounded research memory persist in this browser."],
+  ["01 · Deep Research","Start with the research question","Glia is the primary workspace. Ask it to interrogate evidence, compare alternatives, expose a failure mode, or design the next experiment.","Responses use the current research context, distinguish evidence from inference, and preserve source references."],
+  ["02 · Research tools","Build structured evidence","Open a specialized tool from the sidebar or the composer. Gene, pair, researcher-data, gene-set, and methods workspaces use the validated V7 architecture.","Tool outputs remain available to Glia as structured context; scientific scoring semantics do not change."],
+  ["03 · Context","Move between analysis and reasoning","Return to Deep Research after building evidence, or highlight any result and choose Ask Glia.","The selected passage and active structured analysis travel together into the conversation."],
+  ["04 · Continuity","Continue the investigation","New research threads are saved in Recent research. Bounded research memory keeps investigated targets and recent questions available across visits.","Everything stays in this browser unless you clear it from Research memory."],
 ];let tourIndex=0;
 function renderTour(){const t=tour[tourIndex];$("#walkthrough-step").innerHTML=`<small>${t[0]}</small><h2>${t[1]}</h2><p>${t[2]}</p><div class="walkthrough-preview">${t[3]}</div>`;$("#walkthrough-back").disabled=tourIndex===0;$("#walkthrough-next").textContent=tourIndex===tour.length-1?"Close":"Next"}
 function openTour(){tourIndex=0;renderTour();$("#walkthrough").showModal()}
 
-$("#open-glia").onclick=openGlia;$("#close-glia").onclick=closeGlia;$("#scrim").onclick=()=>{$(".sidebar").classList.remove("open");closeGlia()};$("#expand-glia").onclick=()=>{$("#copilot").classList.toggle("fullscreen");state.expanded=!state.expanded};$("#new-thread").onclick=()=>{state.messages=[];persist();renderMessages()};$("#memory-button").onclick=()=>$("#memory-panel").classList.toggle("visible");$("#clear-memory").onclick=()=>{state.memory={investigated_genes:[],recent_questions:[],interaction_count:0};persist();$("#memory-panel").classList.remove("visible")};$("#remove-quote").onclick=()=>{state.quote=null;renderQuote()};$("#composer").onsubmit=e=>{e.preventDefault();const input=$("#glia-input"),message=input.value.trim();if(message){input.value="";sendGlia(message)}};$("#glia-input").oninput=e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,130)+"px"};$("#mobile-menu").onclick=()=>{$(".sidebar").classList.add("open");$("#scrim").classList.add("visible")};$$('.walkthrough-trigger').forEach(b=>b.onclick=openTour);$("#close-walkthrough").onclick=()=>$("#walkthrough").close();$("#walkthrough-back").onclick=()=>{tourIndex=Math.max(0,tourIndex-1);renderTour()};$("#walkthrough-next").onclick=()=>{if(tourIndex===tour.length-1){$("#walkthrough").close()}else{tourIndex++;renderTour()}};$("#hide-walkthrough").onchange=e=>localStorage.setItem("glia.hideWalkthrough",e.target.checked?"1":"0");
-document.addEventListener("mouseup",e=>{if(e.target.closest("input,textarea,button,.copilot,.walkthrough"))return;setTimeout(()=>{const sel=window.getSelection(),text=sel?.toString().trim();const action=$("#selection-action");if(text&&text.length>3&&text.length<1800){const rect=sel.getRangeAt(0).getBoundingClientRect();state.quote={text,section:current().name};action.style.left=Math.max(8,Math.min(innerWidth-80,rect.left+rect.width/2-35))+"px";action.style.top=Math.max(8,rect.top-38)+"px";action.classList.add("visible")}else action.classList.remove("visible")},0)});$("#selection-action").onclick=()=>{openGlia();renderQuote();$("#selection-action").classList.remove("visible")};document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#walkthrough").open)closeGlia()});
-renderNav();renderWorkspace();renderMessages();renderQuickActions();if(localStorage.getItem("glia.hideWalkthrough")!=="1")setTimeout(openTour,450);
+$("#new-research").onclick=newResearch;
+$("#return-research").onclick=()=>switchView("research");
+$("#mobile-menu").onclick=()=>{$("#sidebar").classList.add("open");$("#mobile-scrim").classList.add("visible")};
+$("#mobile-scrim").onclick=()=>{$("#sidebar").classList.remove("open");$("#mobile-scrim").classList.remove("visible")};
+$("#memory-button").onclick=()=>{
+  $("#memory-summary").innerHTML=`<div><strong>${(state.memory.investigated_genes||[]).length}</strong><span>Investigated targets</span></div><div><strong>${state.memory.interaction_count||0}</strong><span>Research questions</span></div>`;
+  $("#memory-dialog").showModal();
+};
+$$("[data-close-memory]").forEach(b=>b.onclick=()=>$("#memory-dialog").close());
+$("#clear-memory").onclick=()=>{state.memory={investigated_genes:[],recent_questions:[],interaction_count:0};persist();$("#memory-dialog").close();$("#memory-status").textContent="Available"};
+$$(".walkthrough-trigger").forEach(b=>b.onclick=openTour);
+$("#close-walkthrough").onclick=()=>$("#walkthrough").close();
+$("#walkthrough-back").onclick=()=>{tourIndex=Math.max(0,tourIndex-1);renderTour()};
+$("#walkthrough-next").onclick=()=>{if(tourIndex===tour.length-1)$("#walkthrough").close();else{tourIndex++;renderTour()}};
+$("#hide-walkthrough").onchange=e=>localStorage.setItem("glia.hideWalkthrough",e.target.checked?"1":"0");
+document.addEventListener("mouseup",e=>{
+  if(e.target.closest("input,textarea,button,dialog"))return;
+  setTimeout(()=>{
+    const sel=window.getSelection(),text=sel?.toString().trim(),action=$("#selection-action");
+    if(text&&text.length>3&&text.length<1800){
+      const rect=sel.getRangeAt(0).getBoundingClientRect();
+      state.quote={text,section:current().name};
+      action.style.left=Math.max(8,Math.min(innerWidth-85,rect.left+rect.width/2-36))+"px";
+      action.style.top=Math.max(8,rect.top-39)+"px";
+      action.classList.add("visible");
+    }else action.classList.remove("visible");
+  },0);
+});
+$("#selection-action").onclick=()=>{switchView("research");$("#selection-action").classList.remove("visible");setTimeout(()=>$("#glia-input")?.focus(),0)};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("#tools-menu")?.classList.remove("open");$("#sidebar").classList.remove("open");$("#mobile-scrim").classList.remove("visible")}});
+renderNav();renderWorkspace();
+if(localStorage.getItem("glia.hideWalkthrough")!=="1")setTimeout(openTour,450);
